@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Docker Environment Management Script for dockerhub-mimic
-Manages Docker Compose services: frontend (React), backend (.NET), database (PostgreSQL)
+Manages Docker Compose services: app (.NET), db (PostgreSQL), mem-cache (Redis), reverse-proxy (Nginx)
 """
 
 import subprocess
@@ -12,6 +12,8 @@ from pathlib import Path
 
 class DockerEnvManager:
     """Manages Docker Compose environment for the application."""
+
+    SUPPORTED_SERVICES = {"app", "db", "mem-cache", "frontend", "reverse-proxy"}
     
     def __init__(self):
         self.compose_file = Path(__file__).parent / "docker-compose.yml"
@@ -33,10 +35,16 @@ class DockerEnvManager:
         except subprocess.CalledProcessError as e:
             print(f"Error executing command: {e}")
             return False
+
+    def _is_supported_service(self, service):
+        return service in self.SUPPORTED_SERVICES
     
     def build(self, service=None):
         """Build Docker images."""
         print("🔨 Building Docker images...")
+        if service and not self._is_supported_service(service):
+            print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
+            return False
         cmd = "docker-compose build"
         if service:
             cmd += f" {service}"
@@ -45,6 +53,13 @@ class DockerEnvManager:
     def start(self, detached=True, build=False):
         """Start all services."""
         print("🚀 Starting services...")
+
+        print("♻️  Restarting database service (db)...")
+        if not self._run_command("docker-compose up -d db"):
+            return False
+        if not self._run_command("docker-compose restart db"):
+            return False
+
         cmd = "docker-compose up"
         if detached:
             cmd += " -d"
@@ -69,6 +84,9 @@ class DockerEnvManager:
     def restart(self, service=None):
         """Restart services."""
         print("♻️  Restarting services...")
+        if service and not self._is_supported_service(service):
+            print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
+            return False
         cmd = "docker-compose restart"
         if service:
             cmd += f" {service}"
@@ -76,6 +94,9 @@ class DockerEnvManager:
     
     def logs(self, service=None, follow=False):
         """View service logs."""
+        if service and not self._is_supported_service(service):
+            print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
+            return False
         cmd = "docker-compose logs"
         if follow:
             cmd += " -f"
@@ -98,8 +119,8 @@ class DockerEnvManager:
         # Remove images
         print("Removing Docker images...")
         images = [
-            "dockerhub-mimic-frontend",
-            "dockerhub-mimic-backend"
+            "dockerhub-mimic-app",
+            "dockerhub-mimic-frontend"
         ]
         for img in images:
             subprocess.run(
@@ -113,6 +134,9 @@ class DockerEnvManager:
     
     def exec_service(self, service, command):
         """Execute a command in a running service."""
+        if not self._is_supported_service(service):
+            print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
+            return False
         print(f"🔧 Executing command in {service}...")
         cmd = f"docker-compose exec {service} {command}"
         return self._run_command(cmd, check=False)
@@ -125,14 +149,16 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python run_env.py start              # Start all services
-  python run_env.py start --build      # Build and start
-  python run_env.py stop               # Stop all services
-  python run_env.py restart backend    # Restart backend service
-  python run_env.py logs -f            # Follow logs
-  python run_env.py logs frontend      # View frontend logs
-  python run_env.py status             # Show service status
-  python run_env.py clean              # Clean up everything
+    python run_env.py start              # Start all services
+    python run_env.py start --build      # Build and start
+    python run_env.py stop               # Stop all services
+    python run_env.py restart app        # Restart app service
+    python run_env.py restart db         # Restart db service
+    python run_env.py logs -f            # Follow logs
+    python run_env.py logs reverse-proxy # View reverse-proxy logs
+    python run_env.py logs mem-cache     # View Redis logs
+    python run_env.py status             # Show service status
+    python run_env.py clean              # Clean up everything
         """
     )
     
@@ -190,9 +216,10 @@ Examples:
         success = manager.start(detached=not args.foreground, build=args.build)
         if success:
             print("\n✅ Services started successfully!")
-            print("   Frontend: http://localhost:3000")
-            print("   Backend:  http://localhost:8080")
+            print("   Reverse Proxy: http://localhost:3000")
+            print("   App (internal): http://app:8080")
             print("   Database: localhost:5432")
+            print("   Redis (internal): mem-cache:6379")
     elif args.command == "stop":
         success = manager.stop()
     elif args.command == "down":

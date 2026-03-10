@@ -19,6 +19,10 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetValue<string>("Redis:Configuration") ?? "mem-cache:6379";
+});
 
 var app = builder.Build();
 
