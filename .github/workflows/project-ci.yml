@@ -41,11 +41,9 @@ jobs:
         run: python run_env.py test backend
 
       - name: Run backend tests with coverage
-        if: github.ref == 'refs/heads/main'
         run: python run_env.py test backend --coverage
 
       - name: Upload coverage artifacts
-        if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
