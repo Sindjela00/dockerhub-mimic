@@ -1,0 +1,40 @@
+name: Backend CI (C#)
+
+on:
+  pull_request:
+    branches: [ main, dev, test  ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout koda
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'   
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ./backend   
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+        working-directory: ./backend
+
+      - name: Run Tests
+        run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"
+        working-directory: ./backend
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ./backend/**/coverage.cobertura.xml
+          retention-days: 7
