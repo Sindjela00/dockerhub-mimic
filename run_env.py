@@ -206,7 +206,7 @@ class DockerEnvManager:
 
         return True
 
-    def coverage_report(self):
+    def coverage_report(self, threshold=80):
         """Generate HTML coverage report from collected Cobertura files."""
         backend_dir = Path(__file__).parent / "backend"
 
@@ -250,7 +250,32 @@ class DockerEnvManager:
         if not self._run_command(cmd):
             return False
 
-        print(f"✅ Coverage report generated: {target_dir / 'index.html'}")
+        # Read and print summary
+        summary_file = target_dir / "Summary.txt"
+        if not summary_file.exists():
+            print("⚠️  Summary.txt not found, skipping threshold check.")
+            return True
+
+        summary = summary_file.read_text(encoding="utf-8")
+        print("\n📋 Coverage Summary:")
+        print(summary)
+
+        # Extract line coverage percentage
+        import re
+        match = re.search(r'Line coverage:\s*([\d.]+)', summary)
+        if not match:
+            print("⚠️  Could not parse line coverage from summary, skipping threshold check.")
+            return True
+
+        coverage = float(match.group(1))
+        print(f"\n📈 Line coverage: {coverage:.1f}%")
+
+        if coverage < threshold:
+            print(f"❌ Coverage {coverage:.1f}% is below threshold of {threshold}%!")
+            return False
+
+        print(f"✅ Coverage {coverage:.1f}% passed threshold of {threshold}%!")
+        print(f"📄 Report: {target_dir / 'index.html'}")
         return True
 
     def exec_service(self, service, command):

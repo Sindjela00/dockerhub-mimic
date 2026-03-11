@@ -8,6 +8,27 @@ on:
 
 jobs:
 
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install docker-compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build all images
+        run: python run_env.py build
+
   test-backend:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -56,29 +77,6 @@ jobs:
 
       - name: Run frontend tests           
         run: python run_env.py test frontend
-
-
-  build:
-    name: Build Docker Images
-    runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install docker-compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose --version
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build all images
-        run: python run_env.py build
-
         
   deploy:
     name: Deploy
