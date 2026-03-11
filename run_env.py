@@ -187,7 +187,7 @@ class DockerEnvManager:
         cmd = f'{npm} run test:coverage' if coverage else f'{npm} run test'
         return self._run_command(cmd, cwd=frontend_dir)
 
-   def test(self, targets=None, coverage=False):
+    def test(self, targets=None, coverage=False):
         resolved_targets = self._resolve_test_targets(targets)
         if resolved_targets is None:
             return False
