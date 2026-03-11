@@ -37,9 +37,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run backend tests
-        run: python run_env.py test backend
-
       - name: Run backend tests with coverage
         run: python run_env.py test backend --coverage
 

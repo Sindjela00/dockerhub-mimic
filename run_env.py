@@ -200,7 +200,7 @@ class DockerEnvManager:
             if target == "frontend" and not self._test_frontend(coverage=coverage):
                 return False
 
-        if coverage and "backend" in resolved_targets:  # ← samo za backend
+        if coverage and "backend" in resolved_targets:
             return self.coverage_report()
 
         return True
