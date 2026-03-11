@@ -187,8 +187,7 @@ class DockerEnvManager:
         cmd = f'{npm} run test:coverage' if coverage else f'{npm} run test'
         return self._run_command(cmd, cwd=frontend_dir)
 
-    def test(self, targets=None, coverage=False):
-        """Run tests for selected targets. Defaults to backend and frontend."""
+   def test(self, targets=None, coverage=False):
         resolved_targets = self._resolve_test_targets(targets)
         if resolved_targets is None:
             return False
@@ -201,7 +200,7 @@ class DockerEnvManager:
             if target == "frontend" and not self._test_frontend(coverage=coverage):
                 return False
 
-        if coverage:
+        if coverage and "backend" in resolved_targets:  # ← samo za backend
             return self.coverage_report()
 
         return True
