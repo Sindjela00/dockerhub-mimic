@@ -76,18 +76,3 @@ jobs:
       - name: Run frontend tests
         run: python run_env.py test frontend --coverage
         
-  deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Start services
-        run: python run_env.py start --build
-
-      - name: Check service status
-        run: python run_env.py status

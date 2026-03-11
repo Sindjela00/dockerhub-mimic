@@ -70,9 +70,9 @@ class DockerEnvManager:
     
     def start(self, detached=True, build=False):
         """Start all services."""
-        print("🚀 Starting services...")
+        print("Starting services...")
 
-        print("♻️  Restarting database service (db)...")
+        print("Restarting database service (db)...")
         if not self._run_command("docker-compose up -d db"):
             return False
         if not self._run_command("docker-compose restart db"):
@@ -87,21 +87,21 @@ class DockerEnvManager:
     
     def stop(self):
         """Stop all services."""
-        print("🛑 Stopping services...")
+        print("Stopping services...")
         return self._run_command("docker-compose stop")
     
     def down(self, volumes=False):
         """Stop and remove containers."""
-        print("🔻 Stopping and removing containers...")
+        print("Stopping and removing containers...")
         cmd = "docker-compose down"
         if volumes:
             cmd += " -v"
-            print("⚠️  Removing volumes (database data will be deleted)...")
+            print("Removing volumes (database data will be deleted)...")
         return self._run_command(cmd)
     
     def restart(self, service=None):
         """Restart services."""
-        print("♻️  Restarting services...")
+        print("Restarting services...")
         if service and not self._is_supported_service(service):
             print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
             return False
@@ -124,12 +124,12 @@ class DockerEnvManager:
     
     def status(self):
         """Show status of services."""
-        print("📊 Service status:")
+        print("Service status:")
         return self._run_command("docker-compose ps")
     
     def clean(self):
         """Clean up all containers, images, and volumes."""
-        print("🧹 Cleaning up Docker environment...")
+        print("Cleaning up Docker environment...")
         
         # Stop and remove containers
         self.down(volumes=True)
@@ -147,19 +147,19 @@ class DockerEnvManager:
                 capture_output=True
             )
         
-        print("✅ Cleanup complete!")
+        print("Cleanup complete!")
         return True
     
     def _test_backend(self, coverage=False):
         """Run backend tests inside the build container."""
-        print("🧪 Building test container...")
+        print("Building test container...")
         backend_dir = Path(__file__).parent / "backend"
 
         build_cmd = f'docker build --target test -t dockerhub-mimic-test "{backend_dir}"'
         if not self._run_command(build_cmd):
             return False
 
-        print("🧪 Running tests in container...")
+        print("Running tests in container...")
         if coverage:
             coverage_dir = backend_dir / "coverage"
             coverage_dir.mkdir(exist_ok=True)
@@ -182,7 +182,7 @@ class DockerEnvManager:
 
     def _test_frontend(self, coverage=False):
         frontend_dir = Path(__file__).parent / "frontend"
-        print("🧪 Running frontend tests...")
+        print("Running frontend tests...")
         npm = 'npm.cmd' if sys.platform == 'win32' else 'npm'
         cmd = f'{npm} run test:coverage' if coverage else f'{npm} run test'
         return self._run_command(cmd, cwd=frontend_dir)
@@ -192,7 +192,7 @@ class DockerEnvManager:
         if resolved_targets is None:
             return False
 
-        print(f"🧪 Test targets: {', '.join(resolved_targets)}")
+        print(f"Test targets: {', '.join(resolved_targets)}")
 
         for target in resolved_targets:
             if target == "backend" and not self._test_backend(coverage=coverage):
@@ -232,12 +232,12 @@ class DockerEnvManager:
         target_dir.mkdir(parents=True, exist_ok=True)
 
         if shutil.which("reportgenerator") is None:
-            print("📦 Installing ReportGenerator tool...")
+            print("Installing ReportGenerator tool...")
             if not self._run_command("dotnet tool update -g dotnet-reportgenerator-globaltool"):
                 if not self._run_command("dotnet tool install -g dotnet-reportgenerator-globaltool"):
                     return False
 
-        print("📊 Generating coverage report...")
+        print("Generating coverage report...")
         cmd = (
             f'reportgenerator '
             f'-reports:"{reports_arg}" '
@@ -252,29 +252,29 @@ class DockerEnvManager:
         # Read and print summary
         summary_file = target_dir / "Summary.txt"
         if not summary_file.exists():
-            print("⚠️  Summary.txt not found, skipping threshold check.")
+            print("Summary.txt not found, skipping threshold check.")
             return True
 
         summary = summary_file.read_text(encoding="utf-8")
-        print("\n📋 Coverage Summary:")
+        print("\nCoverage Summary:")
         print(summary)
 
         # Extract line coverage percentage
         import re
         match = re.search(r'Line coverage:\s*([\d.]+)', summary)
         if not match:
-            print("⚠️  Could not parse line coverage from summary, skipping threshold check.")
+            print("Could not parse line coverage from summary, skipping threshold check.")
             return True
 
         coverage = float(match.group(1))
-        print(f"\n📈 Line coverage: {coverage:.1f}%")
+        print(f"\nLine coverage: {coverage:.1f}%")
 
         if coverage < threshold:
-            print(f"❌ Coverage {coverage:.1f}% is below threshold of {threshold}%!")
+            print(f"Coverage {coverage:.1f}% is below threshold of {threshold}%!")
             return False
 
-        print(f"✅ Coverage {coverage:.1f}% passed threshold of {threshold}%!")
-        print(f"📄 Report: {target_dir / 'index.html'}")
+        print(f"Coverage {coverage:.1f}% passed threshold of {threshold}%!")
+        print(f"Report: {target_dir / 'index.html'}")
         return True
 
     def exec_service(self, service, command):
@@ -373,7 +373,7 @@ Examples:
     elif args.command == "start":
         success = manager.start(detached=not args.foreground, build=args.build)
         if success:
-            print("\n✅ Services started successfully!")
+            print("\n sServices started successfully!")
             print("   Reverse Proxy: http://localhost:3000")
             print("   App (internal): http://app:8080")
             print("   Database: localhost:5432")
