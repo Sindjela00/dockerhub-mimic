@@ -1,7 +1,8 @@
 # .NET build outputs
 bin/
 obj/
-
+coverage/
+TestResults/
 
 # NuGet
 *.nupkg
