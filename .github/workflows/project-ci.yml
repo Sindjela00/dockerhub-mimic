@@ -73,8 +73,8 @@ jobs:
       - name: Fix npm command for Linux    
         run: sed -i "s/npm\.cmd/npm/g" run_env.py
 
-      - name: Run frontend tests           
-        run: python run_env.py test frontend
+      - name: Run frontend tests
+        run: python run_env.py test frontend --coverage
         
   deploy:
     name: Deploy

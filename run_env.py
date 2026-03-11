@@ -181,10 +181,10 @@ class DockerEnvManager:
         return self._run_command(run_cmd)
 
     def _test_frontend(self, coverage=False):
-        """Run frontend tests using npm scripts."""
         frontend_dir = Path(__file__).parent / "frontend"
         print("🧪 Running frontend tests...")
-        cmd = 'npm.cmd run test:coverage' if coverage else 'npm.cmd run test'
+        npm = 'npm.cmd' if sys.platform == 'win32' else 'npm'
+        cmd = f'{npm} run test:coverage' if coverage else f'{npm} run test'
         return self._run_command(cmd, cwd=frontend_dir)
 
     def test(self, targets=None, coverage=False):
@@ -244,7 +244,7 @@ class DockerEnvManager:
             f'-reports:"{reports_arg}" '
             f'-targetdir:"{target_dir}" '
             f'-sourcedirs:"{backend_dir}" '
-            f'-reporttypes:Html;TextSummary'
+            f'"-reporttypes:Html;TextSummary"'
         )
 
         if not self._run_command(cmd):
