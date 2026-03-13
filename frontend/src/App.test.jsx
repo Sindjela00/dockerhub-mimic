@@ -1,10 +1,12 @@
 import { render, screen } from '@testing-library/react'
+
+import App from './App'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 
 vi.mock('/vite.svg', () => ({ default: 'vite.svg' }), { virtual: true })
 
-import App from './App'
+
 
 describe('App', () => {
   test('renders heading', () => {
