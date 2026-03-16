@@ -32,8 +32,7 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-2xl font-semibold text-text-primary mb-2">
-            Welcome back,{" "}
-            <span style={{ color: "var(--color-brand)" }}>username</span>
+            Welcome back
           </h1>
           <p className="text-sm text-text-muted max-w-lg leading-relaxed mb-6">
             Manage your container images, explore public repositories, and
