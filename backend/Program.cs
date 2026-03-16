@@ -1,3 +1,10 @@
+using backend.Data;
+using backend.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -15,6 +22,36 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddControllers();
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    options.UseNpgsql(connectionString);
+});
+builder.Services.AddScoped<DatabaseSeeder>();
+builder.Services.AddScoped<JwtTokenService>();
+
+var jwtKey = builder.Configuration.GetValue<string>("Jwt:Key")
+    ?? "CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345";
+var jwtIssuer = builder.Configuration.GetValue<string>("Jwt:Issuer") ?? "dockerhub-mimic";
+var jwtAudience = builder.Configuration.GetValue<string>("Jwt:Audience") ?? "dockerhub-mimic-clients";
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
@@ -42,8 +79,15 @@ if (!isRunningInContainer)
 
 app.UseCors("AllowFrontend");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
+}
 
 app.Run();
