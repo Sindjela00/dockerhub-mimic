@@ -1,37 +1,42 @@
-import './App.css'
+import { Route, Routes } from "react-router-dom";
 
-import reactLogo from './assets/react.svg'
-import { useState } from 'react'
-import viteLogo from '/vite.svg'
+import ForgotPasswordPage from "./pages/AuthPages/ForgotPasswordPage";
+import HomePage from "./pages/HomePage/HomePage";
+import LandingPage from "./pages/LandingPage/LandingPage";
+import Layout from "./components/Layout";
+import LoginPage from "./pages/AuthPages/LoginPage";
+import Logo from "./components/Logo/Logo";
+import RegisterPage from "./pages/AuthPages/RegisterPage";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-        <h1>Hello world!</h1>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <Layout pageTitle="Home">
+            <HomePage />
+          </Layout>
+        }
+      />
+      <Route
+        path="/landing"
+        element={
+          <Layout
+            pageTitle={
+              <div className="flex gap-2 justify-center items-center">
+                <Logo size="sm" />
+                <p className="text-sm">Docker hub</p>
+              </div>
+            }
+          >
+            <LandingPage />
+          </Layout>
+        }
+      />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+    </Routes>
+  );
 }
-
-export default App
