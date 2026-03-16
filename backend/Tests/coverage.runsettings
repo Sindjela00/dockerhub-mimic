@@ -4,8 +4,8 @@
     <DataCollectors>
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
-          <ExcludeByFile>**/Program.cs</ExcludeByFile>
-          <Exclude>[*]Microsoft.AspNetCore.OpenApi.Generated.*,[*]System.Runtime.CompilerServices.*</Exclude>
+          <ExcludeByFile>**/Program.cs,**/OpenApiXmlCommentSupport*.cs</ExcludeByFile>
+          <Exclude>[*]Microsoft.AspNetCore.OpenApi.Generated.*,[*]OpenApiXmlCommentSupport*,[*]System.Runtime.CompilerServices.*</Exclude>
         </Configuration>
       </DataCollector>
     </DataCollectors>

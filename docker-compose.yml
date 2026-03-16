@@ -35,10 +35,22 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: dockerhub-mimic-app
+    ports:
+      - "8080:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-dockerhub_mimic};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres123}"
       Redis__Configuration: "mem-cache:6379"
+      Seed__DemoEmail: "${SEED_DEMO_EMAIL:-demo@dockerhubmimic.local}"
+      Seed__DemoPassword: "${SEED_DEMO_PASSWORD:-Password1}"
+      Seed__DemoRole: "${SEED_DEMO_ROLE:-User}"
+      Seed__AdminEmail: "${SEED_ADMIN_EMAIL:-admin@dockerhubmimic.local}"
+      Seed__AdminPassword: "${SEED_ADMIN_PASSWORD:-Welcome1}"
+      Seed__AdminRole: "${SEED_ADMIN_ROLE:-Administrator}"
+      Jwt__Key: "${JWT_KEY:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345}"
+      Jwt__Issuer: "${JWT_ISSUER:-dockerhub-mimic}"
+      Jwt__Audience: "${JWT_AUDIENCE:-dockerhub-mimic-clients}"
+      Jwt__ExpiresMinutes: "${JWT_EXPIRES_MINUTES:-60}"
     depends_on:
       db:
         condition: service_healthy
