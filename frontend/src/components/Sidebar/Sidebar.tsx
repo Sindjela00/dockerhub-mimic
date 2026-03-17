@@ -1,9 +1,11 @@
 import { ChevronLeft, ChevronRight, LogOut, Menu } from "lucide-react";
-import { NAV_SECTIONS, PLAN_COLOR } from "./types/SidebarConfig";
 
 import Button from "../Button/Button";
 import Logo from "../Logo/Logo";
+import { NAV_SECTIONS } from "./types/sidebarConfig";
 import { Plan } from "./types/types";
+import { useAppContext } from "../../context/AppContext";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 export interface SidebarProps {
@@ -19,10 +21,17 @@ export default function Sidebar({
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { clearAuth } = useAppContext();
+  const navigate = useNavigate();
 
   const handleNavigate = (path: string) => {
     onNavigate?.(path);
     setMobileOpen(false);
+  };
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate("/landing");
   };
 
   return (
@@ -144,8 +153,12 @@ export default function Sidebar({
         </nav>
 
         {/* Footer */}
-        <div className="p-2 border-t border-border">
-          <Button size="sm" className="w-full justify-start px-2.5 py-2">
+        <div className="p-2 border-t border-border cursor-pointer">
+          <Button
+            size="sm"
+            className="w-full justify-start px-2.5 py-2"
+            onClick={handleLogout}
+          >
             <LogOut size={15} />
             Log out
           </Button>

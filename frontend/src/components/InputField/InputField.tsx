@@ -5,6 +5,7 @@ interface InputFieldProps {
   onChange: (v: string) => void;
   placeholder?: string;
   error?: string;
+  id?: string;
 }
 
 export default function InputField({
@@ -14,11 +15,20 @@ export default function InputField({
   onChange,
   placeholder,
   error,
+  id,
 }: InputFieldProps) {
+  const inputId = id ?? label.toLowerCase().replace(/\s+/g, "-");
+
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-text-primary">{label}</label>
+      <label
+        htmlFor={inputId}
+        className="text-xs font-medium text-text-primary"
+      >
+        {label}
+      </label>
       <input
+        id={inputId}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
