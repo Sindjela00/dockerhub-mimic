@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../context/AppContext";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useRegister } from "../useRegister";
+import { useRegister } from "./useRegister";
 
 const registerSpy = vi.spyOn(authApi, "register");
 
@@ -39,6 +39,7 @@ describe("useRegister", () => {
       await result.current.handleRegister({
         email: "test@test.com",
         password: "Password1",
+        username: "",
       });
     });
 
@@ -57,6 +58,7 @@ describe("useRegister", () => {
       await result.current.handleRegister({
         email: "test@test.com",
         password: "Password1",
+        username: "",
       });
     });
 

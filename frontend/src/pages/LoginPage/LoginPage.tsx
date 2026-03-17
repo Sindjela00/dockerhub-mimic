@@ -3,7 +3,7 @@ import InputField from "../../components/InputField/InputField";
 import { Link } from "react-router-dom";
 import { LogIn } from "lucide-react";
 import Logo from "../../components/Logo/Logo";
-import { useLogin } from "../../services/auth/useLogin";
+import { useLogin } from "../../services/auth/useLogin/useLogin";
 import { useState } from "react";
 
 interface FormState {

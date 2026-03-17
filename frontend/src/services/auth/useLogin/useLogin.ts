@@ -1,6 +1,6 @@
-import { LoginPayload, login } from "./auth.api";
+import { LoginPayload, login } from "../auth.api";
 
-import { useAppContext } from "../../context/AppContext";
+import { useAppContext } from "../../../context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
@@ -22,7 +22,7 @@ export function useLogin(): UseLoginReturn {
 
     try {
       const { data } = await login(payload);
-      setAuth(data.token, data.role);
+      setAuth(data.token, data.role, "fakeUsername");
       navigate("/");
     } catch (err: any) {
       const message =

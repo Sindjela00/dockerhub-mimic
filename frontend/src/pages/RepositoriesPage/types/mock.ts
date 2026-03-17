@@ -1,0 +1,48 @@
+import { Repository } from "./types";
+
+export const MOCK_REPOSITORIES: Repository[] = [
+  {
+    id: "1",
+    name: "nginx",
+    namespace: "john.doe",
+    description: "Official build of Nginx — high performance HTTP server.",
+    visibility: "public",
+    pullCount: 142300,
+    stars: 48,
+    tags: ["latest", "1.25", "alpine"],
+    updatedAt: "2025-03-10T12:00:00Z",
+  },
+  {
+    id: "2",
+    name: "my-api",
+    namespace: "john.doe",
+    description: "Production REST API for the main platform.",
+    visibility: "private",
+    pullCount: 3200,
+    stars: 5,
+    tags: ["latest", "v2.1.0", "staging"],
+    updatedAt: "2025-03-14T08:30:00Z",
+  },
+  {
+    id: "3",
+    name: "postgres-backup",
+    namespace: "john.doe",
+    description: "Automated PostgreSQL backup container.",
+    visibility: "private",
+    pullCount: 870,
+    stars: 2,
+    tags: ["latest"],
+    updatedAt: "2025-02-28T16:00:00Z",
+  },
+  {
+    id: "4",
+    name: "frontend",
+    namespace: "john.doe",
+    description: "React + Vite frontend Docker image.",
+    visibility: "public",
+    pullCount: 5100,
+    stars: 12,
+    tags: ["latest", "v1.0.0"],
+    updatedAt: "2025-03-01T10:15:00Z",
+  },
+];

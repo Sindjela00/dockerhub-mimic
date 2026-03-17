@@ -3,13 +3,14 @@ import InputField from "../../components/InputField/InputField";
 import { Link } from "react-router-dom";
 import Logo from "../../components/Logo/Logo";
 import { UserPlus } from "lucide-react";
-import { useRegister } from "../../services/auth/useRegister";
+import { useRegister } from "../../services/auth/useRegister/useRegister";
 import { useState } from "react";
 
 interface FormState {
   email: string;
   password: string;
   confirmPassword: string;
+  username: string;
 }
 
 export default function RegisterPage() {
@@ -19,6 +20,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    username: "",
   });
 
   const [validationErrors, setValidationErrors] = useState<Partial<FormState>>(
@@ -37,6 +39,9 @@ export default function RegisterPage() {
     if (form.password !== form.confirmPassword)
       next.confirmPassword = "Passwords do not match.";
 
+    if (!form.username || form.username.length < 3)
+      next.username = "Username must be at least 3 characters.";
+
     setValidationErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -44,7 +49,11 @@ export default function RegisterPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    handleRegister({ email: form.email, password: form.password });
+    handleRegister({
+      email: form.email,
+      password: form.password,
+      username: "fakeUsername",
+    });
   };
 
   return (
@@ -63,6 +72,14 @@ export default function RegisterPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <InputField
+              label="Username"
+              type="text"
+              value={form.username}
+              onChange={(v) => setForm((f) => ({ ...f, username: v }))}
+              placeholder="username"
+              error={validationErrors.username}
+            />
             <InputField
               label="Email"
               type="email"

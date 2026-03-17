@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../context/AppContext";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useLogin } from "../useLogin";
+import { useLogin } from "./useLogin";
 
 const loginSpy = vi.spyOn(authApi, "login");
 

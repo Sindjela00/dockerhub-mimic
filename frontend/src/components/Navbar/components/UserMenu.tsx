@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ChevronDown } from "lucide-react";
-import { Role } from "../../context/types/types";
+import { Role } from "../../../context/types/types";
 import UserDropdown from "./UserDropdown";
 
 interface UserMenuProps {
   email: string;
   role?: Role;
+  username?: string;
 }
 
-export default function UserMenu({ email, role }: UserMenuProps) {
+export default function UserMenu({ email, role, username }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -42,7 +43,7 @@ export default function UserMenu({ email, role }: UserMenuProps) {
         </div>
 
         <span className="text-xs font-medium text-text-primary hidden md:block">
-          {email}
+          {username}
         </span>
 
         <ChevronDown

@@ -1,7 +1,7 @@
 import { KeyIcon, LogOut, Moon, Sun, User } from "lucide-react";
-import { useAppContext, useTheme } from "../../context/AppContext";
+import { useAppContext, useTheme } from "@/context/AppContext";
 
-import { Role } from "../../context/types/types";
+import { Role } from "@/context/types/types";
 import { useNavigate } from "react-router-dom";
 
 interface DropdownItemProps {

@@ -2,7 +2,7 @@ import { Box, Shield, UserPlus, Users, Zap } from "lucide-react";
 import { FEATURES, STATS } from "./type/LandingPageConfig";
 
 import Button from "../../components/Button/Button";
-import FeatureCard from "../../components/Cards/FeatureCard";
+import FeatureCard from "@/components/Cards/FeatureCard/FeatureCard";
 import { useNavigate } from "react-router-dom";
 
 export default function LandingPage() {

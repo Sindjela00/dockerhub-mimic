@@ -1,8 +1,8 @@
 import { QUICK_LINKS, STATS } from "./type/HomePageConfig";
 
 import Button from "../../components/Button/Button";
-import QuickLink from "../../components/Cards/QuickLink";
-import StatCard from "../../components/Cards/StatCard";
+import QuickLink from "@/components/Cards/QuickLink/QuickLink";
+import StatCard from "@/components/Cards/StatCard/StatCard";
 
 export default function HomePage() {
   return (

@@ -1,4 +1,4 @@
-import { RegisterPayload, register } from "./auth.api";
+import { RegisterPayload, register } from "../auth.api";
 
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";

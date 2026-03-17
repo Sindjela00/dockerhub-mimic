@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: "http://localhost:8080",
         changeOrigin: true,
       },
     },
@@ -25,8 +25,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "cobertura"],
-      include: ["src/**/*.{js,jsx}"],
-      exclude: ["src/main.jsx"],
+      include: ["src/**/*.{ts,tsx,js,jsx}"],
+      exclude: ["src/main.tsx", "src/**/*.d.ts", "src/**/*.test.{ts,tsx}"],
       thresholds: {
         lines: 80,
         branches: 80,

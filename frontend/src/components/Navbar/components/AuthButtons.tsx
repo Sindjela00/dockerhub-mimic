@@ -1,6 +1,6 @@
 import { LogIn, UserPlus } from "lucide-react";
 
-import Button from "../Button/Button";
+import Button from "@/components/Button/Button";
 import { useNavigate } from "react-router-dom";
 
 export default function AuthButtons() {

@@ -22,7 +22,6 @@ export default function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { clearAuth } = useAppContext();
-  const navigate = useNavigate();
 
   const handleNavigate = (path: string) => {
     onNavigate?.(path);
@@ -31,7 +30,7 @@ export default function Sidebar({
 
   const handleLogout = () => {
     clearAuth();
-    navigate("/landing");
+    onNavigate?.("/landing");
   };
 
   return (

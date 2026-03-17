@@ -1,3 +1,5 @@
+import { useLocation, useNavigate } from "react-router-dom";
+
 import Navbar from "./Navbar/Navbar";
 import Sidebar from "./Sidebar/Sidebar";
 import { useAuth } from "../context/AppContext";
@@ -15,14 +17,15 @@ export default function Layout({
   showSidebar = true,
 }: LayoutProps) {
   const { isLoggedIn } = useAuth();
-  const [activePath, setActivePath] = useState("/");
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   const displaySidebar = showSidebar && isLoggedIn;
 
   return (
     <div className="flex h-screen overflow-hidden bg-(--color-bg-base)">
       {displaySidebar && (
-        <Sidebar activePath={activePath} onNavigate={setActivePath} />
+        <Sidebar activePath={pathname} onNavigate={navigate} />
       )}
 
       <div className="flex flex-col flex-1 overflow-hidden px-5">

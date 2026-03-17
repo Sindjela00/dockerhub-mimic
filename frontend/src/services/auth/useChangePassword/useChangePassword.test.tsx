@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../context/AppContext";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useChangePassword } from "../useChangePassword";
+import { useChangePassword } from "./useChangePassword";
 
 const changePasswordSpy = vi.spyOn(authApi, "changePassword");
 

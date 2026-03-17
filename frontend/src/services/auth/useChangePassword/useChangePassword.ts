@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { changePassword, type ChangePasswordPayload } from "./auth.api";
+import { changePassword, type ChangePasswordPayload } from "../auth.api";
 
 interface UseChangePasswordReturn {
   loading: boolean;

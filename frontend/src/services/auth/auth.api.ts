@@ -2,6 +2,7 @@ import api from "../../lib/api";
 
 export interface RegisterPayload {
   email: string;
+  username: string;
   password: string;
 }
 
@@ -18,6 +19,7 @@ export interface LoginResponse {
   message: string;
   token: string;
   role: string;
+  username: string;
 }
 
 export interface ChangePasswordPayload {
