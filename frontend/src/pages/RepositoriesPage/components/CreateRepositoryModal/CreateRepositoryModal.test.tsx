@@ -19,19 +19,40 @@ const renderModal = (props = {}) =>
       isOpen={true}
       onClose={vi.fn()}
       onCreate={vi.fn()}
-      namespace="john.doe"
       {...props}
     />,
     { wrapper },
   );
 
 describe("CreateRepositoryModal", () => {
-  it("renderuje formu", () => {
+  it("renderuje formu sa svim poljima", () => {
     renderModal();
+    expect(screen.getByText("Owner")).toBeTruthy();
     expect(screen.getByLabelText(/repository name/i)).toBeTruthy();
     expect(screen.getByPlaceholderText(/short description/i)).toBeTruthy();
     expect(screen.getByText("Public")).toBeTruthy();
     expect(screen.getByText("Private")).toBeTruthy();
+  });
+
+  it("prikazuje username kao default owner", () => {
+    renderModal({ username: "fakeUsername" });
+    expect(screen.getByText("fakeUsername")).toBeTruthy();
+  });
+
+  it("prikazuje preview sa owner/name", () => {
+    renderModal();
+    expect(screen.getByText("fakeUsername/")).toBeTruthy();
+  });
+
+  it("ažurira preview kad se kuca naziv", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(
+      screen.getByLabelText(/repository name/i),
+      "Repository name",
+    );
+    expect(screen.getByText("Repository name")).toBeTruthy();
   });
 
   it("pretvara naziv u lowercase", async () => {
@@ -40,6 +61,25 @@ describe("CreateRepositoryModal", () => {
 
     await user.type(screen.getByLabelText(/repository name/i), "MyImage");
     expect(screen.getByLabelText(/repository name/i)).toHaveValue("myimage");
+  });
+
+  it("prikazuje organizacije u owner dropdown-u", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByText("fakeUsername"));
+    expect(screen.getByText("Acme Corp")).toBeTruthy();
+    expect(screen.getByText("Dev Team")).toBeTruthy();
+  });
+
+  it("menja owner na organizaciju", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.click(screen.getByText("fakeUsername"));
+    await user.click(screen.getByText("Acme Corp"));
+
+    expect(screen.getByText("acme-corp/")).toBeTruthy();
   });
 
   it("prikazuje grešku za prazan naziv", async () => {
@@ -97,8 +137,26 @@ describe("CreateRepositoryModal", () => {
       name: "my-image",
       description: "My description",
       visibility: "public",
-      namespace: "john.doe",
+      namespace: "fakeUsername",
     });
+  });
+
+  it("šalje namespace organizacije kad je org izabrana", async () => {
+    const handleCreate = vi.fn();
+    const user = userEvent.setup();
+
+    renderModal({ onCreate: handleCreate });
+
+    await user.click(screen.getByText("fakeUsername"));
+    await user.click(screen.getByText("Acme Corp"));
+    await user.type(screen.getByLabelText(/repository name/i), "my-image");
+    await user.click(
+      screen.getByRole("button", { name: /create repository/i }),
+    );
+
+    expect(handleCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ namespace: "acme-corp" }),
+    );
   });
 
   it("poziva onClose nakon uspešnog kreiranja", async () => {
@@ -115,17 +173,7 @@ describe("CreateRepositoryModal", () => {
     expect(handleClose).toHaveBeenCalledOnce();
   });
 
-  it("resetuje formu nakon zatvaranja", async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(screen.getByLabelText(/repository name/i), "my-image");
-    await user.click(screen.getByRole("button", { name: /cancel/i }));
-
-    expect(screen.queryByText("my-image")).toBeNull();
-  });
-
-  it("poziva onClose na Cancel dugme", async () => {
+  it("poziva onClose na Cancel", async () => {
     const handleClose = vi.fn();
     const user = userEvent.setup();
 

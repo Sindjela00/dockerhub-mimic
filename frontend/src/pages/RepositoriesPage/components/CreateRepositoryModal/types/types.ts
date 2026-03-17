@@ -4,6 +4,7 @@ import {
 } from "@/pages/RepositoriesPage/types/types";
 
 export interface FormState {
+  owner: string;
   name: string;
   description: string;
   visibility: RepoVisibility;
@@ -25,4 +26,10 @@ export interface CreateRepositoryModalProps {
 export interface VisibilityToggleProps {
   value: RepoVisibility;
   onChange: (v: RepoVisibility) => void;
+}
+
+export interface Owner {
+  value: string;
+  label: string;
+  type: "user" | "org";
 }

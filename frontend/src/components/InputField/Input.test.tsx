@@ -70,18 +70,18 @@ describe("InputField", () => {
     expect(screen.queryByRole("paragraph")).toBeNull();
   });
 
-  it("primenjuje error border klasu kad ima grešku", () => {
+  it("primenjuje error border klasu na wrapper kad ima grešku", () => {
     render(
       <InputField label="Email" value="" onChange={vi.fn()} error="Greška" />,
     );
-    const input = screen.getByLabelText(/email/i);
-    expect(input.className).toContain("border-danger");
+    const wrapper = screen.getByLabelText(/email/i).closest("div");
+    expect(wrapper?.className).toContain("border-danger");
   });
 
-  it("primenjuje default border klasu bez greške", () => {
+  it("primenjuje default border klasu na wrapper bez greške", () => {
     render(<InputField label="Email" value="" onChange={vi.fn()} />);
-    const input = screen.getByLabelText(/email/i);
-    expect(input.className).toContain("border-border");
+    const wrapper = screen.getByLabelText(/email/i).closest("div");
+    expect(wrapper?.className).toContain("border-border");
   });
 
   it("postavlja type atribut", () => {
@@ -93,7 +93,26 @@ describe("InputField", () => {
         onChange={vi.fn()}
       />,
     );
-    const input = screen.getByLabelText(/password/i);
-    expect(input).toHaveAttribute("type", "password");
+    expect(screen.getByLabelText(/password/i)).toHaveAttribute(
+      "type",
+      "password",
+    );
+  });
+
+  it("prikazuje prefix ispred inputa", () => {
+    render(
+      <InputField
+        label="Repository name"
+        value=""
+        onChange={vi.fn()}
+        prefix="fakeUsername/"
+      />,
+    );
+    expect(screen.getByText("fakeUsername/")).toBeTruthy();
+  });
+
+  it("ne prikazuje prefix kad nije prosleđen", () => {
+    render(<InputField label="Email" value="" onChange={vi.fn()} />);
+    expect(screen.queryByText(/\//)).toBeNull();
   });
 });

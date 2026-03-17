@@ -1,8 +1,9 @@
+import { BookMarked, ChevronDown } from "lucide-react";
 import {
   CreateRepositoryModalProps,
   FormErrors,
   FormState,
-  VisibilityToggleProps,
+  Owner,
 } from "./types/types";
 
 import Button from "@/components/Button/Button";
@@ -10,6 +11,101 @@ import InputField from "@/components/InputField/InputField";
 import Modal from "@/components/Modal/Modal";
 import type { RepoVisibility } from "@/pages/RepositoriesPage/types/types";
 import { useState } from "react";
+
+const MOCK_ORGS: Owner[] = [
+  { value: "acme-corp", label: "Acme Corp", type: "org" },
+  { value: "dev-team", label: "Dev Team", type: "org" },
+];
+
+interface OwnerSelectProps {
+  value: string;
+  owners: Owner[];
+  onChange: (v: string) => void;
+}
+
+function OwnerSelect({ value, owners, onChange }: OwnerSelectProps) {
+  const [open, setOpen] = useState(false);
+  const selected = owners.find((o) => o.value === value) ?? owners[0];
+
+  return (
+    <div className="flex flex-col gap-1.5 relative">
+      <label className="text-xs font-medium text-text-primary">Owner</label>
+
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center justify-between gap-2 px-3 py-2
+                   rounded-md bg-bg-elevated border border-border
+                   text-sm text-text-primary
+                   hover:border-border-strong transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <div
+            className="w-5 h-5 rounded-full bg-brand-muted flex items-center
+                          justify-center text-[10px] font-bold text-brand"
+          >
+            {selected.label.slice(0, 1).toUpperCase()}
+          </div>
+          <span>{selected.label}</span>
+          <span
+            className="text-[10px] text-text-muted px-1.5 py-0.5 rounded-full
+                           bg-bg-surface border border-border"
+          >
+            {selected.type === "user" ? "Personal" : "Organization"}
+          </span>
+        </div>
+        <ChevronDown
+          size={14}
+          className={`text-text-muted transition-transform duration-150
+                      ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div
+          className="absolute top-full left-0 right-0 mt-1 z-10
+                        bg-bg-surface border border-border rounded-lg
+                        overflow-hidden shadow-lg"
+        >
+          {owners.map((owner) => (
+            <button
+              key={owner.value}
+              type="button"
+              onClick={() => {
+                onChange(owner.value);
+                setOpen(false);
+              }}
+              className={[
+                "w-full flex items-center gap-2.5 px-3 py-2.5 text-sm",
+                "hover:bg-bg-elevated transition-colors text-left",
+                owner.value === value ? "text-brand" : "text-text-primary",
+              ].join(" ")}
+            >
+              <div
+                className="w-5 h-5 rounded-full bg-brand-muted flex items-center
+                              justify-center text-[10px] font-bold text-brand"
+              >
+                {owner.label.slice(0, 1).toUpperCase()}
+              </div>
+              <span>{owner.label}</span>
+              <span
+                className="ml-auto text-[10px] text-text-muted px-1.5 py-0.5
+                               rounded-full bg-bg-elevated border border-border"
+              >
+                {owner.type === "user" ? "Personal" : "Organization"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface VisibilityToggleProps {
+  value: RepoVisibility;
+  onChange: (v: RepoVisibility) => void;
+}
 
 function VisibilityToggle({ value, onChange }: VisibilityToggleProps) {
   return (
@@ -22,11 +118,11 @@ function VisibilityToggle({ value, onChange }: VisibilityToggleProps) {
             type="button"
             onClick={() => onChange(v)}
             className={[
-              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 cursor-pointer",
+              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3",
               "rounded-lg border text-xs font-medium transition-colors duration-100",
               value === v
                 ? "border-brand bg-brand-subtle text-brand"
-                : "border-border bg-bg-elevated text-text-secondary hover:text-text-primary hover:border-border-strong",
+                : "border-border bg-bg-elevated text-text-muted hover:text-text-primary hover:border-border-strong",
             ].join(" ")}
           >
             <span
@@ -48,21 +144,26 @@ function VisibilityToggle({ value, onChange }: VisibilityToggleProps) {
   );
 }
 
-const INITIAL_FORM: FormState = {
+const INITIAL_FORM = (username: string): FormState => ({
+  owner: username,
   name: "",
   description: "",
   visibility: "public",
-};
+});
 
 export default function CreateRepositoryModal({
   isOpen,
   onClose,
   onCreate,
-  namespace,
 }: CreateRepositoryModalProps) {
-  console.log(isOpen);
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const username = "fakeUsername";
+  const [form, setForm] = useState<FormState>(INITIAL_FORM(username));
   const [errors, setErrors] = useState<FormErrors>({});
+
+  const owners: Owner[] = [
+    { value: username, label: username, type: "user" },
+    ...MOCK_ORGS,
+  ];
 
   const validate = (): boolean => {
     const next: FormErrors = {};
@@ -84,16 +185,16 @@ export default function CreateRepositoryModal({
       name: form.name.trim(),
       description: form.description.trim(),
       visibility: form.visibility,
-      namespace,
+      namespace: form.owner,
     });
 
-    setForm(INITIAL_FORM);
+    setForm(INITIAL_FORM(username));
     setErrors({});
     onClose();
   };
 
   const handleClose = () => {
-    setForm(INITIAL_FORM);
+    setForm(INITIAL_FORM(username));
     setErrors({});
     onClose();
   };
@@ -101,13 +202,21 @@ export default function CreateRepositoryModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create repository">
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {/* Owner */}
+        <OwnerSelect
+          value={form.owner}
+          owners={owners}
+          onChange={(v) => setForm((f) => ({ ...f, owner: v }))}
+        />
+
         {/* Name */}
         <InputField
           label="Repository name"
           value={form.name}
           onChange={(v) => setForm((f) => ({ ...f, name: v.toLowerCase() }))}
-          placeholder="Name"
+          placeholder="image"
           error={errors.name}
+          prefix={`${form.owner}/`}
         />
 
         {/* Description */}

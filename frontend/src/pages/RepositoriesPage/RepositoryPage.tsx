@@ -126,7 +126,6 @@ export default function RepositoriesPage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreate={handleRepoCreated}
-        namespace={"john.doe"}
       />
     </div>
   );
