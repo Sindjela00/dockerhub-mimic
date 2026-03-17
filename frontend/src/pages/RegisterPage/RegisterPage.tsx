@@ -1,9 +1,9 @@
-import { Link, useNavigate } from "react-router-dom";
-
 import Button from "../../components/Button/Button";
 import InputField from "../../components/InputField/InputField";
+import { Link } from "react-router-dom";
 import Logo from "../../components/Logo/Logo";
 import { UserPlus } from "lucide-react";
+import { useRegister } from "../../services/auth/useRegister";
 import { useState } from "react";
 
 interface FormState {
@@ -13,7 +13,7 @@ interface FormState {
 }
 
 export default function RegisterPage() {
-  const navigate = useNavigate();
+  const { loading, error, handleRegister } = useRegister();
 
   const [form, setForm] = useState<FormState>({
     email: "",
@@ -21,34 +21,36 @@ export default function RegisterPage() {
     confirmPassword: "",
   });
 
-  const [errors, setErrors] = useState<Partial<FormState>>({});
+  const [validationErrors, setValidationErrors] = useState<Partial<FormState>>(
+    {},
+  );
 
   const validate = (): boolean => {
     const next: Partial<FormState> = {};
 
     if (!form.email.includes("@")) next.email = "Enter a valid email address.";
 
-    if (form.password.length < 8)
-      next.password = "Password must be at least 8 characters.";
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(form.password))
+      next.password =
+        "Password must be at least 8 characters long and include uppercase, lowercase letters, and numbers.";
 
     if (form.password !== form.confirmPassword)
       next.confirmPassword = "Passwords do not match.";
 
-    setErrors(next);
+    setValidationErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    // TODO: auth logika
-    navigate("/");
+    handleRegister({ email: form.email, password: form.password });
   };
 
   return (
     <div className="min-h-screen bg-bg-base flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        <div className="flex justify-center py-2">
+        <div className="flex justify-center mb-8">
           <Logo size="md" />
         </div>
 
@@ -67,33 +69,38 @@ export default function RegisterPage() {
               value={form.email}
               onChange={(v) => setForm((f) => ({ ...f, email: v }))}
               placeholder="you@example.com"
-              error={errors.email}
+              error={validationErrors.email}
             />
             <InputField
               label="Password"
               type="password"
               value={form.password}
-              onChange={(v) => setForm((f) => ({ ...f, password: v }))}
+              onChange={(v: any) => setForm((f) => ({ ...f, password: v }))}
               placeholder="••••••••"
-              error={errors.password}
+              error={validationErrors.password}
             />
             <InputField
               label="Confirm password"
               type="password"
               value={form.confirmPassword}
-              onChange={(v) => setForm((f) => ({ ...f, confirmPassword: v }))}
+              onChange={(v: any) =>
+                setForm((f) => ({ ...f, confirmPassword: v }))
+              }
               placeholder="••••••••"
-              error={errors.confirmPassword}
+              error={validationErrors.confirmPassword}
             />
+
+            {error && <p className="text-xs text-danger">{error}</p>}
 
             <Button
               variant="primary"
               size="md"
               type="submit"
+              disabled={loading}
               className="w-full justify-center mt-2"
             >
               <UserPlus size={15} />
-              Create account
+              {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
         </div>
