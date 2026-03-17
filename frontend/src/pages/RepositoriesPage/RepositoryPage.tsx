@@ -3,6 +3,7 @@ import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import Button from "@/components/Button/Button";
+import CreateRepositoryModal from "./components/CreateRepositoryModal/CreateRepositoryModal";
 import EmptyState from "./components/EmptyState/EmptyState";
 import FilterTabs from "./components/FilterTabs/FilterTabs";
 import { MOCK_REPOSITORIES } from "./types/mock";
@@ -14,6 +15,7 @@ export default function RepositoriesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<ViewMode>("grid");
+  const [modalOpen, setModalOpen] = useState(false);
 
   const repos = MOCK_REPOSITORIES;
 
@@ -36,12 +38,18 @@ export default function RepositoriesPage() {
       });
   }, [repos, filter, search]);
 
-  const handleCreate = () => {
-    console.log("Create repository");
+  const handleCreateRepo = () => {
+    setModalOpen(true);
   };
 
   const handleRepoClick = (repo: Repository) => {
     console.log("Open repo", repo.name);
+  };
+
+  const handleRepoCreated = (newRepo: any) => {
+    // TODO: kad BE bude spreman, pozovi API
+    // Za sad samo logujemo
+    console.log("New repo:", newRepo);
   };
 
   return (
@@ -56,14 +64,14 @@ export default function RepositoriesPage() {
             {repos.length} {repos.length === 1 ? "repository" : "repositories"}
           </p>
         </div>
-        <Button variant="primary" size="md" onClick={handleCreate}>
+        <Button variant="primary" size="md" onClick={handleCreateRepo}>
           <Plus size={15} />
           New repository
         </Button>
       </div>
 
       {repos.length === 0 ? (
-        <EmptyState onCreate={handleCreate} />
+        <EmptyState onCreate={handleCreateRepo} />
       ) : (
         <>
           {/* Toolbar */}
@@ -92,13 +100,13 @@ export default function RepositoriesPage() {
           {/* Results */}
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-center">
-              <p className="text-sm text-text-muted">
+              <p className="text-sm text-text-secondary">
                 No repositories match{" "}
                 <span className="text-text-primary">"{search}"</span>
               </p>
               <button
                 onClick={() => setSearch("")}
-                className="mt-2 text-xs text-brand hover:underline"
+                className="mt-2 text-xs text-brand hover:underline cursor-pointer"
               >
                 Clear search
               </button>
@@ -114,6 +122,12 @@ export default function RepositoriesPage() {
           )}
         </>
       )}
+      <CreateRepositoryModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreate={handleRepoCreated}
+        namespace={"john.doe"}
+      />
     </div>
   );
 }
