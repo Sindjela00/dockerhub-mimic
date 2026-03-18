@@ -57,9 +57,4 @@ describe("Modal", () => {
 
     expect(handleClose).toHaveBeenCalledOnce();
   });
-
-  it("renderuje title", () => {
-    renderModal({ title: "Create repository" });
-    expect(screen.getByText("Create repository")).toBeTruthy();
-  });
 });

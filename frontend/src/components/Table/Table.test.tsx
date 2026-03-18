@@ -5,8 +5,6 @@ import { ColumnDef } from "./types/types";
 import Table from "./Table";
 import userEvent from "@testing-library/user-event";
 
-// ─── Test data ────────────────────────────────────────────────────────────────
-
 interface Person {
   id: string;
   name: string;
@@ -31,6 +29,7 @@ const COLUMNS: ColumnDef<Person>[] = [
     header: "Age",
     align: "right",
     hideBelow: "md",
+    sortable: true,
     render: (row) => <span>{row.age}</span>,
   },
   {
@@ -40,9 +39,9 @@ const COLUMNS: ColumnDef<Person>[] = [
   },
 ];
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
 describe("Table", () => {
+  // ─── Osnovno renderovanje ──────────────────────────────────────────────────
+
   it("renderuje header kolone", () => {
     render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
     expect(screen.getByText("Name")).toBeTruthy();
@@ -74,6 +73,45 @@ describe("Table", () => {
     expect(screen.getByText("No data available.")).toBeTruthy();
   });
 
+  it("renderuje custom cell sadržaj", () => {
+    const cols: ColumnDef<Person>[] = [
+      {
+        key: "role",
+        header: "Role",
+        render: (row) => <span data-testid="badge">{row.role}</span>,
+      },
+    ];
+    render(<Table columns={cols} data={MOCK_DATA} rowKey={(r) => r.id} />);
+    expect(screen.getAllByTestId("badge")).toHaveLength(3);
+  });
+
+  // ─── Stilovi ──────────────────────────────────────────────────────────────
+
+  it("primenjuje right align na koloni", () => {
+    render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
+    expect(screen.getByText("Age").closest("th")?.className).toContain(
+      "text-right",
+    );
+  });
+
+  it("primenjuje hideBelow klasu na koloni", () => {
+    render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
+    expect(screen.getByText("Age").closest("th")?.className).toContain(
+      "hidden md:table-cell",
+    );
+  });
+
+  it("wrapper ima overflow-hidden", () => {
+    const { container } = render(
+      <Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />,
+    );
+    expect((container.firstChild as HTMLElement)?.className).toContain(
+      "overflow-hidden",
+    );
+  });
+
+  // ─── Row klik ─────────────────────────────────────────────────────────────
+
   it("poziva onRowClick sa ispravnim redom", async () => {
     const handleClick = vi.fn();
     const user = userEvent.setup();
@@ -86,7 +124,6 @@ describe("Table", () => {
         onRowClick={handleClick}
       />,
     );
-
     await user.click(screen.getByText("Ana"));
     expect(handleClick).toHaveBeenCalledWith(MOCK_DATA[0]);
   });
@@ -95,39 +132,6 @@ describe("Table", () => {
     const user = userEvent.setup();
     render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
     await user.click(screen.getByText("Ana"));
-  });
-
-  it("primenjuje right align na koloni", () => {
-    render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
-    const ageTh = screen.getByText("Age").closest("th");
-    expect(ageTh?.className).toContain("text-right");
-  });
-
-  it("primenjuje hideBelow klasu na koloni", () => {
-    render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
-    const ageTh = screen.getByText("Age").closest("th");
-    expect(ageTh?.className).toContain("hidden md:table-cell");
-  });
-
-  it("renderuje custom cell sadržaj", () => {
-    const columnsWithBadge: ColumnDef<Person>[] = [
-      {
-        key: "role",
-        header: "Role",
-        render: (row) => <span data-testid="role-badge">{row.role}</span>,
-      },
-    ];
-
-    render(
-      <Table
-        columns={columnsWithBadge}
-        data={MOCK_DATA}
-        rowKey={(r) => r.id}
-      />,
-    );
-
-    const badges = screen.getAllByTestId("role-badge");
-    expect(badges).toHaveLength(3);
   });
 
   it("cursor pointer klasa kad postoji onRowClick", () => {
@@ -139,21 +143,94 @@ describe("Table", () => {
         onRowClick={vi.fn()}
       />,
     );
-    const row = screen.getByText("Ana").closest("tr");
-    expect(row?.className).toContain("cursor-pointer");
+    expect(screen.getByText("Ana").closest("tr")?.className).toContain(
+      "cursor-pointer",
+    );
   });
 
   it("nema cursor pointer klase bez onRowClick", () => {
     render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
-    const row = screen.getByText("Ana").closest("tr");
-    expect(row?.className).not.toContain("cursor-pointer");
+    expect(screen.getByText("Ana").closest("tr")?.className).not.toContain(
+      "cursor-pointer",
+    );
   });
 
-  it("wrapper ima overflow-x-auto za mobilni scroll", () => {
-    const { container } = render(
-      <Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />,
+  // ─── Sort ─────────────────────────────────────────────────────────────────
+
+  it("sortabilni header poziva onSort sa asc na prvom kliku", async () => {
+    const handleSort = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <Table
+        columns={COLUMNS}
+        data={MOCK_DATA}
+        rowKey={(r) => r.id}
+        onSort={handleSort}
+        sortKey=""
+        sortDir="asc"
+      />,
     );
-    const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper?.className).toContain("overflow-x-auto");
+    await user.click(screen.getByText("Age").closest("th")!);
+    expect(handleSort).toHaveBeenCalledWith("age", "asc");
+  });
+
+  it("sortabilni header poziva onSort sa desc kad je već aktivan asc", async () => {
+    const handleSort = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <Table
+        columns={COLUMNS}
+        data={MOCK_DATA}
+        rowKey={(r) => r.id}
+        onSort={handleSort}
+        sortKey="age"
+        sortDir="asc"
+      />,
+    );
+    await user.click(screen.getByText("Age").closest("th")!);
+    expect(handleSort).toHaveBeenCalledWith("age", "desc");
+  });
+
+  it("nesortabilni header ne poziva onSort", async () => {
+    const handleSort = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <Table
+        columns={COLUMNS}
+        data={MOCK_DATA}
+        rowKey={(r) => r.id}
+        onSort={handleSort}
+        sortKey=""
+        sortDir="asc"
+      />,
+    );
+    await user.click(screen.getByText("Name").closest("th")!);
+    expect(handleSort).not.toHaveBeenCalled();
+  });
+
+  it("sortabilni header nema cursor-pointer bez onSort", () => {
+    render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
+    expect(screen.getByText("Age").closest("th")?.className).not.toContain(
+      "cursor-pointer",
+    );
+  });
+
+  it("aktivni sort header ima text-text-primary klasu", () => {
+    render(
+      <Table
+        columns={COLUMNS}
+        data={MOCK_DATA}
+        rowKey={(r) => r.id}
+        onSort={vi.fn()}
+        sortKey="age"
+        sortDir="asc"
+      />,
+    );
+    expect(screen.getByText("Age").closest("th")?.className).toContain(
+      "text-text-primary",
+    );
   });
 });

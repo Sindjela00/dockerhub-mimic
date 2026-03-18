@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 
 import Button from "@/components/Button/Button";
 import CreateRepositoryModal from "./components/CreateRepositoryModal/CreateRepositoryModal";
+import DeleteRepositoryModal from "./components/DeleteRepositoryModal/DeleteRepositoryModal";
+import EditRepositoryModal from "./components/EditRepositoryModal/EditRepositoryModal";
 import EmptyState from "./components/EmptyState/EmptyState";
 import FilterTabs from "./components/FilterTabs/FilterTabs";
 import { MOCK_REPOSITORIES } from "./types/mock";
@@ -16,6 +18,9 @@ export default function RepositoriesPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<ViewMode>("grid");
   const [modalOpen, setModalOpen] = useState(false);
+
+  const [editRepo, setEditRepo] = useState<Repository | null>(null);
+  const [deleteRepo, setDeleteRepo] = useState<Repository | null>(null);
 
   const repos = MOCK_REPOSITORIES;
 
@@ -47,9 +52,21 @@ export default function RepositoriesPage() {
   };
 
   const handleRepoCreated = (newRepo: any) => {
-    // TODO: kad BE bude spreman, pozovi API
-    // Za sad samo logujemo
+    // TODO: API call
     console.log("New repo:", newRepo);
+  };
+
+  const handleEdit = (repo: Repository) => setEditRepo(repo);
+  const handleDelete = (repo: Repository) => setDeleteRepo(repo);
+
+  const handleSaveEdit = (updated: any) => {
+    // TODO: API call
+    console.log("Save edit:", updated);
+  };
+
+  const handleConfirmDelete = (id: string) => {
+    // TODO: API call
+    console.log("Delete:", id);
   };
 
   return (
@@ -114,18 +131,43 @@ export default function RepositoriesPage() {
           ) : view === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {filtered.map((repo) => (
-                <RepoCard key={repo.id} repo={repo} onClick={handleRepoClick} />
+                <RepoCard
+                  key={repo.id}
+                  repo={repo}
+                  onClick={handleRepoClick}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           ) : (
-            <RepoTable repos={filtered} onClick={handleRepoClick} />
+            <RepoTable
+              repos={filtered}
+              onClick={handleRepoClick}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
           )}
         </>
       )}
+      <EditRepositoryModal
+        isOpen={!!editRepo}
+        onClose={() => setEditRepo(null)}
+        onSave={handleSaveEdit}
+        repo={editRepo}
+      />
+
+      <DeleteRepositoryModal
+        isOpen={!!deleteRepo}
+        onClose={() => setDeleteRepo(null)}
+        onDelete={handleConfirmDelete}
+        repo={deleteRepo}
+      />
       <CreateRepositoryModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreate={handleRepoCreated}
+        namespace={""}
       />
     </div>
   );

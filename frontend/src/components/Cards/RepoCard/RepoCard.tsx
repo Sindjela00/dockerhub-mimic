@@ -1,10 +1,12 @@
-import { Download, Globe, Lock, Star, Tag } from "lucide-react";
+import { Download, Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 
-import { Repository } from "../../pages/RepositoriesPage/types/types";
+import { Repository } from "@/pages/RepositoriesPage/types/types";
 
 interface RepoCardProps {
   repo: Repository;
   onClick?: (repo: Repository) => void;
+  onEdit?: (repo: Repository) => void;
+  onDelete?: (repo: Repository) => void;
 }
 
 function formatCount(n: number): string {
@@ -21,7 +23,12 @@ function formatDate(iso: string): string {
   });
 }
 
-export default function RepoCard({ repo, onClick }: RepoCardProps) {
+export default function RepoCard({
+  repo,
+  onClick,
+  onEdit,
+  onDelete,
+}: RepoCardProps) {
   return (
     <button
       onClick={() => onClick?.(repo)}
@@ -66,6 +73,31 @@ export default function RepoCard({ repo, onClick }: RepoCardProps) {
           )}
           {repo.visibility}
         </span>
+
+        <div className="flex items-center gap-1 ml-auto">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.(repo);
+            }}
+            className="p-1 rounded text-text-muted hover:text-brand hover:bg-bg-elevated
+               transition-colors"
+            title="Edit"
+          >
+            <Edit2 size={13} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete?.(repo);
+            }}
+            className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger-muted
+               transition-colors"
+            title="Delete"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
       </div>
 
       {/* Description */}

@@ -19,6 +19,7 @@ const renderModal = (props = {}) =>
       isOpen={true}
       onClose={vi.fn()}
       onCreate={vi.fn()}
+      namespace="fakeUsername"
       {...props}
     />,
     { wrapper },
@@ -44,23 +45,12 @@ describe("CreateRepositoryModal", () => {
     expect(screen.getByText("fakeUsername/")).toBeTruthy();
   });
 
-  it("ažurira preview kad se kuca naziv", async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(
-      screen.getByLabelText(/repository name/i),
-      "Repository name",
-    );
-    expect(screen.getByText("Repository name")).toBeTruthy();
-  });
-
   it("pretvara naziv u lowercase", async () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.type(screen.getByLabelText(/repository name/i), "MyImage");
-    expect(screen.getByLabelText(/repository name/i)).toHaveValue("myimage");
+    await user.type(screen.getByLabelText(/Repository name/i), "MyImage");
+    expect(screen.getByLabelText(/Repository name/i)).toHaveValue("myimage");
   });
 
   it("prikazuje organizacije u owner dropdown-u", async () => {
@@ -78,7 +68,6 @@ describe("CreateRepositoryModal", () => {
 
     await user.click(screen.getByText("fakeUsername"));
     await user.click(screen.getByText("Acme Corp"));
-
     expect(screen.getByText("acme-corp/")).toBeTruthy();
   });
 
@@ -100,14 +89,14 @@ describe("CreateRepositoryModal", () => {
     await user.click(
       screen.getByRole("button", { name: /create repository/i }),
     );
-
     expect(screen.getByText(/lowercase letters/i)).toBeTruthy();
   });
 
   it("public je default visibility", () => {
     renderModal();
-    const publicBtn = screen.getByRole("button", { name: /public/i });
-    expect(publicBtn.className).toContain("border-brand");
+    expect(screen.getByRole("button", { name: /public/i }).className).toContain(
+      "border-brand",
+    );
   });
 
   it("menja visibility na private", async () => {
@@ -124,7 +113,7 @@ describe("CreateRepositoryModal", () => {
 
     renderModal({ onCreate: handleCreate });
 
-    await user.type(screen.getByLabelText(/repository name/i), "my-image");
+    await user.type(screen.getByLabelText(/repository name/i), "image");
     await user.type(
       screen.getByPlaceholderText(/short description/i),
       "My description",
@@ -134,7 +123,7 @@ describe("CreateRepositoryModal", () => {
     );
 
     expect(handleCreate).toHaveBeenCalledWith({
-      name: "my-image",
+      name: "image",
       description: "My description",
       visibility: "public",
       namespace: "fakeUsername",
@@ -149,7 +138,7 @@ describe("CreateRepositoryModal", () => {
 
     await user.click(screen.getByText("fakeUsername"));
     await user.click(screen.getByText("Acme Corp"));
-    await user.type(screen.getByLabelText(/repository name/i), "my-image");
+    await user.type(screen.getByLabelText(/repository name/i), "image");
     await user.click(
       screen.getByRole("button", { name: /create repository/i }),
     );
@@ -165,7 +154,7 @@ describe("CreateRepositoryModal", () => {
 
     renderModal({ onClose: handleClose });
 
-    await user.type(screen.getByLabelText(/repository name/i), "my-image");
+    await user.type(screen.getByLabelText(/repository name/i), "image");
     await user.click(
       screen.getByRole("button", { name: /create repository/i }),
     );

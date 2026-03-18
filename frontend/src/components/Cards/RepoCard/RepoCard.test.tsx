@@ -66,12 +66,12 @@ describe("RepoCard", () => {
     expect(screen.getByText("48")).toBeTruthy();
   });
 
-  it("poziva onClick kad se klikne", async () => {
+  it("poziva onClick kad se klikne kartica", async () => {
     const handleClick = vi.fn();
     const user = userEvent.setup();
 
     render(<RepoCard repo={MOCK_REPO} onClick={handleClick} />);
-    await user.click(screen.getByRole("button"));
+    await user.click(screen.getByRole("button", { name: /john\.doe\/nginx/i }));
 
     expect(handleClick).toHaveBeenCalledWith(MOCK_REPO);
   });
@@ -79,6 +79,68 @@ describe("RepoCard", () => {
   it("ne puca bez onClick prop-a", async () => {
     const user = userEvent.setup();
     render(<RepoCard repo={MOCK_REPO} />);
-    await user.click(screen.getByRole("button"));
+    await user.click(screen.getByRole("button", { name: /john\.doe\/nginx/i }));
+  });
+
+  it("prikazuje edit dugme", () => {
+    render(<RepoCard repo={MOCK_REPO} onEdit={vi.fn()} />);
+    expect(screen.getByTitle("Edit")).toBeTruthy();
+  });
+
+  it("poziva onEdit sa repoom kad se klikne edit", async () => {
+    const handleEdit = vi.fn();
+    const user = userEvent.setup();
+
+    render(<RepoCard repo={MOCK_REPO} onEdit={handleEdit} />);
+    await user.click(screen.getByTitle("Edit"));
+
+    expect(handleEdit).toHaveBeenCalledWith(MOCK_REPO);
+  });
+
+  it("edit klik ne triggeruje onClick", async () => {
+    const handleClick = vi.fn();
+    const handleEdit = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <RepoCard repo={MOCK_REPO} onClick={handleClick} onEdit={handleEdit} />,
+    );
+    await user.click(screen.getByTitle("Edit"));
+
+    expect(handleEdit).toHaveBeenCalledOnce();
+    expect(handleClick).not.toHaveBeenCalled();
+  });
+
+  it("prikazuje delete dugme", () => {
+    render(<RepoCard repo={MOCK_REPO} onDelete={vi.fn()} />);
+    expect(screen.getByTitle("Delete")).toBeTruthy();
+  });
+
+  it("poziva onDelete sa repoom kad se klikne delete", async () => {
+    const handleDelete = vi.fn();
+    const user = userEvent.setup();
+
+    render(<RepoCard repo={MOCK_REPO} onDelete={handleDelete} />);
+    await user.click(screen.getByTitle("Delete"));
+
+    expect(handleDelete).toHaveBeenCalledWith(MOCK_REPO);
+  });
+
+  it("delete klik ne triggeruje onClick", async () => {
+    const handleClick = vi.fn();
+    const handleDelete = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <RepoCard
+        repo={MOCK_REPO}
+        onClick={handleClick}
+        onDelete={handleDelete}
+      />,
+    );
+    await user.click(screen.getByTitle("Delete"));
+
+    expect(handleDelete).toHaveBeenCalledOnce();
+    expect(handleClick).not.toHaveBeenCalled();
   });
 });
