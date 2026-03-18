@@ -3,6 +3,7 @@ using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,7 +31,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddScoped<JwtTokenService>();
-
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<HarborService, HarborServiceImpl>();
+builder.Services.AddMemoryCache();
 var jwtKey = builder.Configuration.GetValue<string>("Jwt:Key")
     ?? "CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345";
 var jwtIssuer = builder.Configuration.GetValue<string>("Jwt:Issuer") ?? "dockerhub-mimic";

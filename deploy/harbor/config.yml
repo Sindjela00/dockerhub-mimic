@@ -1,0 +1,20 @@
+version: 0.1
+log:
+  level: info
+storage:
+  filesystem:
+    rootdirectory: /storage
+auth:
+  silly:
+    realm: silly-realm
+    service: silly-service
+    issuer: silly-issuer
+    rootcertbundle: /etc/registry/root.crt
+http:
+  addr: :5000
+  net: tcp
+  headers:
+    X-Content-Type-Options: [nosniff]
+compatibility:
+  schema1:
+    enabled: true
