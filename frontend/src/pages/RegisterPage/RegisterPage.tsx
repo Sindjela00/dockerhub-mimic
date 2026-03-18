@@ -1,17 +1,11 @@
 import Button from "../../components/Button/Button";
+import { FormState } from "./types/types";
 import InputField from "../../components/InputField/InputField";
 import { Link } from "react-router-dom";
 import Logo from "../../components/Logo/Logo";
 import { UserPlus } from "lucide-react";
 import { useRegister } from "../../services/auth/useRegister/useRegister";
 import { useState } from "react";
-
-interface FormState {
-  email: string;
-  password: string;
-  confirmPassword: string;
-  username: string;
-}
 
 export default function RegisterPage() {
   const { loading, error, handleRegister } = useRegister();

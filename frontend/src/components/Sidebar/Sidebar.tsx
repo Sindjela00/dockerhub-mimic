@@ -5,7 +5,6 @@ import Logo from "../Logo/Logo";
 import { NAV_SECTIONS } from "./types/sidebarConfig";
 import { Plan } from "./types/types";
 import { useAppContext } from "../../context/AppContext";
-import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 export interface SidebarProps {

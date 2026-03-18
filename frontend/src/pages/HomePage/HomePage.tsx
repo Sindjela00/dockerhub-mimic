@@ -1,4 +1,4 @@
-import { QUICK_LINKS, STATS } from "./type/HomePageConfig";
+import { QUICK_LINKS, STATS } from "./types/HomePageConfig";
 
 import Button from "../../components/Button/Button";
 import QuickLink from "@/components/Cards/QuickLink/QuickLink";

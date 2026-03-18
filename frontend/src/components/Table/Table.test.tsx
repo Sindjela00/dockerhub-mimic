@@ -40,8 +40,6 @@ const COLUMNS: ColumnDef<Person>[] = [
 ];
 
 describe("Table", () => {
-  // ─── Osnovno renderovanje ──────────────────────────────────────────────────
-
   it("renderuje header kolone", () => {
     render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
     expect(screen.getByText("Name")).toBeTruthy();
@@ -85,8 +83,6 @@ describe("Table", () => {
     expect(screen.getAllByTestId("badge")).toHaveLength(3);
   });
 
-  // ─── Stilovi ──────────────────────────────────────────────────────────────
-
   it("primenjuje right align na koloni", () => {
     render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
     expect(screen.getByText("Age").closest("th")?.className).toContain(
@@ -109,8 +105,6 @@ describe("Table", () => {
       "overflow-hidden",
     );
   });
-
-  // ─── Row klik ─────────────────────────────────────────────────────────────
 
   it("poziva onRowClick sa ispravnim redom", async () => {
     const handleClick = vi.fn();
@@ -154,8 +148,6 @@ describe("Table", () => {
       "cursor-pointer",
     );
   });
-
-  // ─── Sort ─────────────────────────────────────────────────────────────────
 
   it("sortabilni header poziva onSort sa asc na prvom kliku", async () => {
     const handleSort = vi.fn();

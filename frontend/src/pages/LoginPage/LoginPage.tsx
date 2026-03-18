@@ -1,15 +1,11 @@
 import Button from "../../components/Button/Button";
+import { FormState } from "./types/types";
 import InputField from "../../components/InputField/InputField";
 import { Link } from "react-router-dom";
 import { LogIn } from "lucide-react";
 import Logo from "../../components/Logo/Logo";
 import { useLogin } from "../../services/auth/useLogin/useLogin";
 import { useState } from "react";
-
-interface FormState {
-  email: string;
-  password: string;
-}
 
 export default function LoginPage() {
   const { loading, error, handleLogin } = useLogin();
