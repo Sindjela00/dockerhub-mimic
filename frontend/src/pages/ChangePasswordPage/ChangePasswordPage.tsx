@@ -129,15 +129,6 @@ export default function ChangePasswordPage() {
             </>
           )}
         </div>
-
-        {!submitted && (
-          <p className="text-center text-xs text-text-muted mt-4">
-            Remember your password?{" "}
-            <Link to="/login" className="text-brand hover:underline">
-              Sign in
-            </Link>
-          </p>
-        )}
       </div>
     </div>
   );

@@ -60,7 +60,7 @@ export default function Sidebar({
           minWidth: collapsed ? "56px" : "232px",
         }}
         className={[
-          "hidden sm:flex flex-col h-full overflow-hidden",
+          "hidden md:flex flex-col h-full overflow-hidden",
           "bg-bg-surface border-r border-border",
           "transition-[width,min-width] duration-200 ease-in-out",
           mobileOpen ? "flex! fixed inset-y-0 left-0 z-50 w-58! min-w-58!" : "",
