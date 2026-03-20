@@ -1,29 +1,34 @@
+version: "3.9"
+
 services:
+  # ---------------------------
+  # DATABASE (shared)
+  # ---------------------------
   db:
     image: postgres:16-alpine
     container_name: dockerhub-mimic-db
     command: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-dockerhub_mimic}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: dockerhub_mimic
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./deploy/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dockerhub_mimic"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - app-network
 
+  # ---------------------------
+  # REDIS (shared)
+  # ---------------------------
   redis:
     image: redis:7-alpine
     container_name: dockerhub-mimic-redis
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -32,158 +37,182 @@ services:
     networks:
       - app-network
 
+  # ---------------------------
+  # HARBOR CORE
+  # ---------------------------
   harbor-core:
     image: goharbor/harbor-core:v2.10.2
-    container_name: dockerhub-mimic-harbor-core
     environment:
-      CORE_SECRET: ${HARBOR_CORE_SECRET:-secret}
-      JOBSERVICE_SECRET: ${HARBOR_JOBSERVICE_SECRET:-secret}
-      DATABASE_HOST: db
-      DATABASE_PORT: 5432
-      DATABASE_USER: postgres
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
-      DATABASE_NAME: registry
-      DATABASE_SSLMODE: disable
+      CORE_SECRET: secret
+      JOBSERVICE_SECRET: secret
       POSTGRESQL_HOST: db
       POSTGRESQL_PORT: 5432
       POSTGRESQL_USERNAME: postgres
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRESQL_PASSWORD: postgres123
       POSTGRESQL_DATABASE: registry
-      POSTGRESQL_SSLMODE: disable
       _REDIS_URL_CORE: "redis://redis:6379/0"
-      _REDIS_URL_CACHE_LAYER: "redis://redis:6379/2"
       REGISTRY_URL: "http://harbor-registry:5000"
-      LOG_LEVEL: info
-      CHART_REPOSITORY_URL: "http://harbor-core:8080"
-      ADMIN_INITIAL_PASSWORD: ${HARBOR_ADMIN_PASSWORD:-Harbor12345}
-      HARBOR_ADMIN_PASSWORD: ${HARBOR_ADMIN_PASSWORD:-Harbor12345}
-      TOKEN_PRIVATE_KEY_PATH: /etc/core/private_key.pem
-    ports:
-      - "18080:8080"
-    volumes:
-      - harbor_core_data:/data
-      - ./deploy/harbor/core/app.conf:/harbor/conf/app.conf:ro
-      - harbor_core_certs:/etc/core
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v2.0/systeminfo"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ---------------------------
+  # HARBOR PORTAL (UI)
+  # ---------------------------
+  harbor-portal:
+    image: goharbor/harbor-portal:v2.10.2
+    user: "0:0"
+    volumes:
+      - ./deploy/harbor/portal-nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail -s http://localhost:80 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ---------------------------
+  # HARBOR JOBSERVICE
+  # ---------------------------
+  harbor-jobservice:
+    image: goharbor/harbor-jobservice:v2.10.2
+    environment:
+      CORE_SECRET: secret
+      JOBSERVICE_SECRET: secret
+      CORE_URL: "http://harbor-core:8080"
+      _REDIS_URL_JOBSERVICE: "redis://redis:6379/1"
+    volumes:
+      - ./deploy/harbor/jobservice-config.yml:/etc/jobservice/config.yml:ro
+    depends_on:
+      harbor-core:
         condition: service_healthy
     networks:
       - app-network
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v2.0/ping"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
 
-  harbor-jobservice:
-    image: goharbor/harbor-jobservice:v2.10.2
-    container_name: dockerhub-mimic-harbor-jobservice
-    environment:
-      CORE_SECRET: ${HARBOR_CORE_SECRET:-secret}
-      JOBSERVICE_SECRET: ${HARBOR_JOBSERVICE_SECRET:-secret}
-      CORE_URL: "http://harbor-core:8080"
-      REGISTRY_URL: "http://harbor-registry:5000"
-      _REDIS_URL_JOBSERVICE: "redis://redis:6379/3"
-      LOG_LEVEL: info
-    volumes:
-      - harbor_jobservice_data:/data
-    depends_on:
-      - harbor-core
-    networks:
-      - app-network
-
+  # ---------------------------
+  # HARBOR REGISTRY
+  # ---------------------------
   harbor-registry:
     image: goharbor/registry-photon:v2.10.2
-    container_name: dockerhub-mimic-harbor-registry
-    environment:
-      REGISTRY_LOG_LEVEL: info
-      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /storage
-    ports:
-      - "${HARBOR_REGISTRY_PORT:-5002}:5000"
     volumes:
       - registry_data:/storage
-      - ./deploy/harbor/registry-config.yml:/etc/registry/config.yml:ro
-      - harbor_core_certs:/etc/registry_certs:ro
-    depends_on:
-      - harbor-core
+      - ./deploy/harbor/config.yml:/etc/registry/config.yml:ro
     networks:
       - app-network
 
-  app:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: dockerhub-mimic-app
+  # ---------------------------
+  # HARBOR REGISTRYCTL
+  # ---------------------------
+  harbor-registryctl:
+    image: goharbor/harbor-registryctl:v2.10.2
+    volumes:
+      - registry_data:/storage
+      - ./deploy/harbor/config.yml:/etc/registry/config.yml:ro
+      - ./deploy/harbor/registryctl-config.yml:/etc/registryctl/config.yml:ro
+    depends_on:
+      - harbor-registry
+    networks:
+      - app-network
+
+  # ---------------------------
+  # HARBOR NGINX (internal)
+  # ---------------------------
+  harbor-nginx:
+    image: goharbor/nginx-photon:v2.10.2
+    user: "0:0"
     ports:
-      - "8080:8080"
+      - "8088:8080"
+    volumes:
+      - ./deploy/harbor/harbor-nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      harbor-core:
+        condition: service_healthy
+      harbor-portal:
+        condition: service_healthy
+      harbor-registry:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ---------------------------
+  # BACKEND
+  # ---------------------------
+  backend:
+    build: ./backend
+    container_name: dockerhub-mimic-backend
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-dockerhub_mimic};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres123}"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=dockerhub_mimic;Username=postgres;Password=postgres123"
       Redis__Configuration: "redis:6379"
-      Registry__BaseUrl: "http://harbor-registry:5000"
-      Registry__Provider: "harbor"
-      Registry__DefaultProject: "library"
-      Harbor__ApiBaseUrl: "${HARBOR_API_BASE_URL:-http://harbor-core:8080}"
+      Harbor__ApiBaseUrl: "http://harbor-core:8080"
       Harbor__AdminUsername: "${HARBOR_ADMIN_USERNAME:-admin}"
       Harbor__AdminPassword: "${HARBOR_ADMIN_PASSWORD:-Harbor12345}"
+      Jwt__Key: "${JWT_KEY:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345}"
+      Jwt__Issuer: "${JWT_ISSUER:-dockerhub-mimic}"
+      Jwt__Audience: "${JWT_AUDIENCE:-dockerhub-mimic-clients}"
+      Jwt__ExpiresMinutes: "${JWT_EXPIRES_MINUTES:-60}"
       Seed__DemoEmail: "${SEED_DEMO_EMAIL:-demo@dockerhubmimic.local}"
       Seed__DemoPassword: "${SEED_DEMO_PASSWORD:-Password1}"
       Seed__DemoRole: "${SEED_DEMO_ROLE:-User}"
       Seed__AdminEmail: "${SEED_ADMIN_EMAIL:-admin@dockerhubmimic.local}"
       Seed__AdminPassword: "${SEED_ADMIN_PASSWORD:-Welcome1}"
       Seed__AdminRole: "${SEED_ADMIN_ROLE:-Administrator}"
-      Jwt__Key: "${JWT_KEY:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345}"
-      Jwt__Issuer: "${JWT_ISSUER:-dockerhub-mimic}"
-      Jwt__Audience: "${JWT_AUDIENCE:-dockerhub-mimic-clients}"
-      Jwt__ExpiresMinutes: "${JWT_EXPIRES_MINUTES:-60}"
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
+      harbor-core:
+        condition: service_started
     networks:
       - app-network
-    restart: unless-stopped
 
+  # ---------------------------
+  # FRONTEND
+  # ---------------------------
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
     container_name: dockerhub-mimic-frontend
     depends_on:
-      - app
+      - backend
     networks:
       - app-network
-    restart: unless-stopped
 
+  # ---------------------------
+  # MAIN NGINX (ENTRY POINT)
+  # ---------------------------
   nginx:
     image: nginx:alpine
     container_name: dockerhub-mimic-nginx
-    volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "3000:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - app
       - frontend
+      - backend
+      - harbor-nginx
     networks:
       - app-network
-    restart: unless-stopped
 
 volumes:
   postgres_data:
-    driver: local
   registry_data:
-    driver: local
-  harbor_core_data:
-    driver: local
-  harbor_core_certs:
-    driver: local
-  harbor_jobservice_data:
-    driver: local
 
 networks:
   app-network:
