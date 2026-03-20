@@ -84,7 +84,22 @@ public class AuthController : ControllerBase
         bool harborProvisioned = harborProvisioningResult.Succeeded
             || harborProvisioningResult.StatusCode == StatusCodes.Status409Conflict;
 
-        if (!harborProvisioned)
+        if (harborProvisioned)
+        {
+            var projectResult = await _harborService.CreateProjectAsync(
+                normalizedUsername,
+                isPublic: false,
+                username: normalizedUsername,
+                password: request.Password,
+                cancellationToken: cancellationToken);
+            if (!projectResult.Succeeded)
+            {
+                HttpContext.RequestServices
+                    .GetRequiredService<ILogger<AuthController>>()
+                    .LogWarning("Harbor project creation failed for {Username}: {Error}", normalizedUsername, projectResult.ErrorMessage);
+            }
+        }
+        else
         {
             HttpContext.RequestServices
                 .GetRequiredService<ILogger<AuthController>>()

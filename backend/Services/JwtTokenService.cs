@@ -17,16 +17,21 @@ public class JwtTokenService
 
     public string GenerateToken(User user)
     {
-        var key = _configuration.GetValue<string>("Jwt:Key");
-        var issuer = _configuration.GetValue<string>("Jwt:Issuer");
-        var audience = _configuration.GetValue<string>("Jwt:Audience");
-        var expiresMinutes = _configuration.GetValue<double>("Jwt:ExpiresMinutes");
+        var key = _configuration.GetValue<string>("Jwt:Key")
+            ?? "CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345";
+        var issuer = _configuration.GetValue<string>("Jwt:Issuer")
+            ?? "dockerhub-mimic";
+        var audience = _configuration.GetValue<string>("Jwt:Audience")
+            ?? "dockerhub-mimic-clients";
+        var expiresMinutes = _configuration.GetValue<double?>("Jwt:ExpiresMinutes") ?? 60;
 
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Email),
             new(JwtRegisteredClaimNames.Email, user.Email),
+            new(JwtRegisteredClaimNames.Name, user.Username ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Email),
+            new(ClaimTypes.Name, user.Username ?? string.Empty),
             new(ClaimTypes.Role, user.Role)
         };
 

@@ -8,6 +8,7 @@ namespace backend.Services;
 public interface HarborService
 {
     Task<HarborUserProvisioningResult> CreateUserAsync(string username, string email, string password, CancellationToken cancellationToken);
+    Task<HarborProjectProvisioningResult> CreateProjectAsync(string projectName, bool isPublic = false, string? username = null, string? password = null, CancellationToken cancellationToken = default);
     Task<HarborRepositoryProvisioningResult> CreateRepositoryAsync(string projectName, string repositoryName, bool isPublic, int? userId = null, CancellationToken cancellationToken = default);
     Task<HarborRepositoryDeletionResult> DeleteRepositoryAsync(string projectName, string repositoryName, int? userId = null, CancellationToken cancellationToken = default);
     Task<HarborRepositoryQueryResult> GetRepositoriesAsync(string projectName, int? userId = null, CancellationToken cancellationToken = default);
@@ -17,6 +18,7 @@ public interface HarborService
 }
 
 public sealed record HarborUserProvisioningResult(bool Succeeded, string? ErrorMessage = null, int? StatusCode = null);
+public sealed record HarborProjectProvisioningResult(bool Succeeded, string? ErrorMessage = null, int? StatusCode = null);
 public sealed record HarborRepositoryProvisioningResult(bool Succeeded, string? ErrorMessage = null, int? StatusCode = null);
 public sealed record HarborRepositoryDeletionResult(bool Succeeded, string? ErrorMessage = null, int? StatusCode = null);
 public sealed record HarborRepositoryInfo(string Name, string FullName, string Description, DateTime? UpdatedAt);
@@ -41,6 +43,8 @@ public sealed class HarborServiceImpl : HarborService
         _cache = cache;
     }
 
+    private HttpClient CreateHarborClient() => _httpClientFactory.CreateClient("HarborApi");
+
     public async Task<HarborUserProvisioningResult> CreateUserAsync(string username, string email, string password, CancellationToken cancellationToken)
     {
         var apiBaseUrl = _configuration["Harbor:ApiBaseUrl"]?.TrimEnd('/') ?? "http://harbor:8080";
@@ -62,7 +66,7 @@ public sealed class HarborServiceImpl : HarborService
             comment = "Provisioned by dockerhub-mimic"
         };
 
-        var client = _httpClientFactory.CreateClient();
+        var client = CreateHarborClient();
         var request = BuildAuthenticatedRequest(HttpMethod.Post, $"{apiBaseUrl}/api/v2.0/users", adminUsername, adminPassword);
         request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
@@ -91,6 +95,46 @@ public sealed class HarborServiceImpl : HarborService
         }
     }
 
+    public async Task<HarborProjectProvisioningResult> CreateProjectAsync(string projectName, bool isPublic = false, string? username = null, string? password = null, CancellationToken cancellationToken = default)
+    {
+        var apiBaseUrl = _configuration["Harbor:ApiBaseUrl"]?.TrimEnd('/') ?? "http://harbor:8080";
+        var effectiveUsername = username ?? _configuration["Harbor:AdminUsername"];
+        var effectivePassword = password ?? _configuration["Harbor:AdminPassword"];
+
+        if (string.IsNullOrWhiteSpace(effectiveUsername) || string.IsNullOrWhiteSpace(effectivePassword))
+            return new HarborProjectProvisioningResult(false, "Harbor credentials are not configured.");
+
+        var harborProjectName = BuildHarborProjectName(projectName);
+        var payload = new
+        {
+            project_name = harborProjectName,
+            metadata = new Dictionary<string, string>
+            {
+                ["public"] = isPublic ? "true" : "false"
+            }
+        };
+
+        var client = CreateHarborClient();
+        var request = BuildAuthenticatedRequest(HttpMethod.Post, $"{apiBaseUrl}/api/v2.0/projects", effectiveUsername, effectivePassword);
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        try
+        {
+            using var response = await client.SendAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                return new HarborProjectProvisioningResult(true);
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Failed to create Harbor project {Project}. Status: {StatusCode}, Body: {Body}", harborProjectName, (int)response.StatusCode, body);
+            return new HarborProjectProvisioningResult(false, $"Harbor project creation failed. Status code: {(int)response.StatusCode}", (int)response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while creating Harbor project {Project}", harborProjectName);
+            return new HarborProjectProvisioningResult(false, "Could not connect to Harbor project API.");
+        }
+    }
+
     public async Task<HarborRepositoryProvisioningResult> CreateRepositoryAsync(string projectName, string repositoryName, bool isPublic, int? userId = null, CancellationToken cancellationToken = default)
     {
         var apiBaseUrl = _configuration["Harbor:ApiBaseUrl"]?.TrimEnd('/') ?? "http://harbor:8080";
@@ -106,7 +150,7 @@ public sealed class HarborServiceImpl : HarborService
 
         var harborProjectName = BuildHarborProjectName(projectName);
         var harborRepositoryName = BuildHarborRepositoryName(repositoryName);
-        var client = _httpClientFactory.CreateClient();
+        var client = CreateHarborClient();
 
         try
         {
@@ -184,7 +228,7 @@ public sealed class HarborServiceImpl : HarborService
 
         var harborProjectName = BuildHarborProjectName(projectName);
         var harborRepositoryName = BuildHarborRepositoryName(repositoryName);
-        var client = _httpClientFactory.CreateClient();
+        var client = CreateHarborClient();
 
         try
         {
@@ -231,7 +275,7 @@ public sealed class HarborServiceImpl : HarborService
         }
 
         var harborProjectName = BuildHarborProjectName(projectName);
-        var client = _httpClientFactory.CreateClient();
+        var client = CreateHarborClient();
 
         try
         {
@@ -305,7 +349,7 @@ public sealed class HarborServiceImpl : HarborService
             return Array.Empty<string>();
         }
 
-        var client = _httpClientFactory.CreateClient();
+        var client = CreateHarborClient();
         var request = BuildAuthenticatedRequest(
             HttpMethod.Get,
             $"{apiBaseUrl}/api/v2.0/projects/{Uri.EscapeDataString(defaultProject)}/repositories?page=1&page_size=100",
@@ -345,7 +389,7 @@ public sealed class HarborServiceImpl : HarborService
     {
         var registryBaseUrl = (_configuration["Registry:BaseUrl"] ?? "http://harbor:5000").TrimEnd('/');
         var normalizedRepository = NormalizeRepositoryName(repositoryName);
-        var client = _httpClientFactory.CreateClient();
+        var client = CreateHarborClient();
 
         var request = new HttpRequestMessage(HttpMethod.Get, $"{registryBaseUrl}/v2/{normalizedRepository}/tags/list");
         ApplyRegistryAuth(request);
@@ -383,7 +427,7 @@ public sealed class HarborServiceImpl : HarborService
     {
         var registryBaseUrl = (_configuration["Registry:BaseUrl"] ?? "http://harbor:5000").TrimEnd('/');
         var normalizedRepository = NormalizeRepositoryName(repositoryName);
-        var client = _httpClientFactory.CreateClient();
+        var client = CreateHarborClient();
 
         var request = new HttpRequestMessage(HttpMethod.Get, $"{registryBaseUrl}/v2/{normalizedRepository}/manifests/{reference}");
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));

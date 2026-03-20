@@ -205,6 +205,11 @@ public sealed class AuthControllerTests
             return Task.FromResult(new HarborUserProvisioningResult(true));
         }
 
+        public Task<HarborProjectProvisioningResult> CreateProjectAsync(string projectName, bool isPublic = false, string? username = null, string? password = null, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new HarborProjectProvisioningResult(true));
+        }
+
         public Task<HarborRepositoryProvisioningResult> CreateRepositoryAsync(string projectName, string repositoryName, bool isPublic, int? userId = null, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(new HarborRepositoryProvisioningResult(true));

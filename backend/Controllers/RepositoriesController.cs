@@ -14,13 +14,13 @@ namespace backend.Controllers;
 [Route("api/repositories")]
 public class RepositoriesController : ControllerBase
 {
-    private readonly AppDbContext _dbContext;
     private readonly HarborService _harborService;
+    private readonly AppDbContext _dbContext;
 
-    public RepositoriesController(AppDbContext dbContext, HarborService harborService)
+    public RepositoriesController(HarborService harborService, AppDbContext dbContext)
     {
-        _dbContext = dbContext;
         _harborService = harborService;
+        _dbContext = dbContext;
     }
 
     // ============ Endpoints ============
@@ -73,37 +73,51 @@ public class RepositoriesController : ControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await RequireCurrentUserAsync(cancellationToken);
-        if (authError != null)
-            return authError;
+        var username = GetCurrentUsername();
+        if (string.IsNullOrEmpty(username))
+            return Unauthorized();
 
-        (page, pageSize) = NormalizePaging(page, pageSize);
+        // Fetch from DB (source of truth for visibility/description)
+        var dbRepos = await _dbContext.Repositories
+            .Include(r => r.Owner)
+            .Where(r => r.Owner!.Username == username)
+            .OrderByDescending(r => r.UpdatedAt)
+            .ToListAsync(cancellationToken);
 
-        var projectName = !string.IsNullOrWhiteSpace(currentUser.Username)
-            ? currentUser.Username
-            : currentUser.Email.Split('@')[0];
+        // Fetch from Harbor (best-effort; repos pushed directly won't be in DB)
+        var harborResult = await _harborService.GetRepositoriesAsync(username, cancellationToken: cancellationToken);
+        var harborRepos = harborResult.Succeeded
+            ? harborResult.Repositories
+            : (IReadOnlyList<HarborRepositoryInfo>)Array.Empty<HarborRepositoryInfo>();
 
-        var harborRepositories = await _harborService.GetRepositoriesAsync(projectName, currentUser.Id, cancellationToken);
-        if (!harborRepositories.Succeeded)
-        {
-            return StatusCode(StatusCodes.Status502BadGateway, new
+        var harborByName = harborRepos
+            .ToDictionary(r => r.Name.ToLowerInvariant(), r => r, StringComparer.OrdinalIgnoreCase);
+
+        var dbRepoNames = new HashSet<string>(dbRepos.Select(r => r.Name.ToLowerInvariant()));
+
+        // DB repos enriched with Harbor metadata
+        var now = DateTime.UtcNow;
+        var merged = dbRepos
+            .Select(r =>
             {
-                message = harborRepositories.ErrorMessage ?? "Failed to get repositories from Harbor."
-            });
-        }
-
-        var total = harborRepositories.Repositories.Count;
-        var pageRepositories = harborRepositories.Repositories
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+                harborByName.TryGetValue(r.Name.ToLowerInvariant(), out var hr);
+                return MapDbRepositoryToResponse(r, hr);
+            })
             .ToList();
 
-        var now = DateTime.UtcNow;
+        // Harbor-only repos (pushed directly, not created via our API)
+        foreach (var hr in harborRepos)
+        {
+            if (!dbRepoNames.Contains(hr.Name.ToLowerInvariant()))
+                merged.Add(MapHarborRepositoryToResponse(hr.FullName, "private", hr.UpdatedAt ?? now, hr.UpdatedAt ?? now, hr.Description));
+        }
+
+        var total = merged.Count;
+        (page, pageSize) = NormalizePaging(page, pageSize);
+
         var response = new RepositoryListResponse
         {
-            Repositories = pageRepositories
-                .Select(repo => MapHarborRepositoryToResponse(repo.FullName, "private", now, repo.UpdatedAt ?? now, repo.Description))
-                .ToList(),
+            Repositories = merged.Skip((page - 1) * pageSize).Take(pageSize).ToList(),
             Total = total,
             Page = page,
             PageSize = pageSize
@@ -121,9 +135,9 @@ public class RepositoriesController : ControllerBase
         [FromBody] CreateRepositoryRequest request,
         CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await RequireCurrentUserAsync(cancellationToken);
-        if (authError != null)
-            return authError;
+        var username = GetCurrentUsername();
+        if (string.IsNullOrEmpty(username))
+            return Unauthorized();
 
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new { message = "Repository name is required." });
@@ -134,36 +148,32 @@ public class RepositoriesController : ControllerBase
         if (!IsValidVisibility(request.Visibility))
             return BadRequest(new { message = "Visibility must be 'public' or 'private'." });
 
-        var projectName = !string.IsNullOrWhiteSpace(currentUser.Username)
-            ? currentUser.Username
-            : currentUser.Email.Split('@')[0];
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+        if (user == null)
+            return Unauthorized();
 
-        var harborRepositories = await _harborService.GetRepositoriesAsync(projectName, currentUser.Id, cancellationToken);
-        if (harborRepositories.Succeeded && harborRepositories.Repositories.Any(repo => repo.Name.Equals(request.Name, StringComparison.OrdinalIgnoreCase)))
-        {
+        var normalizedName = request.Name.Trim().ToLowerInvariant();
+
+        var exists = await _dbContext.Repositories
+            .AnyAsync(r => r.OwnerId == user.Id && r.Name == normalizedName, cancellationToken);
+        if (exists)
             return Conflict(new { message = "Repository with this name already exists." });
-        }
-
-        var harborProvisioningResult = await _harborService
-            .CreateRepositoryAsync(projectName, request.Name, request.Visibility == "public", currentUser.Id, cancellationToken);
-
-        if (!harborProvisioningResult.Succeeded)
-        {
-            return StatusCode(StatusCodes.Status502BadGateway, new
-            {
-                message = harborProvisioningResult.ErrorMessage ?? "Failed to create repository in Harbor."
-            });
-        }
 
         var now = DateTime.UtcNow;
-        var fullName = $"{projectName.ToLowerInvariant()}/{request.Name}";
-        var responseRepository = MapHarborRepositoryToResponse(
-            fullName,
-            request.Visibility,
-            now,
-            now,
-            request.Description ?? string.Empty);
+        var repo = new Repository
+        {
+            Name = normalizedName,
+            Description = request.Description ?? string.Empty,
+            Visibility = request.Visibility,
+            OwnerId = user.Id,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+        _dbContext.Repositories.Add(repo);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
+        repo.Owner = user;
+        var responseRepository = MapDbRepositoryToResponse(repo, null);
         return Ok(new { message = "Repository created successfully.", repository = responseRepository });
     }
 
@@ -207,24 +217,12 @@ public class RepositoriesController : ControllerBase
 
     // ============ Helper Methods ============
 
-    private async Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken = default)
+    private string? GetCurrentUsername()
     {
-        var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
-        if (string.IsNullOrEmpty(userEmail))
-            return null;
-
-        return await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == userEmail, cancellationToken);
-    }
-
-    private async Task<(User User, IActionResult? Error)> RequireCurrentUserAsync(CancellationToken cancellationToken)
-    {
-        var user = await GetCurrentUserAsync(cancellationToken);
-        if (user == null)
-        {
-            return (null!, Unauthorized());
-        }
-
-        return (user, null);
+        // .NET 8+ uses JsonWebTokenHandler which does not remap JWT claim names,
+        // so "name" stays as "name" rather than ClaimTypes.Name.
+        return User.FindFirst(ClaimTypes.Name)?.Value
+            ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Name)?.Value;
     }
 
     private static (int Page, int PageSize) NormalizePaging(int page, int pageSize)
@@ -245,6 +243,25 @@ public class RepositoriesController : ControllerBase
         {
             return StatusCode(502, new { message = "Container registry is unavailable.", detail = ex.Message });
         }
+    }
+
+    private static RepositoryResponse MapDbRepositoryToResponse(Repository repo, HarborRepositoryInfo? harborRepo)
+    {
+        var fullName = repo.IsOfficial ? repo.Name : $"{repo.Owner?.Username ?? "user"}/{repo.Name}";
+        return new RepositoryResponse
+        {
+            Id = repo.Id,
+            Name = repo.Name,
+            FullName = harborRepo?.FullName ?? fullName,
+            Description = !string.IsNullOrWhiteSpace(repo.Description) ? repo.Description : (harborRepo?.Description ?? string.Empty),
+            Visibility = repo.Visibility,
+            OwnerEmail = repo.Owner?.Email ?? string.Empty,
+            CreatedAt = repo.CreatedAt,
+            UpdatedAt = harborRepo?.UpdatedAt ?? repo.UpdatedAt,
+            IsOfficial = repo.IsOfficial,
+            StarCount = repo.StarCount,
+            Tags = new List<string>()
+        };
     }
 
     private static RepositoryResponse MapHarborRepositoryToResponse(
