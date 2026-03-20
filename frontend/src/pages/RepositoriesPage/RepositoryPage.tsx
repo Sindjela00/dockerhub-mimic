@@ -3,15 +3,16 @@ import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import Button from "@/components/Button/Button";
-import CreateRepositoryModal from "./components/CreateRepositoryModal/CreateRepositoryModal";
-import DeleteRepositoryModal from "./components/DeleteRepositoryModal/DeleteRepositoryModal";
-import EditRepositoryModal from "./components/EditRepositoryModal/EditRepositoryModal";
+import CreateRepositoryModal from "../../components/Modals/CreateRepositoryModal/CreateRepositoryModal";
+import DeleteRepositoryModal from "../../components/Modals/DeleteRepositoryModal/DeleteRepositoryModal";
+import EditRepositoryModal from "../../components/Modals/EditRepositoryModal/EditRepositoryModal";
 import EmptyState from "./components/EmptyState/EmptyState";
 import FilterTabs from "./components/FilterTabs/FilterTabs";
 import { MOCK_REPOSITORIES } from "./types/mock";
 import RepoCard from "../../components/Cards/RepoCard/RepoCard";
 import RepoTable from "./components/RepoTable/RepoTable";
 import ViewToggle from "./components/ViewToggle/ViewToggle";
+import { useNavigate } from "react-router-dom";
 
 export default function RepositoriesPage() {
   const [search, setSearch] = useState("");
@@ -21,6 +22,8 @@ export default function RepositoriesPage() {
 
   const [editRepo, setEditRepo] = useState<Repository | null>(null);
   const [deleteRepo, setDeleteRepo] = useState<Repository | null>(null);
+
+  const navigate = useNavigate();
 
   const repos = MOCK_REPOSITORIES;
 
@@ -48,7 +51,7 @@ export default function RepositoriesPage() {
   };
 
   const handleRepoClick = (repo: Repository) => {
-    console.log("Open repo", repo.name);
+    navigate(`/repositories/${repo.namespace}/${repo.name}`);
   };
 
   const handleRepoCreated = (newRepo: any) => {

@@ -1,6 +1,6 @@
 import Button from "@/components/Button/Button";
 import InputField from "@/components/InputField/InputField";
-import Modal from "@/components/Modal/Modal";
+import Modal from "@/components/Modals/Modal";
 import type { Repository } from "@/pages/RepositoriesPage/types/types";
 import { TriangleAlert } from "lucide-react";
 import { useState } from "react";

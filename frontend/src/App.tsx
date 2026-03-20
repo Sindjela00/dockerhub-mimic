@@ -10,6 +10,7 @@ import Logo from "./components/Logo/Logo";
 import { Navigate } from "react-router-dom";
 import RegisterPage from "./pages/RegisterPage/RegisterPage";
 import RepositoriesPage from "./pages/RepositoriesPage/RepositoryPage";
+import RepositoryDetailPage from "./pages/RepositoryPage/RepositoryDetailPage";
 import { useAuth } from "./context/AppContext";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -77,6 +78,17 @@ export default function App() {
           <ProtectedRoute>
             <Layout pageTitle="Repositories">
               <RepositoriesPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/repositories/:namespace/:name"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Repository">
+              <RepositoryDetailPage />
             </Layout>
           </ProtectedRoute>
         }
