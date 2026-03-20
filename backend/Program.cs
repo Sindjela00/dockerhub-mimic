@@ -3,6 +3,7 @@ using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,7 +31,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddScoped<JwtTokenService>();
-
+builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("HarborApi")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        // Harbor v2 API with basic auth can set sid cookies on GET responses.
+        // Replaying that cookie on POST without CSRF token triggers 403.
+        UseCookies = false
+    });
+builder.Services.AddScoped<HarborService, HarborServiceImpl>();
+builder.Services.AddMemoryCache();
 var jwtKey = builder.Configuration.GetValue<string>("Jwt:Key")
     ?? "CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345";
 var jwtIssuer = builder.Configuration.GetValue<string>("Jwt:Issuer") ?? "dockerhub-mimic";
@@ -55,7 +65,27 @@ builder.Services.AddAuthorization();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Paste only the JWT token. Swagger UI will add the Bearer prefix automatically."
+    });
+
+    options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecuritySchemeReference("Bearer", doc, string.Empty),
+            new List<string>()
+        }
+    });
+});
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetValue<string>("Redis:Configuration") ?? "mem-cache:6379";
