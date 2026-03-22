@@ -8,7 +8,7 @@ interface EmptyStateProps {
 
 export default function EmptyState({ onCreate }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+    <div className="flex flex-col items-center justify-center h-full m-auto text-center">
       <div
         className="w-14 h-14 rounded-xl bg-bg-elevated flex items-center
                       justify-center text-text-secondary mb-5"

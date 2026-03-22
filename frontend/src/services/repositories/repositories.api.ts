@@ -1,9 +1,19 @@
-import {
-  RepoVisibility,
-  Repository,
-} from "@/pages/RepositoriesPage/types/types";
-
+import { RepoVisibility } from "@/pages/RepositoriesPage/types/types";
 import api from "@/lib/api";
+
+export interface Repository {
+  id: number;
+  name: string;
+  fullName: string;
+  description: string;
+  visibility: RepoVisibility;
+  ownerEmail: string;
+  createdAt: string;
+  updatedAt: string;
+  isOfficial: boolean;
+  starCount: number;
+  tags: string[];
+}
 
 export interface GetRepositoriesParams {
   page?: number;

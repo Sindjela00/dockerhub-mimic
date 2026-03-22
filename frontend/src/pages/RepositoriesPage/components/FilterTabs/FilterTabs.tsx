@@ -8,6 +8,7 @@ interface FilterTabsProps {
 
 const TABS: { label: string; value: Filter }[] = [
   { label: "All", value: "all" },
+  { label: "Mine", value: "mine" },
   { label: "Public", value: "public" },
   { label: "Private", value: "private" },
 ];

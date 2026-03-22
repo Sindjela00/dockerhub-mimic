@@ -40,6 +40,7 @@
 
 @layer components {
   .page-wrapper {
+    min-height: 90%;
     margin-inline: auto;
     display: flex;
     flex-direction: column;

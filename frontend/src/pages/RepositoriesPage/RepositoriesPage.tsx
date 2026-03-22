@@ -31,23 +31,28 @@ export default function RepositoriesPage() {
 
   const counts: Record<Filter, number> = {
     all: repos.length,
+    mine: repos.filter((r) => r.fullName.startsWith(`${username}/`)).length,
     public: repos.filter((r) => r.visibility === "public").length,
     private: repos.filter((r) => r.visibility === "private").length,
   };
 
   const filtered = useMemo(() => {
     return repos
-      .filter((r) => filter === "all" || r.visibility === filter)
+      .filter((r) => {
+        if (filter === "mine") return r.fullName.startsWith(`${username}/`);
+        if (filter === "all") return true;
+        return r.visibility === filter;
+      })
       .filter((r) => {
         const q = search.toLowerCase();
         return (
           r.name.toLowerCase().includes(q) ||
           r.fullName.toLowerCase().includes(q) ||
           r.description.toLowerCase().includes(q) ||
-          r.tags.some((t: string) => t.toLowerCase().includes(q))
+          r.tags.some((t) => t.toLowerCase().includes(q))
         );
       });
-  }, [repos, filter, search]);
+  }, [repos, filter, search, username]);
 
   const handleRepoClick = (repo: Repository) => {
     navigate(`/repositories/${repo.fullName}`);

@@ -1,4 +1,4 @@
-export type Filter = "all" | "public" | "private";
+export type Filter = "all" | "public" | "private" | "mine";
 
 export type RepoVisibility = "public" | "private";
 
