@@ -1,4 +1,4 @@
 export interface FormState {
-  email: string;
+  identifier: string;
   password: string;
 }

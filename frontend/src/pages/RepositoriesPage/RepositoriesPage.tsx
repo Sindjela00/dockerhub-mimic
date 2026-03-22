@@ -1,4 +1,4 @@
-import type { Filter, Repository, ViewMode } from "./types/types";
+import type { Filter, ViewMode } from "./types/types";
 import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -8,24 +8,26 @@ import DeleteRepositoryModal from "../../components/Modals/DeleteRepositoryModal
 import EditRepositoryModal from "../../components/Modals/EditRepositoryModal/EditRepositoryModal";
 import EmptyState from "./components/EmptyState/EmptyState";
 import FilterTabs from "./components/FilterTabs/FilterTabs";
-import { MOCK_REPOSITORIES } from "./types/mock";
+import Loader from "@/components/Loader/Loader";
 import RepoCard from "../../components/Cards/RepoCard/RepoCard";
 import RepoTable from "./components/RepoTable/RepoTable";
+import { Repository } from "@/services/repositories/repositories.api";
 import ViewToggle from "./components/ViewToggle/ViewToggle";
+import { useAuth } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
+import { useRepositories } from "@/services/repositories/useRepositories/useRepositories";
 
 export default function RepositoriesPage() {
+  const navigate = useNavigate();
+  const { username } = useAuth();
+  const { repos, total, loading, error, fetchRepositories } = useRepositories();
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<ViewMode>("grid");
   const [modalOpen, setModalOpen] = useState(false);
-
   const [editRepo, setEditRepo] = useState<Repository | null>(null);
   const [deleteRepo, setDeleteRepo] = useState<Repository | null>(null);
-
-  const navigate = useNavigate();
-
-  const repos = MOCK_REPOSITORIES;
 
   const counts: Record<Filter, number> = {
     all: repos.length,
@@ -40,36 +42,30 @@ export default function RepositoriesPage() {
         const q = search.toLowerCase();
         return (
           r.name.toLowerCase().includes(q) ||
+          r.fullName.toLowerCase().includes(q) ||
           r.description.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q))
+          r.tags.some((t: string) => t.toLowerCase().includes(q))
         );
       });
   }, [repos, filter, search]);
 
-  const handleCreateRepo = () => {
-    setModalOpen(true);
-  };
-
   const handleRepoClick = (repo: Repository) => {
-    navigate(`/repositories/${repo.namespace}/${repo.name}`);
+    navigate(`/repositories/${repo.fullName}`);
   };
 
-  const handleRepoCreated = (newRepo: any) => {
-    // TODO: API call
-    console.log("New repo:", newRepo);
+  const handleRepoCreated = () => {
+    setModalOpen(false);
+    fetchRepositories();
   };
 
-  const handleEdit = (repo: Repository) => setEditRepo(repo);
-  const handleDelete = (repo: Repository) => setDeleteRepo(repo);
-
-  const handleSaveEdit = (updated: any) => {
-    // TODO: API call
-    console.log("Save edit:", updated);
+  const handleSaveEdit = () => {
+    setEditRepo(null);
+    fetchRepositories();
   };
 
-  const handleConfirmDelete = (id: string) => {
-    // TODO: API call
-    console.log("Delete:", id);
+  const handleConfirmDelete = () => {
+    setDeleteRepo(null);
+    fetchRepositories();
   };
 
   return (
@@ -78,21 +74,38 @@ export default function RepositoriesPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold text-text-primary">
-            Create repository and start!
+            Repositories
           </h1>
           <p className="text-sm text-text-muted mt-0.5">
-            {repos.length} {repos.length === 1 ? "repository" : "repositories"}
+            {total} {total === 1 ? "repository" : "repositories"}
           </p>
         </div>
-        <Button variant="primary" size="md" onClick={handleCreateRepo}>
+        <Button variant="primary" size="md" onClick={() => setModalOpen(true)}>
           <Plus size={15} />
           New repository
         </Button>
       </div>
 
-      {repos.length === 0 ? (
-        <EmptyState onCreate={handleCreateRepo} />
-      ) : (
+      {/* Error */}
+      {error && (
+        <div
+          className="px-4 py-3 rounded-lg bg-danger-muted border border-danger/20
+                        text-xs text-danger"
+        >
+          {error}
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && <Loader />}
+
+      {/* Empty state */}
+      {!loading && !error && repos.length === 0 && (
+        <EmptyState onCreate={() => setModalOpen(true)} />
+      )}
+
+      {/* Content */}
+      {!loading && repos.length > 0 && (
         <>
           {/* Toolbar */}
           <div className="flex items-center gap-3 flex-wrap">
@@ -112,7 +125,6 @@ export default function RepositoriesPage() {
                            placeholder:text-text-muted focus:outline-none"
               />
             </div>
-
             <FilterTabs active={filter} onChange={setFilter} counts={counts} />
             <ViewToggle view={view} onChange={setView} />
           </div>
@@ -132,14 +144,14 @@ export default function RepositoriesPage() {
               </button>
             </div>
           ) : view === "grid" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {filtered.map((repo) => (
                 <RepoCard
                   key={repo.id}
                   repo={repo}
                   onClick={handleRepoClick}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
+                  onEdit={setEditRepo}
+                  onDelete={setDeleteRepo}
                 />
               ))}
             </div>
@@ -147,30 +159,31 @@ export default function RepositoriesPage() {
             <RepoTable
               repos={filtered}
               onClick={handleRepoClick}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
+              onEdit={setEditRepo}
+              onDelete={setDeleteRepo}
             />
           )}
         </>
       )}
+
+      {/* Modals */}
+      <CreateRepositoryModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreate={handleRepoCreated}
+        username={username ?? ""}
+      />
       <EditRepositoryModal
         isOpen={!!editRepo}
         onClose={() => setEditRepo(null)}
         onSave={handleSaveEdit}
         repo={editRepo}
       />
-
       <DeleteRepositoryModal
         isOpen={!!deleteRepo}
         onClose={() => setDeleteRepo(null)}
         onDelete={handleConfirmDelete}
         repo={deleteRepo}
-      />
-      <CreateRepositoryModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onCreate={handleRepoCreated}
-        namespace={""}
       />
     </div>
   );

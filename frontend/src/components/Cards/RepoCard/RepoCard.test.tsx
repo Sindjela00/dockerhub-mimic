@@ -2,36 +2,65 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import RepoCard from "./RepoCard";
-import { Repository } from "../../../pages/RepositoriesPage/types/types";
+import type { Repository } from "@/pages/RepositoriesPage/types/types";
 import userEvent from "@testing-library/user-event";
 
 const MOCK_REPO: Repository = {
-  id: "1",
+  id: 1,
   name: "nginx",
-  namespace: "john.doe",
+  fullName: "john/nginx",
   description: "Official build of Nginx.",
   visibility: "public",
-  pullCount: 142300,
-  stars: 48,
-  tags: ["latest", "1.25", "alpine"],
+  ownerEmail: "john@example.com",
+  createdAt: "2023-01-15T08:00:00Z",
   updatedAt: "2025-03-10T12:00:00Z",
+  isOfficial: false,
+  starCount: 48,
+  tags: ["latest", "1.25", "alpine"],
 };
 
 const PRIVATE_REPO: Repository = {
   ...MOCK_REPO,
-  id: "2",
+  id: 2,
   visibility: "private",
 };
 
+const OFFICIAL_REPO: Repository = {
+  ...MOCK_REPO,
+  id: 3,
+  isOfficial: true,
+};
+
+const NO_TAGS_REPO: Repository = {
+  ...MOCK_REPO,
+  id: 4,
+  tags: [],
+};
+
 describe("RepoCard", () => {
-  it("renderuje ime repoa", () => {
+  it("renderuje fullName repoa", () => {
     render(<RepoCard repo={MOCK_REPO} />);
-    expect(screen.getByText("john.doe/nginx")).toBeTruthy();
+    expect(screen.getByText("john/nginx")).toBeTruthy();
   });
 
   it("renderuje opis", () => {
     render(<RepoCard repo={MOCK_REPO} />);
     expect(screen.getByText("Official build of Nginx.")).toBeTruthy();
+  });
+
+  it("ne prikazuje opis ako je prazan", () => {
+    render(<RepoCard repo={{ ...MOCK_REPO, description: "" }} />);
+    expect(screen.queryByText("Official build of Nginx.")).toBeNull();
+  });
+
+  it("renderuje datum poslednjeg update-a", () => {
+    render(<RepoCard repo={MOCK_REPO} />);
+    expect(screen.getByText(/updated/i)).toBeTruthy();
+  });
+
+  it("prikazuje inicijale u avataru", () => {
+    render(<RepoCard repo={MOCK_REPO} />);
+    expect(screen.getByText("NG")).toBeTruthy();
   });
 
   it("prikazuje public badge", () => {
@@ -50,36 +79,45 @@ describe("RepoCard", () => {
     expect(screen.getByText("1.25")).toBeTruthy();
   });
 
+  it("prikazuje max 3 taga", () => {
+    const repo = { ...MOCK_REPO, tags: ["a", "b", "c", "d", "e"] };
+    render(<RepoCard repo={repo} />);
+    expect(screen.getByText("a")).toBeTruthy();
+    expect(screen.getByText("b")).toBeTruthy();
+    expect(screen.getByText("c")).toBeTruthy();
+    expect(screen.queryByText("d")).toBeNull();
+  });
+
   it("prikazuje +N kad ima više od 3 taga", () => {
     const repo = { ...MOCK_REPO, tags: ["a", "b", "c", "d", "e"] };
     render(<RepoCard repo={repo} />);
     expect(screen.getByText("+2")).toBeTruthy();
   });
 
-  it("prikazuje pull count formatirano", () => {
-    render(<RepoCard repo={MOCK_REPO} />);
-    expect(screen.getByText(/142\.3k pulls/i)).toBeTruthy();
+  it("ne prikazuje tags sekciju kad nema tagova", () => {
+    render(<RepoCard repo={NO_TAGS_REPO} />);
+    expect(screen.queryByText("latest")).toBeNull();
   });
 
-  it("prikazuje stars", () => {
+  it("prikazuje starCount", () => {
     render(<RepoCard repo={MOCK_REPO} />);
     expect(screen.getByText("48")).toBeTruthy();
   });
 
-  it("poziva onClick kad se klikne kartica", async () => {
-    const handleClick = vi.fn();
-    const user = userEvent.setup();
+  it("prikazuje Official badge kad je isOfficial true", () => {
+    render(<RepoCard repo={OFFICIAL_REPO} />);
+    expect(screen.getByText("Official")).toBeTruthy();
+  });
 
-    render(<RepoCard repo={MOCK_REPO} onClick={handleClick} />);
-    await user.click(screen.getByRole("button", { name: /john\.doe\/nginx/i }));
-
-    expect(handleClick).toHaveBeenCalledWith(MOCK_REPO);
+  it("ne prikazuje Official badge kad je isOfficial false", () => {
+    render(<RepoCard repo={MOCK_REPO} />);
+    expect(screen.queryByText("Official")).toBeNull();
   });
 
   it("ne puca bez onClick prop-a", async () => {
     const user = userEvent.setup();
     render(<RepoCard repo={MOCK_REPO} />);
-    await user.click(screen.getByRole("button", { name: /john\.doe\/nginx/i }));
+    await user.click(screen.getByRole("button", { name: /john\/nginx/i }));
   });
 
   it("prikazuje edit dugme", () => {
@@ -87,7 +125,7 @@ describe("RepoCard", () => {
     expect(screen.getByTitle("Edit")).toBeTruthy();
   });
 
-  it("poziva onEdit sa repoom kad se klikne edit", async () => {
+  it("poziva onEdit sa repoom", async () => {
     const handleEdit = vi.fn();
     const user = userEvent.setup();
 
@@ -116,7 +154,7 @@ describe("RepoCard", () => {
     expect(screen.getByTitle("Delete")).toBeTruthy();
   });
 
-  it("poziva onDelete sa repoom kad se klikne delete", async () => {
+  it("poziva onDelete sa repoom", async () => {
     const handleDelete = vi.fn();
     const user = userEvent.setup();
 

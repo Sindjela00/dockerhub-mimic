@@ -1,4 +1,4 @@
-import { Download, Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
+import { Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 
 import { Repository } from "@/pages/RepositoriesPage/types/types";
 
@@ -7,12 +7,6 @@ interface RepoCardProps {
   onClick?: (repo: Repository) => void;
   onEdit?: (repo: Repository) => void;
   onDelete?: (repo: Repository) => void;
-}
-
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
 }
 
 function formatDate(iso: string): string {
@@ -49,7 +43,7 @@ export default function RepoCard({
           </div>
           <div className="overflow-hidden">
             <p className="text-sm font-medium text-text-primary truncate">
-              {repo.namespace}/{repo.name}
+              {repo.fullName}
             </p>
             <p className="text-[11px] text-text-secondary">
               Updated {formatDate(repo.updatedAt)}
@@ -74,14 +68,15 @@ export default function RepoCard({
           {repo.visibility}
         </span>
 
+        {/* Actions */}
         <div className="flex items-center gap-1 ml-auto">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onEdit?.(repo);
             }}
-            className="p-1 rounded text-text-muted hover:text-brand hover:bg-bg-elevated
-               transition-colors"
+            className="p-1 rounded text-text-muted hover:text-brand
+                       hover:bg-bg-elevated transition-colors"
             title="Edit"
           >
             <Edit2 size={13} />
@@ -91,8 +86,8 @@ export default function RepoCard({
               e.stopPropagation();
               onDelete?.(repo);
             }}
-            className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger-muted
-               transition-colors"
+            className="p-1 rounded text-text-muted hover:text-danger
+                       hover:bg-danger-muted transition-colors"
             title="Delete"
           >
             <Trash2 size={13} />
@@ -131,13 +126,18 @@ export default function RepoCard({
       {/* Stats */}
       <div className="flex items-center gap-4 pt-1 border-t border-border">
         <span className="flex items-center gap-1 text-[11px] text-text-secondary">
-          <Download size={11} />
-          {formatCount(repo.pullCount)} pulls
-        </span>
-        <span className="flex items-center gap-1 text-[11px] text-text-secondary">
           <Star size={11} />
-          {repo.stars}
+          {repo.starCount}
         </span>
+        {repo.isOfficial && (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-full
+                           bg-brand-muted text-brand border border-brand/20
+                           font-medium"
+          >
+            Official
+          </span>
+        )}
       </div>
     </button>
   );

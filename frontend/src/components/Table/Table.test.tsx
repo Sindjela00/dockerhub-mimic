@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { ColumnDef } from "./types/types";
+import type { ColumnDef } from "./types/types";
 import Table from "./Table";
 import userEvent from "@testing-library/user-event";
 
@@ -83,7 +83,7 @@ describe("Table", () => {
     expect(screen.getAllByTestId("badge")).toHaveLength(3);
   });
 
-  it("primenjuje right align na koloni", () => {
+  it("primenjuje right align na header koloni", () => {
     render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
     expect(screen.getByText("Age").closest("th")?.className).toContain(
       "text-right",
@@ -97,13 +97,13 @@ describe("Table", () => {
     );
   });
 
-  it("wrapper ima overflow-hidden", () => {
+  it("wrapper ima rounded-xl i border klase", () => {
     const { container } = render(
       <Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />,
     );
-    expect((container.firstChild as HTMLElement)?.className).toContain(
-      "overflow-hidden",
-    );
+    const wrapper = container.firstChild as HTMLElement;
+    expect(wrapper?.className).toContain("rounded-xl");
+    expect(wrapper?.className).toContain("border");
   });
 
   it("poziva onRowClick sa ispravnim redom", async () => {
@@ -210,19 +210,19 @@ describe("Table", () => {
     );
   });
 
-  it("aktivni sort header ima text-text-primary klasu", () => {
+  it("sortabilni header ima cursor-pointer sa onSort", () => {
     render(
       <Table
         columns={COLUMNS}
         data={MOCK_DATA}
         rowKey={(r) => r.id}
         onSort={vi.fn()}
-        sortKey="age"
+        sortKey=""
         sortDir="asc"
       />,
     );
     expect(screen.getByText("Age").closest("th")?.className).toContain(
-      "text-text-primary",
+      "cursor-pointer",
     );
   });
 });

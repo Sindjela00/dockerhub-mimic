@@ -1,16 +1,20 @@
-import {
-  CreateRepositoryModalProps,
-  FormErrors,
-  FormState,
-  Owner,
-} from "./types/types";
+import type { FormErrors, FormState, Owner } from "./types/types";
 
 import Button from "@/components/Button/Button";
 import InputField from "@/components/InputField/InputField";
 import Modal from "@/components/Modals/Modal";
 import { OwnerSelect } from "./components/OwnerSelect/OwnerSelect";
+import type { RepoVisibility } from "@/pages/RepositoriesPage/types/types";
 import { VisibilityToggle } from "./components/VisibilityToggle/VisibilityToggle";
+import { useCreateRepository } from "@/services/repositories/useCreateRepository/useCreateRepository";
 import { useState } from "react";
+
+interface CreateRepositoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: () => void;
+  username?: string;
+}
 
 const MOCK_ORGS: Owner[] = [
   { value: "acme-corp", label: "Acme Corp", type: "org" },
@@ -28,10 +32,12 @@ export default function CreateRepositoryModal({
   isOpen,
   onClose,
   onCreate,
+  username = "",
 }: CreateRepositoryModalProps) {
-  const username = "fakeUsername";
   const [form, setForm] = useState<FormState>(INITIAL_FORM(username));
   const [errors, setErrors] = useState<FormErrors>({});
+
+  const { loading, error: apiError, handleCreate } = useCreateRepository();
 
   const owners: Owner[] = [
     { value: username, label: username, type: "user" },
@@ -40,30 +46,30 @@ export default function CreateRepositoryModal({
 
   const validate = (): boolean => {
     const next: FormErrors = {};
-
     if (!form.name.trim()) next.name = "Repository name is required.";
     else if (!/^[a-z0-9._-]+$/.test(form.name))
       next.name =
         "Only lowercase letters, numbers, dots, hyphens and underscores.";
-
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
-    onCreate({
+    const repo = await handleCreate({
       name: form.name.trim(),
       description: form.description.trim(),
-      visibility: form.visibility,
-      namespace: form.owner,
+      visibility: form.visibility as RepoVisibility,
     });
 
-    setForm(INITIAL_FORM(username));
-    setErrors({});
-    onClose();
+    if (repo) {
+      setForm(INITIAL_FORM(username));
+      setErrors({});
+      onCreate();
+      onClose();
+    }
   };
 
   const handleClose = () => {
@@ -73,7 +79,7 @@ export default function CreateRepositoryModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Create repository">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Create new repository">
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Owner */}
         <OwnerSelect
@@ -119,13 +125,22 @@ export default function CreateRepositoryModal({
           onChange={(v) => setForm((f) => ({ ...f, visibility: v }))}
         />
 
+        {/* API error */}
+        {apiError && <p className="text-xs text-danger">{apiError}</p>}
+
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-          <Button variant="ghost" size="sm" type="button" onClick={handleClose}>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            onClick={handleClose}
+            disabled={loading}
+          >
             Cancel
           </Button>
-          <Button variant="primary" size="sm" type="submit">
-            Create repository
+          <Button variant="primary" size="sm" type="submit" disabled={loading}>
+            {loading ? "Creating..." : "Create repository"}
           </Button>
         </div>
       </form>

@@ -1,17 +1,18 @@
-import { RepositoryDetail } from "./types";
+import type { RepositoryDetail } from "./types";
 
 export const MOCK_REPO_DETAIL: RepositoryDetail = {
-  id: "1",
+  id: 1,
   name: "nginx",
-  namespace: "john.doe",
+  fullName: "john.doe/nginx",
   description:
     "Official build of Nginx — high performance HTTP server and reverse proxy.",
   visibility: "public",
-  pullCount: 142300,
-  stars: 48,
+  ownerEmail: "john@example.com",
+  isOfficial: false,
+  starCount: 48,
   tags: ["latest", "1.25", "alpine", "1.24", "stable"],
-  updatedAt: "2025-03-10T12:00:00Z",
   createdAt: "2023-01-15T08:00:00Z",
+  updatedAt: "2025-03-10T12:00:00Z",
   readme: `## nginx
 
 A high performance web server and reverse proxy.

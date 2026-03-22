@@ -1,13 +1,14 @@
-import * as authApi from "../../services/auth/auth.api";
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 
+import { AppProvider } from "@/context/AppContext";
 import LoginPage from "./LoginPage";
-import { renderWithProviders } from "../../test/test.utils";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactNode } from "react";
+import { useLogin } from "../../services/auth/useLogin/useLogin";
 import userEvent from "@testing-library/user-event";
 
-const loginSpy = vi.spyOn(authApi, "login");
+// ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -15,58 +16,134 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
+vi.mock("../../services/auth/useLogin/useLogin");
+
+// ─── Hook helper ──────────────────────────────────────────────────────────────
+
+const mockUseLogin = vi.mocked(useLogin);
+
+const mockHook = (overrides = {}) => {
+  mockUseLogin.mockReturnValue({
+    loading: false,
+    error: "",
+    handleLogin: vi.fn(),
+    ...overrides,
+  });
+};
+
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <MemoryRouter>
+    <AppProvider>{children}</AppProvider>
+  </MemoryRouter>
+);
+
+const renderPage = () => render(<LoginPage />, { wrapper });
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  mockHook();
 });
 
 describe("LoginPage", () => {
+  // ─── Renderovanje ─────────────────────────────────────────────────────────
+
   it("renderuje formu", () => {
-    renderWithProviders(<LoginPage />);
-    expect(screen.getByLabelText(/email/i)).toBeTruthy();
+    renderPage();
+    expect(screen.getByLabelText(/email\/username/i)).toBeTruthy();
     expect(screen.getByLabelText(/password/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeTruthy();
   });
 
-  it("prikazuje validacione greške za prazna polja", async () => {
+  it("renderuje naslov i opis", () => {
+    renderPage();
+    expect(screen.getByText("Welcome back")).toBeTruthy();
+    expect(
+      screen.getByText(/sign in to your docker hub account/i),
+    ).toBeTruthy();
+  });
+
+  it("renderuje link ka registraciji", () => {
+    renderPage();
+    expect(screen.getByRole("link", { name: /register/i })).toBeTruthy();
+  });
+
+  // ─── Validacija ───────────────────────────────────────────────────────────
+
+  it("prikazuje grešku za praznu lozinku", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<LoginPage />);
+    renderPage();
 
     await user.click(screen.getByRole("button", { name: /sign in/i }));
-
-    expect(screen.getByText(/valid email/i)).toBeTruthy();
     expect(screen.getByText(/password is required/i)).toBeTruthy();
   });
 
-  it("uspešan login navigira na /", async () => {
-    loginSpy.mockResolvedValueOnce({
-      data: { token: "jwt-token", role: "User", message: "Login successful." },
-    } as any);
-
+  it("ne poziva handleLogin kad validacija ne prođe", async () => {
+    const handleLogin = vi.fn();
+    mockHook({ handleLogin });
     const user = userEvent.setup();
-    renderWithProviders(<LoginPage />);
+    renderPage();
 
-    await user.type(screen.getByLabelText(/email/i), "test@test.com");
-    await user.type(screen.getByLabelText(/password/i), "Password1");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
-
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/"));
+    expect(handleLogin).not.toHaveBeenCalled();
   });
 
-  it("prikazuje API grešku", async () => {
-    loginSpy.mockRejectedValueOnce({
-      response: { data: { message: "Invalid credentials." } },
-    });
+  // ─── Submit ───────────────────────────────────────────────────────────────
 
+  it("poziva handleLogin sa username-om", async () => {
+    const handleLogin = vi.fn();
+    mockHook({ handleLogin });
     const user = userEvent.setup();
-    renderWithProviders(<LoginPage />);
+    renderPage();
 
-    await user.type(screen.getByLabelText(/email/i), "test@test.com");
+    await user.type(screen.getByLabelText(/email\/username/i), "john.doe");
     await user.type(screen.getByLabelText(/password/i), "Password1");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
-    await waitFor(() =>
-      expect(screen.getByText(/invalid credentials/i)).toBeTruthy(),
+    expect(handleLogin).toHaveBeenCalledWith({
+      identifier: "john.doe",
+      password: "Password1",
+    });
+  });
+
+  it("poziva handleLogin sa email-om", async () => {
+    const handleLogin = vi.fn();
+    mockHook({ handleLogin });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/email\/username/i),
+      "john@example.com",
     );
+    await user.type(screen.getByLabelText(/password/i), "Password1");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(handleLogin).toHaveBeenCalledWith({
+      identifier: "john@example.com",
+      password: "Password1",
+    });
+  });
+
+  // ─── API error ────────────────────────────────────────────────────────────
+
+  it("prikazuje API grešku", () => {
+    mockHook({ error: "Invalid credentials." });
+    renderPage();
+    expect(screen.getByText("Invalid credentials.")).toBeTruthy();
+  });
+
+  // ─── Loading state ────────────────────────────────────────────────────────
+
+  it("dugme prikazuje Signing in... tokom loading-a", () => {
+    mockHook({ loading: true });
+    renderPage();
+    expect(screen.getByRole("button", { name: /signing in/i })).toBeTruthy();
+  });
+
+  it("dugme je disabled tokom loading-a", () => {
+    mockHook({ loading: true });
+    renderPage();
+    expect(screen.getByRole("button", { name: /signing in/i })).toBeDisabled();
   });
 });

@@ -22,7 +22,7 @@ export function useLogin(): UseLoginReturn {
 
     try {
       const { data } = await login(payload);
-      setAuth(data.token, data.role, "fakeUsername");
+      setAuth(data.token, data.role, payload.identifier);
       navigate("/");
     } catch (err: any) {
       const message =

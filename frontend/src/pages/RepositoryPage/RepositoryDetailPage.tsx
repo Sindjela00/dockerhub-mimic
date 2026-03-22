@@ -1,9 +1,10 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Calendar,
   Check,
   Clock,
   Copy,
-  Download,
   Globe,
   Lock,
   Pencil,
@@ -11,24 +12,17 @@ import {
   Tag,
   Trash2,
 } from "lucide-react";
-import { TABS, Tab, TagDetail } from "./types/types";
 
 import Button from "@/components/Button/Button";
-import DeleteRepositoryModal from "../../components/Modals/DeleteRepositoryModal/DeleteRepositoryModal";
-import EditRepositoryModal from "../../components/Modals/EditRepositoryModal/EditRepositoryModal";
-import FavoriteStar from "@/components/FavoriteStar/FavoriteStar";
-import { MOCK_REPO_DETAIL } from "./types/mock";
-import { StatBadge } from "./components/StatBadge/StatBadge";
 import Tabs from "@/components/Tabs/Tabs";
+import FavoriteStar from "@/components/FavoriteStar/FavoriteStar";
+import EditRepositoryModal from "../../components/Modals/EditRepositoryModal/EditRepositoryModal";
+import DeleteRepositoryModal from "../../components/Modals/DeleteRepositoryModal/DeleteRepositoryModal";
+import { StatBadge } from "./components/StatBadge/StatBadge";
 import TagsTable from "./components/TahsTable/TagsTable";
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
 
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
+import { MOCK_REPO_DETAIL } from "./types/mock";
+import { TABS, type Tab } from "./types/types";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -51,17 +45,19 @@ function timeAgo(iso: string): string {
 
 export default function RepositoryDetailPage() {
   const navigate = useNavigate();
+
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [copied, setCopied] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // const { namespace, name } = useParams();
   const repo = MOCK_REPO_DETAIL;
 
-  const cmd = `docker pull ${repo.namespace}/${repo.name}:latest`;
+  const cmd = `docker pull ${repo.fullName}:latest`;
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(cmd);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -81,7 +77,7 @@ export default function RepositoryDetailPage() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-semibold text-text-primary">
-                {repo.namespace}/{repo.name}
+                {repo.fullName}
               </h1>
               <span
                 className={[
@@ -106,11 +102,15 @@ export default function RepositoryDetailPage() {
           </div>
         </div>
 
+        {/* Actions */}
         <div className="flex items-center gap-2">
           <FavoriteStar
             initialStarred={false}
-            count={repo.stars}
-            onToggle={(starred) => console.log("Starred:", starred)}
+            count={repo.starCount}
+            onToggle={(starred) => {
+              // TODO: POST /api/repositories/:id/star
+              console.log("Starred:", starred);
+            }}
           />
           <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil size={13} />
@@ -127,15 +127,11 @@ export default function RepositoryDetailPage() {
         </div>
       </div>
 
+      {/* Stats */}
       <div className="flex items-center gap-6 flex-wrap">
         <StatBadge
-          icon={<Download size={13} />}
-          value={formatCount(repo.pullCount)}
-          label="pulls"
-        />
-        <StatBadge
           icon={<Star size={13} />}
-          value={String(repo.stars)}
+          value={String(repo.starCount)}
           label="stars"
         />
         <StatBadge
@@ -158,15 +154,13 @@ export default function RepositoryDetailPage() {
       {/* Pull command */}
       <div
         className="flex items-center justify-between gap-3 px-4 py-3
-                    rounded-lg bg-bg-base border border-border font-mono"
+                      rounded-lg bg-bg-base border border-border font-mono"
       >
         <span className="text-xs text-text-primary truncate">{cmd}</span>
         <button
-          onClick={() => {
-            handleCopy(cmd);
-          }}
+          onClick={handleCopy}
           className="p-1.5 rounded text-text-secondary hover:text-brand
-                 hover:bg-bg-elevated transition-colors"
+                     hover:bg-bg-elevated transition-colors"
           title="Copy"
         >
           {copied ? (
@@ -183,7 +177,6 @@ export default function RepositoryDetailPage() {
 
         {activeTab === "overview" && (
           <div className="flex flex-col gap-6">
-            {/* README */}
             {repo.readme ? (
               <div className="flex flex-col gap-3">
                 <h2 className="text-xs font-medium uppercase tracking-widest text-text-secondary">
@@ -206,7 +199,6 @@ export default function RepositoryDetailPage() {
               </div>
             )}
 
-            {/* Recent tags */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-medium uppercase tracking-widest text-text-secondary">
@@ -234,18 +226,22 @@ export default function RepositoryDetailPage() {
         )}
       </div>
 
+      {/* Modali */}
       <EditRepositoryModal
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
-        onSave={(updated) => console.log("Save:", updated)}
+        onSave={() => {
+          // TODO: PUT /api/repositories/:id
+          setEditOpen(false);
+        }}
         repo={repo}
       />
 
       <DeleteRepositoryModal
         isOpen={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        onDelete={(id) => {
-          console.log("Delete:", id);
+        onDelete={() => {
+          // TODO: DELETE /api/repositories/:id
           navigate("/repositories");
         }}
         repo={repo}

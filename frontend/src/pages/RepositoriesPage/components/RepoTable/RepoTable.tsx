@@ -1,15 +1,9 @@
 import { ColumnDef, SortDirection } from "@/components/Table/types/types";
-import { Download, Edit2, Globe, Lock, Star, Trash2 } from "lucide-react";
+import { Edit2, Globe, Lock, Star, Trash2 } from "lucide-react";
 
-import type { Repository } from "@/pages/RepositoriesPage/types/types";
+import { Repository } from "@/services/repositories/repositories.api";
 import Table from "@/components/Table/Table";
 import { useState } from "react";
-
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -48,7 +42,7 @@ const REPO_COLUMNS: ColumnDef<Repository>[] = [
         </div>
         <div>
           <p className="text-sm font-medium text-text-primary">
-            {repo.namespace}/{repo.name}
+            {repo.fullName}
           </p>
           {repo.description && (
             <p className="text-[11px] text-text-secondary truncate max-w-[240px]">
@@ -75,6 +69,7 @@ const REPO_COLUMNS: ColumnDef<Repository>[] = [
             {tag}
           </span>
         ))}
+        {repo.tags.length ? "" : <div>-</div>}
         {repo.tags.length > 2 && (
           <span className="text-[10px] text-text-secondary">
             +{repo.tags.length - 2}
@@ -106,26 +101,14 @@ const REPO_COLUMNS: ColumnDef<Repository>[] = [
     ),
   },
   {
-    key: "pullCount",
-    header: "Pulls",
-    align: "right",
-    hideBelow: "md",
-    render: (repo) => (
-      <span className="flex items-center justify-end gap-1 text-xs text-text-secondary">
-        <Download size={11} />
-        {formatCount(repo.pullCount)}
-      </span>
-    ),
-  },
-  {
-    key: "stars",
+    key: "starCount",
     header: "Stars",
     align: "right",
     hideBelow: "md",
     render: (repo) => (
       <span className="flex items-center justify-end gap-1 text-xs text-text-secondary">
         <Star size={11} />
-        {repo.stars}
+        {repo.starCount}
       </span>
     ),
   },
@@ -204,7 +187,7 @@ export default function RepoTable({
     <Table
       columns={columns}
       data={sorted}
-      rowKey={(r) => r.id}
+      rowKey={(r) => String(r.id)}
       onRowClick={onClick}
       emptyText="No repositories found."
       sortKey={sortKey}

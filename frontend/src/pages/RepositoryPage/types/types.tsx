@@ -1,6 +1,5 @@
-import { TabItem } from "@/components/Tabs/Tabs";
-
-export type RepoVisibility = "public" | "private";
+import { Repository } from "@/services/repositories/repositories.api";
+import type { TabItem } from "@/components/Tabs/Tabs";
 
 export interface TagDetail {
   name: string;
@@ -9,18 +8,6 @@ export interface TagDetail {
   pushedAt: string;
   os: string;
   arch: string;
-}
-
-export interface Repository {
-  id: string;
-  name: string;
-  namespace: string;
-  description: string;
-  visibility: RepoVisibility;
-  pullCount: number;
-  stars: number;
-  tags: string[];
-  updatedAt: string;
 }
 
 export interface RepositoryDetail extends Repository {

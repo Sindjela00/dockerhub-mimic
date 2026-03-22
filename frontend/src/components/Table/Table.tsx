@@ -104,7 +104,7 @@ export default function Table<T extends object>({
                       col.hideBelow ? HIDE_CLASS[col.hideBelow] : "",
                     ].join(" ")}
                   >
-                    {col.render(row)}
+                    {row ? col.render(row) : "-"}
                   </td>
                 ))}
               </tr>
