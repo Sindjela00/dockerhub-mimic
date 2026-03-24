@@ -32,14 +32,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddHttpClient();
-builder.Services.AddHttpClient("HarborApi")
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-    {
-        // Harbor v2 API with basic auth can set sid cookies on GET responses.
-        // Replaying that cookie on POST without CSRF token triggers 403.
-        UseCookies = false
-    });
-builder.Services.AddScoped<HarborService, HarborServiceImpl>();
 builder.Services.AddMemoryCache();
 var jwtKey = builder.Configuration.GetValue<string>("Jwt:Key")
     ?? "CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345";

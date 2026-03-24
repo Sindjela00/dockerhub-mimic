@@ -1,4 +1,3 @@
-using System.Text.Json;
 using backend.Controllers;
 using backend.Data;
 using backend.Models;
@@ -7,7 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 namespace backend.Tests;
 
@@ -193,53 +191,8 @@ public sealed class AuthControllerTests
             .Build();
 
         var tokenService = new JwtTokenService(config);
-        var harborService = new StubHarborService();
         var cache = new MemoryCache(new MemoryCacheOptions());
-        return new AuthController(dbContext, tokenService, harborService, cache, config);
-    }
-
-    private sealed class StubHarborService : HarborService
-    {
-        public Task<HarborUserProvisioningResult> CreateUserAsync(string username, string email, string password, CancellationToken cancellationToken)
-        {
-            return Task.FromResult(new HarborUserProvisioningResult(true));
-        }
-
-        public Task<HarborProjectProvisioningResult> CreateProjectAsync(string projectName, bool isPublic = false, string? username = null, string? password = null, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new HarborProjectProvisioningResult(true));
-        }
-
-        public Task<HarborRepositoryProvisioningResult> CreateRepositoryAsync(string projectName, string repositoryName, bool isPublic, int? userId = null, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new HarborRepositoryProvisioningResult(true));
-        }
-
-        public Task<HarborRepositoryDeletionResult> DeleteRepositoryAsync(string projectName, string repositoryName, int? userId = null, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new HarborRepositoryDeletionResult(true));
-        }
-
-        public Task<HarborRepositoryQueryResult> GetRepositoriesAsync(string projectName, int? userId = null, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new HarborRepositoryQueryResult(true, Array.Empty<HarborRepositoryInfo>()));
-        }
-
-        public Task<IReadOnlyList<string>> GetCatalogAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
-        }
-
-        public Task<IReadOnlyList<string>> GetTagsAsync(string repositoryName, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
-        }
-
-        public Task<JsonElement> GetManifestAsync(string repositoryName, string reference, CancellationToken cancellationToken = default)
-        {
-            using var doc = JsonDocument.Parse("{}");
-            return Task.FromResult(doc.RootElement.Clone());
-        }
+        return new AuthController(dbContext, tokenService, cache, config);
     }
 
     private static T GetProperty<T>(object source, string propertyName)

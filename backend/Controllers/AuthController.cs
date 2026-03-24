@@ -1,6 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using backend.Data;
 using backend.Models;
 using backend.Services;
@@ -8,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Controllers;
 
@@ -17,20 +21,17 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
     private readonly JwtTokenService _jwtTokenService;
-    private readonly HarborService _harborService;
     private readonly IMemoryCache _cache;
     private readonly IConfiguration _configuration;
 
     public AuthController(
         AppDbContext dbContext,
         JwtTokenService jwtTokenService,
-        HarborService harborService,
         IMemoryCache cache,
         IConfiguration configuration)
     {
         _dbContext = dbContext;
         _jwtTokenService = jwtTokenService;
-        _harborService = harborService;
         _cache = cache;
         _configuration = configuration;
     }
@@ -78,40 +79,11 @@ public class AuthController : ControllerBase
         var createdUser = await _dbContext.Users.FirstAsync(user => user.Email == normalizedEmail, cancellationToken);
         var token = _jwtTokenService.GenerateToken(createdUser);
 
-        var harborProvisioningResult = await _harborService
-            .CreateUserAsync(normalizedUsername, normalizedEmail, request.Password, cancellationToken);
-
-        bool harborProvisioned = harborProvisioningResult.Succeeded
-            || harborProvisioningResult.StatusCode == StatusCodes.Status409Conflict;
-
-        if (harborProvisioned)
-        {
-            var projectResult = await _harborService.CreateProjectAsync(
-                normalizedUsername,
-                isPublic: false,
-                username: normalizedUsername,
-                password: request.Password,
-                cancellationToken: cancellationToken);
-            if (!projectResult.Succeeded)
-            {
-                HttpContext.RequestServices
-                    .GetRequiredService<ILogger<AuthController>>()
-                    .LogWarning("Harbor project creation failed for {Username}: {Error}", normalizedUsername, projectResult.ErrorMessage);
-            }
-        }
-        else
-        {
-            HttpContext.RequestServices
-                .GetRequiredService<ILogger<AuthController>>()
-                .LogWarning("Harbor provisioning failed for {Username}: {Error}", normalizedUsername, harborProvisioningResult.ErrorMessage);
-        }
-
         return Ok(new
         {
             message = "User registered successfully.",
             token,
-            role = createdUser.Role,
-            harborProvisioned
+            role = createdUser.Role
         });
     }
 
@@ -131,7 +103,7 @@ public class AuthController : ControllerBase
 
         var token = _jwtTokenService.GenerateToken(user!);
 
-        var cacheKey = $"harbor_creds_{user!.Id}";
+        var cacheKey = $"registry_creds_{user!.Username}";
         var jwtExpiresMinutes = _configuration.GetValue<int?>("Jwt:ExpiresMinutes") ?? 60;
         var cacheOptions = new MemoryCacheEntryOptions
         {
@@ -177,6 +149,60 @@ public class AuthController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new { message = "Password changed successfully." });
+    }
+
+    // Docker Registry token endpoint (called by registry and docker clients)
+    [HttpGet("/auth/token")]
+    public async Task<IActionResult> GetRegistryToken(
+        [FromQuery] string? service,
+        [FromQuery] string? account,
+        [FromQuery] string? client_id,
+        [FromQuery(Name = "scope")] string[]? scopes,
+        CancellationToken cancellationToken)
+    {
+        var username = NormalizeIdentifier(account ?? string.Empty);
+        var password = string.Empty;
+
+        // Docker login/token flow uses Basic auth to authenticate user credentials.
+        if (TryReadBasicCredentials(out var basicUsername, out var basicPassword))
+        {
+            username = NormalizeIdentifier(basicUsername);
+            password = basicPassword;
+        }
+        else if (!string.IsNullOrWhiteSpace(username)
+                 && _cache.TryGetValue<(string Username, string Password)>($"registry_creds_{username}", out var cachedCreds))
+        {
+            password = cachedCreds.Password;
+        }
+        else
+        {
+            return Unauthorized(new { message = "Missing or invalid credentials for registry token." });
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(existingUser => existingUser.Email == username || existingUser.Username == username, cancellationToken);
+        var storedHash = user?.PasswordHash;
+
+        if (user is null || string.IsNullOrWhiteSpace(storedHash) || !VerifyPassword(password, storedHash))
+        {
+            return Unauthorized(new { message = "Invalid username/email or password." });
+        }
+
+        var tokenService = string.IsNullOrWhiteSpace(service)
+            ? "dockerhub-mimic-registry"
+            : service.Trim();
+
+        var requestedScopes = scopes ?? Array.Empty<string>();
+        var access = BuildRegistryAccessEntries(requestedScopes);
+        var (token, expiresIn) = GenerateRegistryJwt(user.Username, tokenService, access, client_id);
+
+        return Ok(new
+        {
+            token,
+            access_token = token,
+            expires_in = expiresIn,
+            issued_at = DateTime.UtcNow.ToString("O")
+        });
     }
 
     private static string NormalizeEmail(string email)
@@ -241,6 +267,159 @@ public class AuthController : ControllerBase
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(expectedHash),
             Encoding.UTF8.GetBytes(computedHashBase64));
+    }
+
+    private bool TryReadBasicCredentials(out string username, out string password)
+    {
+        username = string.Empty;
+        password = string.Empty;
+
+        var authorization = Request.Headers.Authorization.ToString();
+        if (string.IsNullOrWhiteSpace(authorization) || !authorization.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var encoded = authorization[6..].Trim();
+        try
+        {
+            var bytes = Convert.FromBase64String(encoded);
+            var decoded = Encoding.UTF8.GetString(bytes);
+            var separatorIndex = decoded.IndexOf(':');
+            if (separatorIndex <= 0)
+            {
+                return false;
+            }
+
+            username = decoded[..separatorIndex];
+            password = decoded[(separatorIndex + 1)..];
+            return !string.IsNullOrWhiteSpace(username);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private static List<object> BuildRegistryAccessEntries(IEnumerable<string> scopes)
+    {
+        var access = new List<object>();
+
+        foreach (var rawScope in scopes)
+        {
+            if (string.IsNullOrWhiteSpace(rawScope))
+            {
+                continue;
+            }
+
+            var parts = rawScope.Split(':');
+            if (parts.Length < 3)
+            {
+                continue;
+            }
+
+            var type = parts[0];
+            var name = parts[1];
+            var actions = parts[2]
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            access.Add(new
+            {
+                type,
+                name,
+                actions
+            });
+        }
+
+        return access;
+    }
+
+    private (string Token, int ExpiresIn) GenerateRegistryJwt(string username, string service, List<object> access, string? clientId)
+    {
+        var issuer = _configuration.GetValue<string>("REGISTRY_JWT_ISSUER")
+            ?? _configuration.GetValue<string>("Registry:JwtIssuer")
+            ?? "dockerhub-mimic-backend";
+        var privateKeyPath = _configuration.GetValue<string>("REGISTRY_JWT_PRIVATE_KEY_PATH")
+            ?? _configuration.GetValue<string>("Registry:JwtPrivateKeyPath")
+            ?? "/app/registry-private.pem";
+        var publicCertPath = _configuration.GetValue<string>("REGISTRY_JWT_PUBLIC_CERT_PATH")
+            ?? _configuration.GetValue<string>("Registry:JwtPublicCertPath")
+            ?? "/app/registry-public.crt";
+        var expiresIn = _configuration.GetValue<int?>("REGISTRY_JWT_EXPIRES_SECONDS") ?? 3600;
+
+        if (!System.IO.File.Exists(privateKeyPath))
+        {
+            throw new InvalidOperationException($"Registry private key not found at '{privateKeyPath}'.");
+        }
+
+        var pem = System.IO.File.ReadAllText(privateKeyPath);
+        RSAParameters rsaParams;
+        using (var tempRsa = RSA.Create())
+        {
+            tempRsa.ImportFromPem(pem);
+            rsaParams = tempRsa.ExportParameters(includePrivateParameters: true);
+        }
+
+        var securityKey = new RsaSecurityKey(rsaParams);
+
+        var now = DateTime.UtcNow;
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, username),
+            new(JwtRegisteredClaimNames.Iat, EpochTime.GetIntDate(now).ToString(), ClaimValueTypes.Integer64),
+            new("access", JsonSerializer.Serialize(access), JsonClaimValueTypes.JsonArray)
+        };
+
+        if (!string.IsNullOrWhiteSpace(clientId))
+        {
+            claims.Add(new Claim("client_id", clientId));
+        }
+
+        var signingCredentials = new SigningCredentials(securityKey, SecurityAlgorithms.RsaSha256);
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: service,
+            claims: claims,
+            notBefore: now,
+            expires: now.AddSeconds(expiresIn),
+            signingCredentials: signingCredentials);
+
+        var x5c = TryGetX5cFromPemCertificate(publicCertPath);
+        if (!string.IsNullOrWhiteSpace(x5c))
+        {
+            token.Header[JwtHeaderParameterNames.X5c] = new[] { x5c };
+        }
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        return (tokenHandler.WriteToken(token), expiresIn);
+    }
+
+    private static string? TryGetX5cFromPemCertificate(string certificatePath)
+    {
+        if (!System.IO.File.Exists(certificatePath))
+        {
+            return null;
+        }
+
+        var pem = System.IO.File.ReadAllText(certificatePath);
+        const string begin = "-----BEGIN CERTIFICATE-----";
+        const string end = "-----END CERTIFICATE-----";
+
+        var start = pem.IndexOf(begin, StringComparison.Ordinal);
+        var finish = pem.IndexOf(end, StringComparison.Ordinal);
+        if (start < 0 || finish < 0 || finish <= start)
+        {
+            return null;
+        }
+
+        var base64Body = pem[(start + begin.Length)..finish]
+            .Replace("\r", string.Empty, StringComparison.Ordinal)
+            .Replace("\n", string.Empty, StringComparison.Ordinal)
+            .Trim();
+
+        return string.IsNullOrWhiteSpace(base64Body) ? null : base64Body;
     }
 
     public sealed record RegisterRequest(
