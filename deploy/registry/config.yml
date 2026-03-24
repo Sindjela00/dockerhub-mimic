@@ -1,0 +1,30 @@
+version: 0.1
+log:
+  level: info
+
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+
+http:
+  addr: :5000
+
+auth:
+  token:
+    realm: "http://localhost:3000/auth/token"
+    service: "dockerhub-mimic-registry"
+    issuer: "dockerhub-mimic-backend"
+    rootcertbundle: "/certs/registry-public.crt"
+    jwks: "/certs/jwks.json"
+    signingalgorithms: ["RS256"]
+
+notifications:
+  endpoints:
+    - name: backend-sync
+      url: http://backend:8080/registry/events
+      timeout: 3s
+      threshold: 5
+      backoff: 1s
+      disabled: false

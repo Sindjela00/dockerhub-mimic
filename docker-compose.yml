@@ -1,219 +1,84 @@
-version: "3.9"
-
 services:
-  # ---------------------------
-  # DATABASE (shared)
-  # ---------------------------
+
   db:
     image: postgres:16-alpine
-    container_name: dockerhub-mimic-db
+    container_name: postgres
     command: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
     environment:
-      POSTGRES_DB: dockerhub_mimic
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./deploy/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d dockerhub_mimic"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - app-network
 
-  # ---------------------------
-  # REDIS (shared)
-  # ---------------------------
-  redis:
-    image: redis:7-alpine
-    container_name: dockerhub-mimic-redis
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  # ---------------------------
-  # HARBOR CORE
-  # ---------------------------
-  harbor-core:
-    image: goharbor/harbor-core:v2.10.2
-    environment:
-      CORE_SECRET: secret
-      JOBSERVICE_SECRET: secret
-      POSTGRESQL_HOST: db
-      POSTGRESQL_PORT: 5432
-      POSTGRESQL_USERNAME: postgres
-      POSTGRESQL_PASSWORD: postgres123
-      POSTGRESQL_DATABASE: registry
-      _REDIS_URL_CORE: "redis://redis:6379/0"
-      REGISTRY_URL: "http://harbor-registry:5000"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v2.0/systeminfo"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  # ---------------------------
-  # HARBOR PORTAL (UI)
-  # ---------------------------
-  harbor-portal:
-    image: goharbor/harbor-portal:v2.10.2
-    user: "0:0"
-    volumes:
-      - ./deploy/harbor/portal-nginx.conf:/etc/nginx/nginx.conf:ro
-    healthcheck:
-      test: ["CMD-SHELL", "curl --fail -s http://localhost:80 || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  # ---------------------------
-  # HARBOR JOBSERVICE
-  # ---------------------------
-  harbor-jobservice:
-    image: goharbor/harbor-jobservice:v2.10.2
-    environment:
-      CORE_SECRET: secret
-      JOBSERVICE_SECRET: secret
-      CORE_URL: "http://harbor-core:8080"
-      _REDIS_URL_JOBSERVICE: "redis://redis:6379/1"
-    volumes:
-      - ./deploy/harbor/jobservice-config.yml:/etc/jobservice/config.yml:ro
-    depends_on:
-      harbor-core:
-        condition: service_healthy
-    networks:
-      - app-network
-
-  # ---------------------------
-  # HARBOR REGISTRY
-  # ---------------------------
-  harbor-registry:
-    image: goharbor/registry-photon:v2.10.2
-    volumes:
-      - registry_data:/storage
-      - ./deploy/harbor/config.yml:/etc/registry/config.yml:ro
-    networks:
-      - app-network
-
-  # ---------------------------
-  # HARBOR REGISTRYCTL
-  # ---------------------------
-  harbor-registryctl:
-    image: goharbor/harbor-registryctl:v2.10.2
-    volumes:
-      - registry_data:/storage
-      - ./deploy/harbor/config.yml:/etc/registry/config.yml:ro
-      - ./deploy/harbor/registryctl-config.yml:/etc/registryctl/config.yml:ro
-    depends_on:
-      - harbor-registry
-    networks:
-      - app-network
-
-  # ---------------------------
-  # HARBOR NGINX (internal)
-  # ---------------------------
-  harbor-nginx:
-    image: goharbor/nginx-photon:v2.10.2
-    user: "0:0"
-    ports:
-      - "8088:8080"
-    volumes:
-      - ./deploy/harbor/harbor-nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      harbor-core:
-        condition: service_healthy
-      harbor-portal:
-        condition: service_healthy
-      harbor-registry:
-        condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/ || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  # ---------------------------
-  # BACKEND
-  # ---------------------------
   backend:
     build: ./backend
-    container_name: dockerhub-mimic-backend
+    container_name: backend
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=dockerhub_mimic;Username=postgres;Password=postgres123"
-      Redis__Configuration: "redis:6379"
-      Harbor__ApiBaseUrl: "http://harbor-core:8080"
-      Harbor__AdminUsername: "${HARBOR_ADMIN_USERNAME:-admin}"
-      Harbor__AdminPassword: "${HARBOR_ADMIN_PASSWORD:-Harbor12345}"
-      Jwt__Key: "${JWT_KEY:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345}"
-      Jwt__Issuer: "${JWT_ISSUER:-dockerhub-mimic}"
-      Jwt__Audience: "${JWT_AUDIENCE:-dockerhub-mimic-clients}"
-      Jwt__ExpiresMinutes: "${JWT_EXPIRES_MINUTES:-60}"
-      Seed__DemoEmail: "${SEED_DEMO_EMAIL:-demo@dockerhubmimic.local}"
-      Seed__DemoPassword: "${SEED_DEMO_PASSWORD:-Password1}"
-      Seed__DemoRole: "${SEED_DEMO_ROLE:-User}"
-      Seed__AdminEmail: "${SEED_ADMIN_EMAIL:-admin@dockerhubmimic.local}"
-      Seed__AdminPassword: "${SEED_ADMIN_PASSWORD:-Welcome1}"
-      Seed__AdminRole: "${SEED_ADMIN_ROLE:-Administrator}"
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REGISTRY_JWT_ISSUER=${REGISTRY_JWT_ISSUER}
+      - REGISTRY_JWT_KEY_ID=${REGISTRY_JWT_KEY_ID}
+      - REGISTRY_JWT_PRIVATE_KEY_PATH=${REGISTRY_JWT_PRIVATE_KEY_PATH}
+      - REGISTRY_JWT_PUBLIC_CERT_PATH=${REGISTRY_JWT_PUBLIC_CERT_PATH}
+      - JWT_KEY=${JWT_KEY}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+    volumes:
+      - ./deploy/registry/registry-private.pem:/app/registry-private.pem:ro
+      - ./deploy/registry/registry-public.crt:/app/registry-public.crt:ro
     depends_on:
       db:
-        condition: service_started
-      redis:
-        condition: service_started
-      harbor-core:
-        condition: service_started
-    networks:
-      - app-network
+        condition: service_healthy
+    restart: unless-stopped
 
-  # ---------------------------
-  # FRONTEND
-  # ---------------------------
   frontend:
     build: ./frontend
-    container_name: dockerhub-mimic-frontend
+    container_name: frontend
+    environment:
+      - BACKEND_HOST=${BACKEND_HOST}
+      - BACKEND_PORT=${BACKEND_PORT}
     depends_on:
       - backend
-    networks:
-      - app-network
+    restart: unless-stopped
 
-  # ---------------------------
-  # MAIN NGINX (ENTRY POINT)
-  # ---------------------------
   nginx:
     image: nginx:alpine
-    container_name: dockerhub-mimic-nginx
+    container_name: nginx
     ports:
-      - "3000:80"
+      - "${HTTP_PORT:-3000}:80"
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - frontend
       - backend
-      - harbor-nginx
-    networks:
-      - app-network
+    restart: unless-stopped
+
+  registry:
+    image: registry:2
+    container_name: registry
+    command: ["registry", "serve", "/etc/docker/registry/config.yml"]
+    volumes:
+      - registry_data:/var/lib/registry
+      - ./deploy/registry/config.yml:/etc/docker/registry/config.yml:ro
+      - ./deploy/registry/jwks.json:/certs/jwks.json:ro
+      - ./deploy/registry/registry-public.crt:/certs/registry-public.crt:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   registry_data:
-
-networks:
-  app-network:
-    driver: bridge

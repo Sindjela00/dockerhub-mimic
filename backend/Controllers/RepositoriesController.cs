@@ -1,12 +1,11 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
 using backend.Data;
 using backend.Models;
-using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Text.Json.Serialization;
 
 namespace backend.Controllers;
 
@@ -14,116 +13,139 @@ namespace backend.Controllers;
 [Route("api/repositories")]
 public class RepositoriesController : ControllerBase
 {
-    private readonly HarborService _harborService;
     private readonly AppDbContext _dbContext;
 
-    public RepositoriesController(HarborService harborService, AppDbContext dbContext)
+    public RepositoriesController(AppDbContext dbContext)
     {
-        _harborService = harborService;
         _dbContext = dbContext;
     }
 
     // ============ Endpoints ============
 
     /// <summary>
-    /// Get all public repositories with optional search and pagination
+    /// Explore repositories with basic filters. Use mine=true for the current user's repositories.
     /// </summary>
     [HttpGet("explore")]
-    public async Task<IActionResult> GetPublicRepositories(
+    public async Task<IActionResult> ExploreRepositories(
         [FromQuery] string? search,
+        [FromQuery] string? owner,
+        [FromQuery] string? visibility,
+        [FromQuery] int? minStars,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDir,
+        [FromQuery] bool mine = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         (page, pageSize) = NormalizePaging(page, pageSize);
 
-        var catalog = await _harborService.GetCatalogAsync(cancellationToken);
-        var filteredRepositories = catalog
-            .Where(name => string.IsNullOrWhiteSpace(search) || name.Contains(search, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(name => name)
-            .ToList();
+        var currentUsername = GetCurrentUsername();
+        var normalizedCurrentUsername = NormalizeIdentifier(currentUsername ?? string.Empty);
 
-        var total = filteredRepositories.Count;
-        var pageRepositories = filteredRepositories
+        var query = _dbContext.Repositories
+            .Include(r => r.Owner)
+            .Include(r => r.Tags)
+            .AsQueryable();
+
+        if (mine)
+        {
+            if (string.IsNullOrWhiteSpace(normalizedCurrentUsername))
+            {
+                return Unauthorized();
+            }
+
+            query = query.Where(r => r.Owner != null && r.Owner.Username == normalizedCurrentUsername);
+        }
+        else
+        {
+            // Default explore shows public repositories, plus the current user's private repositories if authenticated.
+            var includeOwnPrivate = !string.IsNullOrWhiteSpace(normalizedCurrentUsername) && string.IsNullOrWhiteSpace(visibility);
+            if (includeOwnPrivate)
+            {
+                query = query.Where(r => r.Visibility == "public"
+                    || (r.Owner != null && r.Owner.Username == normalizedCurrentUsername));
+            }
+            else
+            {
+                query = query.Where(r => r.Visibility == "public");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim().ToLowerInvariant();
+            query = query.Where(r =>
+                r.Name.ToLower().Contains(normalizedSearch)
+                || r.Description.ToLower().Contains(normalizedSearch));
+        }
+
+        if (!string.IsNullOrWhiteSpace(owner))
+        {
+            var normalizedOwner = NormalizeIdentifier(owner);
+            query = query.Where(r => r.Owner != null && r.Owner.Username == normalizedOwner);
+        }
+
+        if (!string.IsNullOrWhiteSpace(visibility))
+        {
+            var normalizedVisibility = visibility.Trim().ToLowerInvariant();
+            if (!IsValidVisibility(normalizedVisibility))
+            {
+                return BadRequest(new { message = "Visibility filter must be 'public' or 'private'." });
+            }
+
+            if (!mine && normalizedVisibility == "private")
+            {
+                return BadRequest(new { message = "Private repositories can be explored only with mine=true." });
+            }
+
+            query = query.Where(r => r.Visibility == normalizedVisibility);
+        }
+
+        if (minStars.HasValue)
+        {
+            query = query.Where(r => r.StarCount >= minStars.Value);
+        }
+
+        query = ApplySorting(query, sortBy, sortDir);
+
+        var total = await query.CountAsync(cancellationToken);
+        var repos = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .ToList();
+            .ToListAsync(cancellationToken);
 
-        var now = DateTime.UtcNow;
-        var response = new RepositoryListResponse
+        return Ok(new RepositoryListResponse
         {
-            Repositories = pageRepositories
-                .Select(fullName => MapHarborRepositoryToResponse(fullName, "public", now, now, string.Empty))
-                .ToList(),
+            Repositories = repos.Select(MapDbRepositoryToResponse).ToList(),
             Total = total,
             Page = page,
             PageSize = pageSize
-        };
-
-        return Ok(response);
+        });
     }
 
     /// <summary>
-    /// Get user's own repositories
+    /// Get a specific repository by id.
     /// </summary>
-    [HttpGet("my")]
-    [Authorize]
-    public async Task<IActionResult> GetMyRepositories(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
-        CancellationToken cancellationToken = default)
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetRepository(int id, CancellationToken cancellationToken = default)
     {
-        var username = GetCurrentUsername();
-        if (string.IsNullOrEmpty(username))
-            return Unauthorized();
-
-        // Fetch from DB (source of truth for visibility/description)
-        var dbRepos = await _dbContext.Repositories
+        var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
-            .Where(r => r.Owner!.Username == username)
-            .OrderByDescending(r => r.UpdatedAt)
-            .ToListAsync(cancellationToken);
+            .Include(r => r.Tags)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
-        // Fetch from Harbor (best-effort; repos pushed directly won't be in DB)
-        var harborResult = await _harborService.GetRepositoriesAsync(username, cancellationToken: cancellationToken);
-        var harborRepos = harborResult.Succeeded
-            ? harborResult.Repositories
-            : (IReadOnlyList<HarborRepositoryInfo>)Array.Empty<HarborRepositoryInfo>();
-
-        var harborByName = harborRepos
-            .ToDictionary(r => r.Name.ToLowerInvariant(), r => r, StringComparer.OrdinalIgnoreCase);
-
-        var dbRepoNames = new HashSet<string>(dbRepos.Select(r => r.Name.ToLowerInvariant()));
-
-        // DB repos enriched with Harbor metadata
-        var now = DateTime.UtcNow;
-        var merged = dbRepos
-            .Select(r =>
-            {
-                harborByName.TryGetValue(r.Name.ToLowerInvariant(), out var hr);
-                return MapDbRepositoryToResponse(r, hr);
-            })
-            .ToList();
-
-        // Harbor-only repos (pushed directly, not created via our API)
-        foreach (var hr in harborRepos)
+        if (repo is null)
         {
-            if (!dbRepoNames.Contains(hr.Name.ToLowerInvariant()))
-                merged.Add(MapHarborRepositoryToResponse(hr.FullName, "private", hr.UpdatedAt ?? now, hr.UpdatedAt ?? now, hr.Description));
+            return NotFound(new { message = "Repository not found." });
         }
 
-        var total = merged.Count;
-        (page, pageSize) = NormalizePaging(page, pageSize);
-
-        var response = new RepositoryListResponse
+        if (repo.Visibility == "private" && !CanAccessPrivateRepository(repo))
         {
-            Repositories = merged.Skip((page - 1) * pageSize).Take(pageSize).ToList(),
-            Total = total,
-            Page = page,
-            PageSize = pageSize
-        };
+            return Forbid();
+        }
 
-        return Ok(response);
+        return Ok(MapDbRepositoryToResponse(repo));
     }
 
     /// <summary>
@@ -173,46 +195,209 @@ public class RepositoriesController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         repo.Owner = user;
-        var responseRepository = MapDbRepositoryToResponse(repo, null);
-        return Ok(new { message = "Repository created successfully.", repository = responseRepository });
+        var responseRepository = MapDbRepositoryToResponse(repo);
+        return StatusCode(201, new { message = "Repository created successfully.", repository = responseRepository });
     }
 
     /// <summary>
-    /// Reads all tags for a repository from the self-hosted container registry.
+    /// Update repository details.
     /// </summary>
-    [HttpGet("tags/{*repositoryName}")]
+    [HttpPut("{id:int}")]
     [Authorize]
-    public async Task<IActionResult> GetRegistryTags(string repositoryName, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> UpdateRepository(
+        int id,
+        [FromBody] UpdateRepositoryRequest request,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(repositoryName))
+        var username = GetCurrentUsername();
+        if (string.IsNullOrWhiteSpace(username))
         {
-            return BadRequest(new { message = "Repository name is required." });
+            return Unauthorized();
         }
 
-        return await ExecuteRegistryCallAsync(async () =>
+        var repo = await _dbContext.Repositories
+            .Include(r => r.Owner)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is null)
         {
-            var tags = await _harborService.GetTagsAsync(repositoryName, cancellationToken);
-            return Ok(new RegistryTagsResponse(repositoryName, tags));
+            return NotFound(new { message = "Repository not found." });
+        }
+
+        if (!CanManageRepository(repo))
+        {
+            return Forbid();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            var normalizedName = request.Name.Trim().ToLowerInvariant();
+            if (normalizedName.Length > 100)
+            {
+                return BadRequest(new { message = "Repository name must not exceed 100 characters." });
+            }
+
+            var nameTaken = await _dbContext.Repositories
+                .AnyAsync(r => r.OwnerId == repo.OwnerId && r.Name == normalizedName && r.Id != repo.Id, cancellationToken);
+            if (nameTaken)
+            {
+                return Conflict(new { message = "Repository with this name already exists." });
+            }
+
+            repo.Name = normalizedName;
+        }
+
+        if (request.Description is not null)
+        {
+            repo.Description = request.Description.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Visibility))
+        {
+            var normalizedVisibility = request.Visibility.Trim().ToLowerInvariant();
+            if (!IsValidVisibility(normalizedVisibility))
+            {
+                return BadRequest(new { message = "Visibility must be 'public' or 'private'." });
+            }
+
+            repo.Visibility = normalizedVisibility;
+        }
+
+        repo.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            message = "Repository updated successfully.",
+            repository = MapDbRepositoryToResponse(repo)
         });
     }
 
     /// <summary>
-    /// Reads a manifest by tag or digest from the self-hosted container registry.
+    /// Delete repository.
     /// </summary>
-    [HttpGet("manifests/{*repositoryName}")]
+    [HttpDelete("{id:int}")]
     [Authorize]
-    public async Task<IActionResult> GetRegistryManifest(string repositoryName, [FromQuery] string reference, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> DeleteRepository(int id, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(repositoryName) || string.IsNullOrWhiteSpace(reference))
+        var repo = await _dbContext.Repositories
+            .Include(r => r.Owner)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is null)
         {
-            return BadRequest(new { message = "Repository name and reference are required." });
+            return NotFound(new { message = "Repository not found." });
         }
 
-        return await ExecuteRegistryCallAsync(async () =>
+        if (!CanManageRepository(repo))
         {
-            var manifest = await _harborService.GetManifestAsync(repositoryName, reference, cancellationToken);
-            return Ok(new { repository = repositoryName, reference, manifest });
-        });
+            return Forbid();
+        }
+
+        _dbContext.Repositories.Remove(repo);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Receives Docker Registry notifications and syncs repositories into local DB.
+    /// </summary>
+    [HttpPost("/registry/events")]
+    [AllowAnonymous]
+    public async Task<IActionResult> HandleRegistryEvents(
+        [FromBody] RegistryEventEnvelope? envelope,
+        CancellationToken cancellationToken = default)
+    {
+        if (envelope?.Events is null || envelope.Events.Count == 0)
+        {
+            return Ok(new { message = "No events received." });
+        }
+
+        var now = DateTime.UtcNow;
+
+        foreach (var ev in envelope.Events)
+        {
+            var action = (ev.Action ?? string.Empty).Trim().ToLowerInvariant();
+            if (action != "push")
+            {
+                continue;
+            }
+
+            var repositoryPath = (ev.Target?.Repository ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(repositoryPath))
+            {
+                continue;
+            }
+
+            // Expected format: <namespace>/<repository>
+            var slashIndex = repositoryPath.IndexOf('/');
+            if (slashIndex <= 0 || slashIndex >= repositoryPath.Length - 1)
+            {
+                continue;
+            }
+
+            var namespacePart = NormalizeIdentifier(repositoryPath[..slashIndex]);
+            var repoName = repositoryPath[(slashIndex + 1)..].Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(namespacePart) || string.IsNullOrWhiteSpace(repoName))
+            {
+                continue;
+            }
+
+            var owner = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Username == namespacePart, cancellationToken);
+            if (owner is null)
+            {
+                continue;
+            }
+
+            var existing = await _dbContext.Repositories
+                .FirstOrDefaultAsync(r => r.OwnerId == owner.Id && r.Name == repoName, cancellationToken);
+
+            int repoId;
+            if (existing is null)
+            {
+                var newRepo = new Repository
+                {
+                    Name = repoName,
+                    Description = "Synced from Docker Registry push event.",
+                    Visibility = "private",
+                    OwnerId = owner.Id,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    IsOfficial = false,
+                    StarCount = 0
+                };
+                _dbContext.Repositories.Add(newRepo);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                repoId = newRepo.Id;
+            }
+            else
+            {
+                existing.UpdatedAt = now;
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                repoId = existing.Id;
+            }
+
+            var tagName = (ev.Target?.Tag ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(tagName))
+            {
+                var tagExists = await _dbContext.RepositoryTags
+                    .AnyAsync(t => t.RepositoryId == repoId && t.Name == tagName, cancellationToken);
+                if (!tagExists)
+                {
+                    _dbContext.RepositoryTags.Add(new RepositoryTag
+                    {
+                        RepositoryId = repoId,
+                        Name = tagName,
+                        CreatedAt = now
+                    });
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                }
+            }
+        }
+
+        return Ok(new { message = "Registry events processed." });
     }
 
     // ============ Helper Methods ============
@@ -225,6 +410,34 @@ public class RepositoriesController : ControllerBase
             ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Name)?.Value;
     }
 
+    private bool IsCurrentUserAdmin()
+    {
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        return string.Equals(role, UserModelRoleAdmin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CanManageRepository(Repository repo)
+    {
+        var currentUsername = NormalizeIdentifier(GetCurrentUsername() ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(currentUsername))
+        {
+            return false;
+        }
+
+        var ownerUsername = NormalizeIdentifier(repo.Owner?.Username ?? string.Empty);
+        return currentUsername == ownerUsername || IsCurrentUserAdmin();
+    }
+
+    private bool CanAccessPrivateRepository(Repository repo)
+    {
+        if (repo.Visibility != "private")
+        {
+            return true;
+        }
+
+        return CanManageRepository(repo);
+    }
+
     private static (int Page, int PageSize) NormalizePaging(int page, int pageSize)
     {
         if (page < 1) page = 1;
@@ -233,60 +446,51 @@ public class RepositoriesController : ControllerBase
         return (page, pageSize);
     }
 
-    private async Task<IActionResult> ExecuteRegistryCallAsync(Func<Task<IActionResult>> action)
+    private static string NormalizeIdentifier(string identifier)
     {
-        try
-        {
-            return await action();
-        }
-        catch (HttpRequestException ex)
-        {
-            return StatusCode(502, new { message = "Container registry is unavailable.", detail = ex.Message });
-        }
+        return identifier.Trim().ToLowerInvariant();
     }
 
-    private static RepositoryResponse MapDbRepositoryToResponse(Repository repo, HarborRepositoryInfo? harborRepo)
+    private static IQueryable<Repository> ApplySorting(IQueryable<Repository> query, string? sortBy, string? sortDir)
+    {
+        var normalizedSortBy = (sortBy ?? "updatedAt").Trim().ToLowerInvariant();
+        var descending = !string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+
+        return normalizedSortBy switch
+        {
+            "name" => descending
+                ? query.OrderByDescending(r => r.Name).ThenByDescending(r => r.CreatedAt)
+                : query.OrderBy(r => r.Name).ThenBy(r => r.CreatedAt),
+            "createdat" => descending
+                ? query.OrderByDescending(r => r.CreatedAt)
+                : query.OrderBy(r => r.CreatedAt),
+            "stars" => descending
+                ? query.OrderByDescending(r => r.StarCount).ThenByDescending(r => r.UpdatedAt)
+                : query.OrderBy(r => r.StarCount).ThenBy(r => r.UpdatedAt),
+            _ => descending
+                ? query.OrderByDescending(r => r.UpdatedAt)
+                : query.OrderBy(r => r.UpdatedAt)
+        };
+    }
+
+    private const string UserModelRoleAdmin = "Administrator";
+
+    private static RepositoryResponse MapDbRepositoryToResponse(Repository repo)
     {
         var fullName = repo.IsOfficial ? repo.Name : $"{repo.Owner?.Username ?? "user"}/{repo.Name}";
         return new RepositoryResponse
         {
             Id = repo.Id,
             Name = repo.Name,
-            FullName = harborRepo?.FullName ?? fullName,
-            Description = !string.IsNullOrWhiteSpace(repo.Description) ? repo.Description : (harborRepo?.Description ?? string.Empty),
+            FullName = fullName,
+            Description = repo.Description,
             Visibility = repo.Visibility,
             OwnerEmail = repo.Owner?.Email ?? string.Empty,
             CreatedAt = repo.CreatedAt,
-            UpdatedAt = harborRepo?.UpdatedAt ?? repo.UpdatedAt,
+            UpdatedAt = repo.UpdatedAt,
             IsOfficial = repo.IsOfficial,
             StarCount = repo.StarCount,
-            Tags = new List<string>()
-        };
-    }
-
-    private static RepositoryResponse MapHarborRepositoryToResponse(
-        string fullName,
-        string visibility,
-        DateTime createdAt,
-        DateTime updatedAt,
-        string description)
-    {
-        var ownerAndName = fullName.Split('/');
-        var repositoryName = ownerAndName.Length > 1 ? ownerAndName[^1] : fullName;
-
-        return new RepositoryResponse
-        {
-            Id = 0,
-            Name = repositoryName,
-            FullName = fullName,
-            Description = description,
-            Visibility = visibility,
-            OwnerEmail = string.Empty,
-            CreatedAt = createdAt,
-            UpdatedAt = updatedAt,
-            IsOfficial = false,
-            StarCount = 0,
-            Tags = new List<string>()
+            Tags = repo.Tags.Select(t => t.Name).ToList()
         };
     }
 
@@ -299,8 +503,13 @@ public class RepositoriesController : ControllerBase
 
     public sealed record CreateRepositoryRequest(
         [param: Required, MaxLength(100)] string Name,
-        [param: MaxLength(500)] string Description,
+        [param: MaxLength(500)] string? Description,
         [param: Required] string Visibility);
+
+    public sealed record UpdateRepositoryRequest(
+        [param: MaxLength(100)] string? Name,
+        [param: MaxLength(500)] string? Description,
+        string? Visibility);
 
     public sealed record RepositoryResponse
     {
@@ -325,6 +534,15 @@ public class RepositoriesController : ControllerBase
         public int PageSize { get; set; }
     }
 
-    public sealed record RegistryTagsResponse(string Repository, IReadOnlyList<string> Tags);
+    public sealed record RegistryEventEnvelope(
+        [property: JsonPropertyName("events")] List<RegistryEvent> Events);
 
+    public sealed record RegistryEvent(
+        [property: JsonPropertyName("action")] string? Action,
+        [property: JsonPropertyName("target")] RegistryEventTarget? Target);
+
+    public sealed record RegistryEventTarget(
+        [property: JsonPropertyName("repository")] string? Repository,
+        [property: JsonPropertyName("tag")] string? Tag,
+        [property: JsonPropertyName("digest")] string? Digest);
 }
