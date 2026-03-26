@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Repository> Repositories => Set<Repository>();
     public DbSet<RepositoryTag> RepositoryTags => Set<RepositoryTag>();
     public DbSet<RepositoryStar> RepositoryStars => Set<RepositoryStar>();
+    public DbSet<RepositoryCollaborator> RepositoryCollaborators => Set<RepositoryCollaborator>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,11 +47,23 @@ public class AppDbContext : DbContext
             .HasForeignKey(s => s.RepositoryId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<Repository>()
+            .HasMany(r => r.Collaborators)
+            .WithOne(c => c.Repository)
+            .HasForeignKey(c => c.RepositoryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // RepositoryStar relationships
         modelBuilder.Entity<RepositoryStar>()
             .HasOne(s => s.User)
             .WithMany(u => u.Stars)
             .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RepositoryCollaborator>()
+            .HasOne(c => c.User)
+            .WithMany(u => u.Collaborations)
+            .HasForeignKey(c => c.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // Create unique constraint on Repository name + owner
@@ -68,6 +81,15 @@ public class AppDbContext : DbContext
         // Create unique constraint on RepositoryStar (user can star repo only once)
         modelBuilder.Entity<RepositoryStar>()
             .HasIndex(s => new { s.UserId, s.RepositoryId })
+            .IsUnique();
+
+        // Create unique constraint on RepositoryTag (unique tag name per repository)
+        modelBuilder.Entity<RepositoryTag>()
+            .HasIndex(t => new { t.RepositoryId, t.Name })
+            .IsUnique();
+
+        modelBuilder.Entity<RepositoryCollaborator>()
+            .HasIndex(c => new { c.RepositoryId, c.UserId })
             .IsUnique();
     }
 }

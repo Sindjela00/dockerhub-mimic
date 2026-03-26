@@ -190,9 +190,8 @@ public sealed class AuthControllerTests
             })
             .Build();
 
-        var tokenService = new JwtTokenService(config);
-        var cache = new MemoryCache(new MemoryCacheOptions());
-        return new AuthController(dbContext, tokenService, cache, config);
+        var tokenService = new AuthService(dbContext, config, new MemoryCache(new MemoryCacheOptions()));
+        return new AuthController(tokenService);
     }
 
     private static T GetProperty<T>(object source, string propertyName)
