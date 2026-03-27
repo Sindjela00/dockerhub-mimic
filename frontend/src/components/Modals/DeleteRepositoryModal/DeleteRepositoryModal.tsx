@@ -1,14 +1,15 @@
 import Button from "@/components/Button/Button";
 import InputField from "@/components/InputField/InputField";
 import Modal from "@/components/Modals/Modal";
-import type { Repository } from "@/pages/RepositoriesPage/types/types";
+import { Repository } from "@/services/repositories/repositories.api";
 import { TriangleAlert } from "lucide-react";
+import { useDeleteRepository } from "@/services/repositories/useDeleteRepository/useDeleteRepository";
 import { useState } from "react";
 
 interface DeleteRepositoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDelete: (id: string) => void;
+  onDelete: () => void;
   repo: Repository | null;
 }
 
@@ -19,15 +20,19 @@ export default function DeleteRepositoryModal({
   repo,
 }: DeleteRepositoryModalProps) {
   const [confirm, setConfirm] = useState("");
+  const { loading, error, handleDelete } = useDeleteRepository();
 
-  const fullName = `${repo?.namespace}/${repo?.name}`;
+  const fullName = `${repo?.fullName ?? ""}`;
   const isConfirmed = confirm === fullName;
 
-  const handleDelete = () => {
+  const handleConfirm = async () => {
     if (!repo || !isConfirmed) return;
-    onDelete(repo.id);
-    setConfirm("");
-    onClose();
+    const success = await handleDelete(repo.id);
+    if (success) {
+      setConfirm("");
+      onDelete();
+      onClose();
+    }
   };
 
   const handleClose = () => {
@@ -51,13 +56,11 @@ export default function DeleteRepositoryModal({
             <p className="text-xs text-text-muted leading-relaxed">
               Deleting{" "}
               <span className="text-text-primary font-medium">{fullName}</span>{" "}
-              will permanently remove all tags, images and settings associated
-              with this repository.
+              will permanently remove all tags, images and settings.
             </p>
           </div>
         </div>
 
-        {/* Confirm input */}
         <InputField
           label={`Type "${fullName}" to confirm`}
           value={confirm}
@@ -65,18 +68,24 @@ export default function DeleteRepositoryModal({
           placeholder={fullName}
         />
 
-        {/* Actions */}
+        {error && <p className="text-xs text-danger">{error}</p>}
+
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-          <Button variant="ghost" size="sm" onClick={handleClose}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClose}
+            disabled={loading}
+          >
             Cancel
           </Button>
           <Button
             variant="danger"
             size="sm"
-            onClick={handleDelete}
-            disabled={!isConfirmed}
+            onClick={handleConfirm}
+            disabled={!isConfirmed || loading}
           >
-            Delete repository
+            {loading ? "Deleting..." : "Delete repository"}
           </Button>
         </div>
       </div>

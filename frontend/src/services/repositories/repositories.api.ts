@@ -18,6 +18,10 @@ export interface Repository {
 export interface GetRepositoriesParams {
   page?: number;
   pageSize?: number;
+  mine?: boolean;
+  visibility?: RepoVisibility;
+  search?: string;
+  owner?: string;
 }
 
 export interface RepositoriesResponse {
@@ -38,14 +42,35 @@ export interface CreateRepositoryResponse {
   repository: Repository;
 }
 
+export interface DeleteRepositoryResponse {
+  message: string;
+}
+
 export const getMyRepositories = (
   params: GetRepositoriesParams = {},
 ): Promise<{ data: RepositoriesResponse }> => {
-  const { page = 1, pageSize = 20 } = params;
-  return api.get("/api/repositories/my", { params: { page, pageSize } });
+  const { page = 1, pageSize = 20, mine, visibility, search, owner } = params;
+  return api.get("/api/repositories/explore", {
+    params: {
+      page,
+      pageSize,
+      ...(mine !== undefined && { mine }),
+      ...(visibility !== undefined && { visibility }),
+      ...(search !== undefined && { search }),
+      ...(owner !== undefined && { owner }),
+    },
+  });
 };
+
+export const getRepositoryById = (id: number): Promise<{ data: Repository }> =>
+  api.get(`/api/repositories/${id}`);
 
 export const createRepository = (
   payload: CreateRepositoryPayload,
 ): Promise<{ data: CreateRepositoryResponse }> =>
   api.post("/api/repositories", payload);
+
+export const deleteRepository = (
+  id: number,
+): Promise<{ data: DeleteRepositoryResponse }> =>
+  api.delete(`/api/repositories/${id}`);

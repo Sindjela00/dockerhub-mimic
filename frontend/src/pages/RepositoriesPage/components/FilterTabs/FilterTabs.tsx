@@ -1,14 +1,13 @@
-import { Filter } from "../../types/types";
+import { VisibilityFilter } from "../../types/types";
 
 interface FilterTabsProps {
-  active: Filter;
-  onChange: (f: Filter) => void;
-  counts: Record<Filter, number>;
+  active: VisibilityFilter;
+  onChange: (f: VisibilityFilter) => void;
+  counts: Record<VisibilityFilter, number>;
 }
 
-const TABS: { label: string; value: Filter }[] = [
+const TABS: { label: string; value: VisibilityFilter }[] = [
   { label: "All", value: "all" },
-  { label: "Mine", value: "mine" },
   { label: "Public", value: "public" },
   { label: "Private", value: "private" },
 ];
@@ -19,13 +18,16 @@ export default function FilterTabs({
   counts,
 }: FilterTabsProps) {
   return (
-    <div className="flex items-center gap-1 p-1 rounded-lg bg-bg-elevated">
+    <div
+      className="flex h-10 items-stretch gap-1 p-1 rounded-lg bg-bg-elevated
+                    border border-border"
+    >
       {TABS.map((tab) => (
         <button
           key={tab.value}
           onClick={() => onChange(tab.value)}
           className={[
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium",
+            "flex items-center gap-1.5 px-3 rounded-md text-sm font-medium",
             "transition-colors duration-100 cursor-pointer",
             active === tab.value
               ? "bg-bg-surface text-text-primary border border-border"

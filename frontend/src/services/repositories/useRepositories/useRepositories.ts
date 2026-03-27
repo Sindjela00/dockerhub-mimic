@@ -1,4 +1,8 @@
-import { Repository, getMyRepositories } from "../repositories.api";
+import {
+  type Repository,
+  getMyRepositories,
+} from "../repositories.api";
+import type { RepoVisibility } from "@/pages/RepositoriesPage/types/types";
 import { useCallback, useEffect, useState } from "react";
 
 interface UseRepositoriesState {
@@ -11,10 +15,15 @@ interface UseRepositoriesState {
 }
 
 interface UseRepositoriesReturn extends UseRepositoriesState {
-  fetchRepositories: (page?: number) => Promise<void>;
+  fetchRepositories: (
+    page?: number,
+    mine?: boolean,
+    visibility?: RepoVisibility,
+    search?: string,
+  ) => Promise<void>;
 }
 
-export function useRepositories(initialPageSize = 20): UseRepositoriesReturn {
+export function useRepositories(initialPageSize = 9): UseRepositoriesReturn {
   const [state, setState] = useState<UseRepositoriesState>({
     repos: [],
     total: 0,
@@ -25,12 +34,22 @@ export function useRepositories(initialPageSize = 20): UseRepositoriesReturn {
   });
 
   const fetchRepositories = useCallback(
-    async (page = 1) => {
+    async (
+      page = 1,
+      mine?: boolean,
+      visibility?: RepoVisibility,
+      search?: string,
+    ) => {
       setState((s) => ({ ...s, loading: true, error: "" }));
       try {
         const { data } = await getMyRepositories({
           page,
           pageSize: initialPageSize,
+          ...(mine !== undefined ? { mine } : {}),
+          ...(visibility !== undefined ? { visibility } : {}),
+          ...(search !== undefined && search.trim().length > 0
+            ? { search }
+            : {}),
         });
         setState({
           repos: data.repositories,

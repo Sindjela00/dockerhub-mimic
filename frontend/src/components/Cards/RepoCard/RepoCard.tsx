@@ -1,6 +1,6 @@
 import { Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 
-import { Repository } from "@/pages/RepositoriesPage/types/types";
+import { Repository } from "@/services/repositories/repositories.api";
 
 interface RepoCardProps {
   repo: Repository;
@@ -124,7 +124,7 @@ export default function RepoCard({
       )}
 
       {/* Stats */}
-      <div className="flex items-center gap-4 pt-1 border-t border-border">
+      <div className="flex items-center gap-4 pt-2 border-t border-border">
         <span className="flex items-center gap-1 text-[11px] text-text-secondary">
           <Star size={11} />
           {repo.starCount}

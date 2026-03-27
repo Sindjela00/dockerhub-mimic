@@ -46,7 +46,7 @@ export default function RegisterPage() {
     handleRegister({
       email: form.email,
       password: form.password,
-      username: "fakeUsername",
+      username: form.username,
     });
   };
 

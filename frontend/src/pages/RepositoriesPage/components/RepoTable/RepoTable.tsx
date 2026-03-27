@@ -116,7 +116,6 @@ const REPO_COLUMNS: ColumnDef<Repository>[] = [
     key: "updatedAt",
     header: "Updated",
     align: "right",
-    sortable: true,
     render: (repo) => (
       <span className="text-xs text-text-secondary">
         {formatDate(repo.updatedAt)}

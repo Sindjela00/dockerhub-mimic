@@ -1,4 +1,6 @@
-export type Filter = "all" | "public" | "private" | "mine";
+export type VisibilityFilter = "all" | "public" | "private";
+
+export type TimeRangeFilter = "all" | "7d" | "30d" | "90d";
 
 export type RepoVisibility = "public" | "private";
 

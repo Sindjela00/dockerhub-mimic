@@ -83,7 +83,7 @@ export default function App() {
       />
 
       <Route
-        path="/repositories/:namespace/:name"
+        path="/repositories/:id"
         element={
           <ProtectedRoute>
             <Layout pageTitle="Repository">

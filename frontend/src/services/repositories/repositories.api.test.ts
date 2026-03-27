@@ -2,9 +2,7 @@ import * as repositoriesApi from "./repositories.api";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import api from "@/lib/api";
-
-// ─── Mocks ────────────────────────────────────────────────────────────────────
+import api from "../../lib/api";
 
 vi.mock("@/lib/api", () => ({
   default: {
@@ -15,8 +13,6 @@ vi.mock("@/lib/api", () => ({
 
 const mockGet = vi.mocked(api.get);
 const mockPost = vi.mocked(api.post);
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_REPO = {
   id: 1,
@@ -45,12 +41,12 @@ beforeEach(() => {
 
 describe("repositories.api", () => {
   describe("getMyRepositories", () => {
-    it("poziva GET /api/repositories/my sa default params", async () => {
+    it("poziva GET /api/repositories/explore sa default params", async () => {
       mockGet.mockResolvedValueOnce({ data: MOCK_REPOSITORIES_RESPONSE });
 
       await repositoriesApi.getMyRepositories();
 
-      expect(mockGet).toHaveBeenCalledWith("/api/repositories/my", {
+      expect(mockGet).toHaveBeenCalledWith("/api/repositories/explore", {
         params: { page: 1, pageSize: 20 },
       });
     });
@@ -60,8 +56,36 @@ describe("repositories.api", () => {
 
       await repositoriesApi.getMyRepositories({ page: 2, pageSize: 10 });
 
-      expect(mockGet).toHaveBeenCalledWith("/api/repositories/my", {
+      expect(mockGet).toHaveBeenCalledWith("/api/repositories/explore", {
         params: { page: 2, pageSize: 10 },
+      });
+    });
+
+    it("poziva GET sa visibility param kad je prosledjen", async () => {
+      mockGet.mockResolvedValueOnce({ data: MOCK_REPOSITORIES_RESPONSE });
+
+      await repositoriesApi.getMyRepositories({
+        page: 1,
+        pageSize: 20,
+        visibility: "private",
+      });
+
+      expect(mockGet).toHaveBeenCalledWith("/api/repositories/explore", {
+        params: { page: 1, pageSize: 20, visibility: "private" },
+      });
+    });
+
+    it("poziva GET sa search param kad je prosledjen", async () => {
+      mockGet.mockResolvedValueOnce({ data: MOCK_REPOSITORIES_RESPONSE });
+
+      await repositoriesApi.getMyRepositories({
+        page: 1,
+        pageSize: 20,
+        search: "nginx",
+      });
+
+      expect(mockGet).toHaveBeenCalledWith("/api/repositories/explore", {
+        params: { page: 1, pageSize: 20, search: "nginx" },
       });
     });
 
@@ -82,6 +106,16 @@ describe("repositories.api", () => {
       await expect(repositoriesApi.getMyRepositories()).rejects.toThrow(
         "Network error",
       );
+    });
+  });
+
+  describe("getRepositoryById", () => {
+    it("poziva GET /api/repositories/{id}", async () => {
+      mockGet.mockResolvedValueOnce({ data: MOCK_REPO });
+
+      await repositoriesApi.getRepositoryById(1);
+
+      expect(mockGet).toHaveBeenCalledWith("/api/repositories/1");
     });
   });
 
