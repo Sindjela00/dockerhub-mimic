@@ -54,6 +54,8 @@ public sealed record RepositoryTagListResponse
     public int RepositoryId { get; set; }
     public string RepositoryFullName { get; set; } = string.Empty;
     public int PullCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
     public List<RepositoryTagResponse> Tags { get; set; } = new();
     public int Total { get; set; }
 }
@@ -93,7 +95,7 @@ public interface IRepositoriesService
     Task<RepositoriesResult<string>> DeleteRepositoryAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryTagListResponse>> GetRepositoryTagsAsync(
-        int id, string? sortBy, string? sortDir, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+        int id, string? sortBy, string? sortDir, int page, int pageSize, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryCollaboratorListResponse>> GetRepositoryCollaboratorsAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
@@ -317,8 +319,10 @@ public class RepositoriesService : IRepositoriesService
     }
 
     public async Task<RepositoriesResult<RepositoryTagListResponse>> GetRepositoryTagsAsync(
-        int id, string? sortBy, string? sortDir, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+        int id, string? sortBy, string? sortDir, int page, int pageSize, string? currentUsername, string? userRole, CancellationToken cancellationToken)
     {
+        (page, pageSize) = NormalizePaging(page, pageSize);
+
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
@@ -333,7 +337,11 @@ public class RepositoriesService : IRepositoriesService
         var tagsQuery = _dbContext.RepositoryTags
             .Where(t => t.RepositoryId == id);
 
+        var total = await tagsQuery.CountAsync(cancellationToken);
+
         var tags = await ApplyTagSorting(tagsQuery, sortBy, sortDir)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         var fullName = repo.IsOfficial ? repo.Name : $"{repo.Owner?.Username ?? "user"}/{repo.Name}";
@@ -342,8 +350,10 @@ public class RepositoriesService : IRepositoriesService
             RepositoryId = repo.Id,
             RepositoryFullName = fullName,
             PullCount = repo.PullCount,
+            Page = page,
+            PageSize = pageSize,
             Tags = tags.Select(MapTagToResponse).ToList(),
-            Total = tags.Count
+            Total = total
         }, null);
     }
 

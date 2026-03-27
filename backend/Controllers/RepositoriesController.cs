@@ -103,11 +103,13 @@ public class RepositoriesController : ControllerBase
         int id,
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDir,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         var currentUsername = GetCurrentUsername();
         var userRole = GetCurrentUserRole();
-        var result = await _repositoriesService.GetRepositoryTagsAsync(id, sortBy, sortDir, currentUsername, userRole, cancellationToken);
+        var result = await _repositoriesService.GetRepositoryTagsAsync(id, sortBy, sortDir, page, pageSize, currentUsername, userRole, cancellationToken);
         if (!result.Succeeded)
             return result.ErrorMessage == "Repository not found." ? NotFound(new { message = result.ErrorMessage }) : Forbid();
         return Ok(result.Data);
