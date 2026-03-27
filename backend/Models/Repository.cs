@@ -38,9 +38,13 @@ public class Repository
 
     public int StarCount { get; set; } = 0;
 
+    public int PullCount { get; set; } = 0;
+
     public virtual ICollection<RepositoryTag> Tags { get; set; } = new List<RepositoryTag>();
 
     public virtual ICollection<RepositoryStar> Stars { get; set; } = new List<RepositoryStar>();
+
+    public virtual ICollection<RepositoryCollaborator> Collaborators { get; set; } = new List<RepositoryCollaborator>();
 
     // Returns the full repository name (prefix/name for user repos, just name for official)
     public string GetFullName() => IsOfficial ? Name : $"{Owner?.Email?.Split('@')[0] ?? "user"}/{Name}";

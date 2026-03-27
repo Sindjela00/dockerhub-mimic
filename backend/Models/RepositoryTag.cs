@@ -16,6 +16,31 @@ public class RepositoryTag
     [MaxLength(128)]
     public string Name { get; set; } = string.Empty;
 
+    [MaxLength(255)]
+    public string? Digest { get; set; }
+
+    [MaxLength(64)]
+    public string? Os { get; set; }
+
+    [MaxLength(64)]
+    public string? Architecture { get; set; }
+
+    public long? CompressedSizeBytes { get; set; }
+
+    [Column(TypeName = "timestamp with time zone")]
+    public DateTime? LastPulledAt { get; set; }
+
+    [Column(TypeName = "timestamp with time zone")]
+    public DateTime? LastPushedAt { get; set; }
+
+    [MaxLength(128)]
+    public string? LastPushedBy { get; set; }
+
+    public int PullCount { get; set; } = 0;
+
+    [MaxLength(255)]
+    public string? MediaType { get; set; }
+
     [Required]
     [ForeignKey("Repository")]
     public int RepositoryId { get; set; }

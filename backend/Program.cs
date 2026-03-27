@@ -1,4 +1,4 @@
-using backend.Data;
+﻿using backend.Data;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +30,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString);
 });
 builder.Services.AddScoped<DatabaseSeeder>();
-builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRegistryService, RegistryService>();
+builder.Services.AddScoped<IRepositoriesService, RepositoriesService>();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
 var jwtKey = builder.Configuration.GetValue<string>("Jwt:Key")

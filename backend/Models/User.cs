@@ -35,6 +35,7 @@ public class User
 
     public virtual ICollection<Repository> Repositories { get; set; } = new List<Repository>();
     public virtual ICollection<RepositoryStar> Stars { get; set; } = new List<RepositoryStar>();
+    public virtual ICollection<RepositoryCollaborator> Collaborations { get; set; } = new List<RepositoryCollaborator>();
 
     public static string HashPassword(string password)
     {
