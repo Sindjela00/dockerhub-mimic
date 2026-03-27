@@ -21,6 +21,7 @@ import ViewToggle from "./components/ViewToggle/ViewToggle";
 import { useAuth } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { useRepositories } from "@/services/repositories/useRepositories/useRepositories";
+import InputField from "@/components/InputField/InputField";
 
 export default function RepositoriesPage() {
   const navigate = useNavigate();
@@ -40,12 +41,6 @@ export default function RepositoriesPage() {
     null,
   );
   const selectedVisibility = visibility === "all" ? undefined : visibility;
-
-  const counts: Record<VisibilityFilter, number> = {
-    all: repos.length,
-    public: repos.filter((r) => r.visibility === "public").length,
-    private: repos.filter((r) => r.visibility === "private").length,
-  };
 
   const trimmedSearch = search.trim();
   const hasActiveFilters =
@@ -223,37 +218,26 @@ export default function RepositoriesPage() {
         <>
           {/* Toolbar */}
           <div className="flex items-center gap-3 flex-wrap">
-            <div
-              className="flex items-center gap-2 flex-1 min-w-50 h-10 px-3
-                            rounded-lg bg-bg-elevated border border-border
-                            focus-within:border-border-strong transition-colors"
-            >
-              <Search size={14} className="text-text-muted shrink-0" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setSearch(next);
-                  // Debounce BE fetch so the input stays focused while typing.
-                  if (searchFetchTimeoutRef.current) {
-                    clearTimeout(searchFetchTimeoutRef.current);
-                  }
-                  searchFetchTimeoutRef.current = setTimeout(() => {
-                    fetchRepositories(
-                      1,
-                      mineOnly ? true : undefined,
-                      selectedVisibility,
-                      next.trim().length > 0 ? next.trim() : undefined,
-                    );
-                  }, 300);
-                }}
-                placeholder="Search repositories..."
-                className="flex-1 h-full min-w-0 bg-transparent text-sm
-                           text-text-primary placeholder:text-text-muted
-                           focus:outline-none"
-              />
-            </div>
+            <InputField
+              value={search}
+              onChangeRaw={(e) => {
+                const next = e.target.value;
+                setSearch(next);
+                if (searchFetchTimeoutRef.current)
+                  clearTimeout(searchFetchTimeoutRef.current);
+                searchFetchTimeoutRef.current = setTimeout(() => {
+                  fetchRepositories(
+                    1,
+                    mineOnly ? true : undefined,
+                    selectedVisibility,
+                    next.trim().length > 0 ? next.trim() : undefined,
+                  );
+                }, 300);
+              }}
+              placeholder="Search repositories..."
+              startIcon={<Search size={14} />}
+              className="flex-1 min-w-50"
+            />
             <label
               className="flex items-center gap-2 shrink-0 h-10 px-3 rounded-lg
                          bg-bg-elevated border border-border cursor-pointer
@@ -286,7 +270,7 @@ export default function RepositoriesPage() {
             <FilterTabs
               active={visibility}
               onChange={handleVisibilityChange}
-              counts={counts}
+              counts={total}
             />
             <ViewToggle view={view} onChange={setView} />
           </div>

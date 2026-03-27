@@ -141,3 +141,7 @@ button {
     outline-offset: 2px;
   }
 }
+
+.filterElements {
+  height: 38px;
+}

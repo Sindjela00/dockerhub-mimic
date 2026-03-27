@@ -1,11 +1,10 @@
-import type {
-  RepoVisibility,
-  Repository,
-} from "@/pages/RepositoriesPage/types/types";
 import { useEffect, useState } from "react";
 
 import Button from "@/components/Button/Button";
 import Modal from "@/components/Modals/Modal";
+import type { RepoVisibility } from "@/pages/RepositoriesPage/types/types";
+import { Repository } from "@/services/repositories/repositories.api";
+import { useEditRepository } from "@/services/repositories/useEditRepository/useEditRepository";
 
 interface FormState {
   description: string;
@@ -74,6 +73,8 @@ export default function EditRepositoryModal({
     visibility: "public",
   });
 
+  const { saving, error, update } = useEditRepository();
+
   useEffect(() => {
     if (repo) {
       setForm({
@@ -83,30 +84,35 @@ export default function EditRepositoryModal({
     }
   }, [repo]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!repo) return;
 
-    onSave({
+    const ok = await update({
       id: repo.id,
+      name: repo.name,
       description: form.description.trim(),
       visibility: form.visibility,
     });
-    onClose();
+
+    if (ok) {
+      onSave({
+        id: repo.id,
+        description: form.description.trim(),
+        visibility: form.visibility,
+      });
+      onClose();
+    }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Edit ${repo?.namespace}/${repo?.name}`}
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={`Edit ${repo?.fullName}`}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Repo name — read only info */}
         <div className="px-3 py-2 rounded-lg bg-bg-elevated border border-border">
           <p className="text-xs text-text-muted">Repository</p>
           <p className="text-sm font-medium text-text-primary mt-0.5">
-            {repo?.namespace}/{repo?.name}
+            {repo?.fullName}
           </p>
         </div>
 
@@ -137,13 +143,22 @@ export default function EditRepositoryModal({
           onChange={(v) => setForm((f) => ({ ...f, visibility: v }))}
         />
 
+        {/* Error */}
+        {error && <p className="text-[11px] text-danger">{error}</p>}
+
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-          <Button variant="ghost" size="sm" type="button" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+          >
             Cancel
           </Button>
-          <Button variant="primary" size="sm" type="submit">
-            Save changes
+          <Button variant="primary" size="sm" type="submit" disabled={saving}>
+            {saving ? "Saving..." : "Save changes"}
           </Button>
         </div>
       </form>

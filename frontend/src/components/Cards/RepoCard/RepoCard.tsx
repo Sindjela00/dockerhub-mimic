@@ -96,32 +96,41 @@ export default function RepoCard({
       </div>
 
       {/* Description */}
-      {repo.description && (
-        <p className="text-xs text-text-secondary leading-relaxed line-clamp-2">
-          {repo.description}
-        </p>
-      )}
+      <div className="flex-1 flex flex-col gap-3">
+        {repo.description && (
+          <p className="text-xs text-text-secondary leading-relaxed line-clamp-2">
+            {repo.description}
+          </p>
+        )}
 
-      {/* Tags */}
-      {repo.tags.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Tag size={11} className="text-text-secondary" />
-          {repo.tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="text-[10px] px-1.5 py-0.5 rounded
-                         bg-bg-elevated text-text-secondary border border-border font-mono"
-            >
-              {tag}
-            </span>
-          ))}
-          {repo.tags.length > 3 && (
+        {/* Tags */}
+        {repo.tags.length > 0 ? (
+          <div className="mt-auto flex items-center gap-1.5 flex-wrap">
+            <Tag size={11} className="text-text-secondary" />
+            {repo.tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="text-[10px] px-1.5 py-0.5 rounded
+                     bg-bg-elevated text-text-secondary border border-border font-mono"
+              >
+                {tag}
+              </span>
+            ))}
+            {repo.tags.length > 3 && (
+              <span className="text-[10px] text-text-secondary">
+                +{repo.tags.length - 3}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="mt-auto flex items-center gap-1.5 flex-wrap">
+            <Tag size={11} className="text-text-secondary" />
             <span className="text-[10px] text-text-secondary">
-              +{repo.tags.length - 3}
+              There are no tabs
             </span>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* Stats */}
       <div className="flex items-center gap-4 pt-2 border-t border-border">

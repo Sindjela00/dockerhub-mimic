@@ -3,7 +3,7 @@ import { VisibilityFilter } from "../../types/types";
 interface FilterTabsProps {
   active: VisibilityFilter;
   onChange: (f: VisibilityFilter) => void;
-  counts: Record<VisibilityFilter, number>;
+  counts: number;
 }
 
 const TABS: { label: string; value: VisibilityFilter }[] = [
@@ -40,10 +40,10 @@ export default function FilterTabs({
               "text-[10px] px-1.5 py-0.5 rounded-full",
               active === tab.value
                 ? "bg-brand-muted text-brand"
-                : "bg-bg-surface text-text-secondary",
+                : "bg-bg-surface text-text-secondary hidden",
             ].join(" ")}
           >
-            {counts[tab.value]}
+            {counts}
           </span>
         </button>
       ))}

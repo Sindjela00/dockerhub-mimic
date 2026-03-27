@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Calendar,
@@ -8,7 +8,6 @@ import {
   Globe,
   Lock,
   Pencil,
-  Search,
   Star,
   Tag,
   Trash2,
@@ -22,244 +21,13 @@ import EditRepositoryModal from "../../components/Modals/EditRepositoryModal/Edi
 import DeleteRepositoryModal from "../../components/Modals/DeleteRepositoryModal/DeleteRepositoryModal";
 import { StatBadge } from "./components/StatBadge/StatBadge";
 
-import {
-  getMyRepositories,
-  getRepositoryById,
-} from "@/services/repositories/repositories.api";
+import { getRepositoryById } from "@/services/repositories/repositories.api";
 import { MOCK_REPO_DETAIL } from "./types/mock";
-import {
-  TABS,
-  type RepositoryDetail,
-  type Tab,
-  type TagDetail,
-} from "./types/types";
-import type { SortDirection } from "@/components/Table/types/types";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86_400_000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 30) return `${days} days ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months} month${months > 1 ? "s" : ""} ago`;
-  return `${Math.floor(months / 12)} year${Math.floor(months / 12) > 1 ? "s" : ""} ago`;
-}
-
-function TagsTab({ tags }: { tags: TagDetail[] }) {
-  const [search, setSearch] = useState("");
-  const [sortDir, setSortDir] = useState<SortDirection>("desc");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return tags
-      .filter((t) => t.name.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const diff =
-          new Date(a.pushedAt).getTime() - new Date(b.pushedAt).getTime();
-        return sortDir === "asc" ? diff : -diff;
-      });
-  }, [tags, search, sortDir]);
-
-  const allSelected =
-    filtered.length > 0 && filtered.every((t) => selected.has(t.name));
-  const someSelected = filtered.some((t) => selected.has(t.name));
-  const selectedCount = [...selected].filter((n) =>
-    filtered.some((t) => t.name === n),
-  ).length;
-
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelected((s) => {
-        const next = new Set(s);
-        filtered.forEach((t) => next.delete(t.name));
-        return next;
-      });
-    } else {
-      setSelected((s) => {
-        const next = new Set(s);
-        filtered.forEach((t) => next.add(t.name));
-        return next;
-      });
-    }
-  };
-
-  const toggleOne = (name: string) => {
-    setSelected((s) => {
-      const next = new Set(s);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
-    });
-  };
-
-  const handleBulkDelete = () => {
-    // TODO: DELETE /api/repositories/:id/tags
-    console.log("Delete tags:", [...selected]);
-    setSelected(new Set());
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div
-          className="flex items-center gap-2 flex-1 min-w-[180px]
-                        px-3 py-2 rounded-lg bg-bg-elevated
-                        border border-border focus-within:border-border-strong
-                        transition-colors"
-        >
-          <Search size={13} className="text-text-secondary shrink-0" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tags..."
-            className="flex-1 bg-transparent text-sm text-text-primary
-                       placeholder:text-text-secondary focus:outline-none"
-          />
-        </div>
-
-        <button
-          onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg
-                     bg-bg-elevated border border-border text-xs
-                     text-text-secondary hover:text-text-primary
-                     hover:border-border-strong transition-colors"
-        >
-          <Clock size={13} />
-          {sortDir === "desc" ? "Newest first" : "Oldest first"}
-        </button>
-
-        {someSelected && (
-          <Button variant="danger" size="sm" onClick={handleBulkDelete}>
-            <Trash2 size={13} />
-            Delete {selectedCount} {selectedCount === 1 ? "tag" : "tags"}
-          </Button>
-        )}
-      </div>
-
-      {/* Table */}
-      <div className="rounded-xl border border-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-bg-elevated">
-              <th className="px-4 py-3 w-10">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelected && !allSelected;
-                  }}
-                  onChange={toggleAll}
-                  className="rounded border-border accent-brand cursor-pointer"
-                  aria-label="Select all tags"
-                />
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-secondary">
-                Tag
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-secondary hidden sm:table-cell">
-                Digest
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-secondary hidden md:table-cell">
-                OS / Arch
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-text-secondary hidden md:table-cell">
-                Size
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-medium text-text-secondary">
-                Pushed
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-12 text-center text-sm text-text-secondary"
-                >
-                  {search ? `No tags match "${search}"` : "No tags available."}
-                </td>
-              </tr>
-            ) : (
-              filtered.map((tag, i) => (
-                <tr
-                  key={tag.name}
-                  className={[
-                    "transition-colors",
-                    selected.has(tag.name)
-                      ? "bg-brand-subtle"
-                      : "hover:bg-bg-elevated",
-                    i !== filtered.length - 1 ? "border-b border-border" : "",
-                  ].join(" ")}
-                >
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(tag.name)}
-                      onChange={() => toggleOne(tag.name)}
-                      className="rounded border-border accent-brand cursor-pointer"
-                      aria-label={`Select ${tag.name}`}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className="text-xs font-mono font-medium px-2 py-0.5
-                                     rounded bg-bg-elevated border border-border
-                                     text-text-primary"
-                    >
-                      {tag.name}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 hidden sm:table-cell">
-                    <span className="text-xs font-mono text-text-secondary truncate max-w-[140px] block">
-                      {tag.digest}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 hidden md:table-cell">
-                    <span className="text-xs text-text-secondary">
-                      {tag.os} / {tag.arch}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right hidden md:table-cell">
-                    <span className="text-xs text-text-secondary">
-                      {tag.size}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span
-                      className="text-xs text-text-secondary"
-                      title={formatDate(tag.pushedAt)}
-                    >
-                      {timeAgo(tag.pushedAt)}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {filtered.length > 0 && (
-        <p className="text-xs text-text-secondary">
-          {filtered.length} {filtered.length === 1 ? "tag" : "tags"}
-          {search && ` matching "${search}"`}
-        </p>
-      )}
-    </div>
-  );
-}
+import { TABS, type RepositoryDetail, type Tab } from "./types/types";
+import { useTags } from "@/services/repositories/useTags/useTags";
+import { timeAgo } from "@/utils/timeAgo";
+import { formatDate } from "@/utils/formatDate";
+import TagsTab from "./components/TabsContent/TabsContent";
 
 export default function RepositoryDetailPage() {
   const navigate = useNavigate();
@@ -274,6 +42,14 @@ export default function RepositoryDetailPage() {
   const [repo, setRepo] = useState<RepositoryDetail>(MOCK_REPO_DETAIL);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
+
+  const {
+    tags,
+    total: tagsTotal,
+    pullCount,
+    loading: tagsLoading,
+    error: tagsError,
+  } = useTags(Number(id));
 
   const cmd = `docker pull ${repo.fullName}:latest`;
 
@@ -451,7 +227,6 @@ export default function RepositoryDetailPage() {
       {/* Tabs */}
       <div className="flex flex-col gap-5">
         <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
-
         {activeTab === "overview" && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -465,17 +240,21 @@ export default function RepositoryDetailPage() {
                 View all
               </button>
             </div>
-            <TagsTab tags={repo.tagDetails.slice(0, 3)} />
+            {activeTab === "overview" && (
+              <TagsTab tags={tagsLoading ? [] : tags.slice(0, 3)} />
+            )}
           </div>
         )}
-
-        {activeTab === "tags" && <TagsTab tags={repo.tagDetails} />}
+        {activeTab === "tags" && <TagsTab tags={tags} />}{" "}
       </div>
 
       <EditRepositoryModal
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
-        onSave={() => setEditOpen(false)}
+        onSave={(updatedRepo) => {
+          setRepo((prev) => ({ ...prev, ...updatedRepo }));
+          setEditOpen(false);
+        }}
         repo={repo}
       />
       <DeleteRepositoryModal

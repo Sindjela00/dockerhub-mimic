@@ -46,6 +46,29 @@ export interface DeleteRepositoryResponse {
   message: string;
 }
 
+export interface TagDetail {
+  name: string;
+  digest: string;
+  os: string | null;
+  architecture: string | null;
+  compressedSizeBytes: number;
+  lastPulledAt: string | null;
+  lastPushedAt: string;
+  lastPushedBy: string;
+  pullCount: number;
+  mediaType: string;
+  createdAt: string;
+  size: string;
+}
+
+export interface TagsResponse {
+  repositoryId: number;
+  repositoryFullName: string;
+  pullCount: number;
+  tags: TagDetail[];
+  total: number;
+}
+
 export const getMyRepositories = (
   params: GetRepositoriesParams = {},
 ): Promise<{ data: RepositoriesResponse }> => {
@@ -74,3 +97,15 @@ export const deleteRepository = (
   id: number,
 ): Promise<{ data: DeleteRepositoryResponse }> =>
   api.delete(`/api/repositories/${id}`);
+
+export const getRepositoryTags = (
+  repositoryId: number,
+): Promise<{ data: TagsResponse }> =>
+  api.get(`/api/repositories/${repositoryId}/tags`);
+
+export function updateRepository(
+  id: number,
+  data: { name?: string; description: string; visibility: string },
+) {
+  return api.put(`/api/repositories/${id}`, data);
+}
