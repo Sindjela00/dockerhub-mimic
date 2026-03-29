@@ -24,6 +24,7 @@ public sealed record RepositoryResponse
     public int StarCount { get; set; }
     public int PullCount { get; set; }
     public List<string> Tags { get; set; } = new();
+    public bool? IsStarredByCurrentUser { get; set; }
 }
 
 public sealed record RepositoryListResponse
@@ -205,9 +206,25 @@ public class RepositoriesService : IRepositoriesService
         var total = await query.CountAsync(cancellationToken);
         var repos = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
 
+        // Determine starred status for current user in one batch query
+        HashSet<int>? starredIds = null;
+        if (!string.IsNullOrWhiteSpace(normalizedCurrentUsername))
+        {
+            var currentUser = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Username == normalizedCurrentUsername, cancellationToken);
+            if (currentUser is not null)
+            {
+                var repoIds = repos.Select(r => r.Id).ToList();
+                starredIds = new HashSet<int>(await _dbContext.RepositoryStars
+                    .Where(s => s.UserId == currentUser.Id && repoIds.Contains(s.RepositoryId))
+                    .Select(s => s.RepositoryId)
+                    .ToListAsync(cancellationToken));
+            }
+        }
+
         return new RepositoriesResult<RepositoryListResponse>(true, new RepositoryListResponse
         {
-            Repositories = repos.Select(MapDbRepositoryToResponse).ToList(),
+            Repositories = repos.Select(r => MapDbRepositoryToResponse(r, starredIds is not null ? starredIds.Contains(r.Id) : null)).ToList(),
             Total = total,
             Page = page,
             PageSize = pageSize
@@ -228,7 +245,18 @@ public class RepositoriesService : IRepositoriesService
         if (repo.Visibility == "private" && !CanAccessPrivateRepository(repo, currentUsername, userRole))
             return new RepositoriesResult<RepositoryResponse>(false, null, "Forbidden");
 
-        return new RepositoriesResult<RepositoryResponse>(true, MapDbRepositoryToResponse(repo), null);
+        bool? isStarred = null;
+        var normalizedUsername = Normalize(currentUsername ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(normalizedUsername))
+        {
+            var currentUser = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Username == normalizedUsername, cancellationToken);
+            if (currentUser is not null)
+                isStarred = await _dbContext.RepositoryStars
+                    .AnyAsync(s => s.RepositoryId == id && s.UserId == currentUser.Id, cancellationToken);
+        }
+
+        return new RepositoriesResult<RepositoryResponse>(true, MapDbRepositoryToResponse(repo, isStarred), null);
     }
 
     public async Task<RepositoriesResult<RepositoryResponse>> CreateRepositoryAsync(
@@ -550,7 +578,7 @@ public class RepositoriesService : IRepositoriesService
         };
     }
 
-    private static RepositoryResponse MapDbRepositoryToResponse(Repository repo)
+    private static RepositoryResponse MapDbRepositoryToResponse(Repository repo, bool? isStarredByCurrentUser = null)
     {
         var fullName = repo.IsOfficial ? repo.Name : $"{repo.Owner?.Username ?? "user"}/{repo.Name}";
         return new RepositoryResponse
@@ -566,7 +594,8 @@ public class RepositoriesService : IRepositoriesService
             IsOfficial = repo.IsOfficial,
             StarCount = repo.StarCount,
             PullCount = repo.PullCount,
-            Tags = repo.Tags.Select(t => t.Name).ToList()
+            Tags = repo.Tags.Select(t => t.Name).ToList(),
+            IsStarredByCurrentUser = isStarredByCurrentUser
         };
     }
 
