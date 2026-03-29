@@ -1,7 +1,4 @@
-import {
-  type Repository,
-  getMyRepositories,
-} from "../repositories.api";
+import { type Repository, getMyRepositories } from "../repositories.api";
 import type { RepoVisibility } from "@/pages/RepositoriesPage/types/types";
 import { useCallback, useEffect, useState } from "react";
 

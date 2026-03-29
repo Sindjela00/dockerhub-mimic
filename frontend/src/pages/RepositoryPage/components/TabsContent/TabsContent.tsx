@@ -1,46 +1,78 @@
 import { Clock, Search, Trash2 } from "lucide-react";
 import { SortDirection, TableProps } from "@/components/Table/types/types";
-import { useMemo, useState } from "react";
+import {
+  TagDetail,
+  TagSortBy,
+  TagSortDir,
+} from "@/services/repositories/repositories.api";
+import { useEffect, useMemo, useState } from "react";
 
 import Button from "@/components/Button/Button";
+import Pagination from "@/components/Pagination/Pagination";
 import Table from "@/components/Table/Table";
-import { TagDetail } from "@/services/repositories/repositories.api";
 import { formatDate } from "@/utils/formatDate";
 import { timeAgo } from "@/utils/timeAgo";
 
-export default function TagsTab({ tags }: { tags: TagDetail[] }) {
-  const [search, setSearch] = useState("");
-  const [sortDir, setSortDir] = useState<SortDirection>("desc");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+interface TagsTabProps {
+  tags: TagDetail[];
+  total: number;
+  page: number;
+  pageSize: number;
+  loading: boolean;
+  error: string;
+  search: string;
+  sortBy: TagSortBy;
+  sortDir: TagSortDir;
+  onSearch: (v: string) => void;
+  onSortBy: (v: TagSortBy) => void;
+  onSortDir: (v: TagSortDir) => void;
+  onPage: (p: number) => void;
+}
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    const result = tags.filter((t) => t.name.toLowerCase().includes(q));
-    return [...result].sort((a, b) => {
-      const diff =
-        new Date(b.lastPushedAt).getTime() - new Date(a.lastPushedAt).getTime();
-      return sortDir === "desc" ? diff : -diff;
-    });
-  }, [tags, search, sortDir]);
+export default function TagsTab({
+  tags,
+  total,
+  page,
+  pageSize,
+  loading,
+  error,
+  search,
+  sortBy,
+  sortDir,
+  onSearch,
+  onSortBy,
+  onSortDir,
+  onPage,
+}: TagsTabProps) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [localSearch, setLocalSearch] = useState(search);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      onSearch(localSearch);
+    }, 400);
+
+    return () => clearTimeout(t);
+  }, [localSearch]);
 
   const allSelected =
-    filtered.length > 0 && filtered.every((t) => selected.has(t.name));
-  const someSelected = filtered.some((t) => selected.has(t.name));
+    tags.length > 0 && tags.every((t) => selected.has(t.name));
+  const someSelected = tags.some((t) => selected.has(t.name));
   const selectedCount = [...selected].filter((n) =>
-    filtered.some((t) => t.name === n),
+    tags.some((t) => t.name === n),
   ).length;
 
   const toggleAll = () => {
     if (allSelected) {
       setSelected((s) => {
         const next = new Set(s);
-        filtered.forEach((t) => next.delete(t.name));
+        tags.forEach((t) => next.delete(t.name));
         return next;
       });
     } else {
       setSelected((s) => {
         const next = new Set(s);
-        filtered.forEach((t) => next.add(t.name));
+        tags.forEach((t) => next.add(t.name));
         return next;
       });
     }
@@ -155,15 +187,15 @@ export default function TagsTab({ tags }: { tags: TagDetail[] }) {
           <Search size={13} className="text-text-secondary shrink-0" />
           <input
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             placeholder="Search tags..."
             className="flex-1 bg-transparent text-sm text-text-primary
                        placeholder:text-text-secondary focus:outline-none"
           />
         </div>
         <button
-          onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+          onClick={() => onSortDir(sortDir === "asc" ? "desc" : "asc")}
           className="flex items-center gap-1.5 px-3 py-2 h-[38px] rounded-lg
              bg-bg-elevated border border-border text-xs
              text-text-secondary hover:text-text-primary
@@ -182,19 +214,22 @@ export default function TagsTab({ tags }: { tags: TagDetail[] }) {
 
       <Table<TagDetail>
         columns={columns}
-        data={filtered}
+        data={tags}
         rowKey={(tag) => tag.name}
         emptyText={search ? `No tags match "${search}"` : "No tags available."}
         sortKey="lastPushedAt"
         sortDir={sortDir}
-        onSort={(_, dir) => setSortDir(dir)}
+        onSort={(_, dir) => onSortDir(dir)}
       />
 
-      {filtered.length > 0 && (
-        <p className="text-xs text-text-secondary">
-          {filtered.length} {filtered.length === 1 ? "tag" : "tags"}
-          {search && ` matching "${search}"`}
-        </p>
+      {tags.length > 0 && (
+        <Pagination
+          page={page}
+          total={total}
+          pageSize={pageSize}
+          onChange={onPage}
+          maxVisible={5}
+        />
       )}
     </div>
   );

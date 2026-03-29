@@ -46,7 +46,15 @@ export default function RepositoryDetailPage() {
   const {
     tags,
     total: tagsTotal,
-    pullCount,
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
+    setSearch,
+    setSortBy,
+    setSortDir,
+    changePage,
     loading: tagsLoading,
     error: tagsError,
   } = useTags(Number(id));
@@ -241,11 +249,41 @@ export default function RepositoryDetailPage() {
               </button>
             </div>
             {activeTab === "overview" && (
-              <TagsTab tags={tagsLoading ? [] : tags.slice(0, 3)} />
+              <TagsTab
+                tags={tags}
+                total={tagsTotal}
+                page={page}
+                pageSize={pageSize}
+                loading={tagsLoading}
+                error={tagsError}
+                search={search}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSearch={setSearch}
+                onSortBy={setSortBy}
+                onSortDir={setSortDir}
+                onPage={changePage}
+              />
             )}
           </div>
         )}
-        {activeTab === "tags" && <TagsTab tags={tags} />}{" "}
+        {activeTab === "tags" && (
+          <TagsTab
+            tags={tagsLoading ? [] : tags}
+            total={tagsTotal}
+            page={page}
+            pageSize={pageSize}
+            loading={tagsLoading}
+            error={tagsError}
+            search={search}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSearch={setSearch}
+            onSortBy={setSortBy}
+            onSortDir={setSortDir}
+            onPage={changePage}
+          />
+        )}{" "}
       </div>
 
       <EditRepositoryModal

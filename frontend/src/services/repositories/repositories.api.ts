@@ -69,6 +69,17 @@ export interface TagsResponse {
   total: number;
 }
 
+export type TagSortBy = "name" | "createdat" | "stars" | "pulls";
+export type TagSortDir = "asc" | "desc";
+
+export interface GetTagsParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  sortBy?: TagSortBy;
+  sortDir?: TagSortDir;
+}
+
 export const getMyRepositories = (
   params: GetRepositoriesParams = {},
 ): Promise<{ data: RepositoriesResponse }> => {
@@ -100,8 +111,20 @@ export const deleteRepository = (
 
 export const getRepositoryTags = (
   repositoryId: number,
-): Promise<{ data: TagsResponse }> =>
-  api.get(`/api/repositories/${repositoryId}/tags`);
+  params: GetTagsParams = {},
+): Promise<{ data: TagsResponse }> => {
+  const { page = 1, pageSize = 20, search, sortBy, sortDir } = params;
+
+  return api.get(`/api/repositories/${repositoryId}/tags`, {
+    params: {
+      page,
+      pageSize,
+      ...(search && { search }),
+      ...(sortBy && { sortBy }),
+      ...(sortDir && { sortDir }),
+    },
+  });
+};
 
 export function updateRepository(
   id: number,
