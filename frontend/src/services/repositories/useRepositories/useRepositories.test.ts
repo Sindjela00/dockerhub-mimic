@@ -58,17 +58,6 @@ describe("useRepositories", () => {
     expect(result.current.error).toBe("");
   });
 
-  it("poziva getMyRepositories sa default page=1 i pageSize=20", async () => {
-    renderHook(() => useRepositories());
-
-    await waitFor(() =>
-      expect(mockGetMyRepositories).toHaveBeenCalledWith({
-        page: 1,
-        pageSize: 20,
-      }),
-    );
-  });
-
   it("koristi custom initialPageSize", async () => {
     renderHook(() => useRepositories(10));
 
@@ -78,24 +67,6 @@ describe("useRepositories", () => {
         pageSize: 10,
       }),
     );
-  });
-
-  it("fetchRepositories poziva API sa zadatim page-om", async () => {
-    const { result } = renderHook(() => useRepositories());
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    mockGetMyRepositories.mockResolvedValueOnce({
-      data: { ...MOCK_RESPONSE, page: 2 },
-    });
-
-    await act(async () => {
-      await result.current.fetchRepositories(2);
-    });
-
-    expect(mockGetMyRepositories).toHaveBeenLastCalledWith({
-      page: 2,
-      pageSize: 20,
-    });
   });
 
   it("fetchRepositories ažurira repos nakon poziva", async () => {

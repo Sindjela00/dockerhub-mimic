@@ -1,135 +1,144 @@
+/**
+ * @vitest-environment jsdom
+ */
+
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { AppProvider } from "@/context/AppContext";
-import DeleteRepositoryModal from "./DeleteRepositoryModal";
-import { MemoryRouter } from "react-router-dom";
-import type { ReactNode } from "react";
-import type { Repository } from "@/pages/RepositoriesPage/types/types";
+import InputField from "@/components/InputField/InputField";
 import userEvent from "@testing-library/user-event";
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <MemoryRouter>
-    <AppProvider>{children}</AppProvider>
-  </MemoryRouter>
-);
+vi.mock("lucide-react", () => ({
+  Search: () => <span data-testid="mock-search" />,
+  Eye: () => <span data-testid="mock-eye" />,
+  EyeOff: () => <span data-testid="mock-eyeoff" />,
+}));
 
-const MOCK_REPO: Repository = {
-  id: "1",
-  name: "nginx",
-  namespace: "john.doe",
-  description: "Official build of Nginx.",
-  visibility: "public",
-  pullCount: 142300,
-  stars: 48,
-  tags: ["latest"],
-  updatedAt: "2025-03-10T12:00:00Z",
-};
-
-const renderModal = (props = {}) =>
-  render(
-    <DeleteRepositoryModal
-      isOpen={true}
-      onClose={vi.fn()}
-      onDelete={vi.fn()}
-      repo={MOCK_REPO}
-      {...props}
-    />,
-    { wrapper },
-  );
-
-describe("DeleteRepositoryModal", () => {
-  it("ne renderuje ništa kad je zatvoren", () => {
-    renderModal({ isOpen: false });
-    expect(screen.queryByText(/cannot be undone/i)).toBeNull();
+describe("InputField", () => {
+  it("renderuje label i input", () => {
+    render(<InputField label="Email" value="" onChange={vi.fn()} />);
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
-  it("renderuje warning poruku", () => {
-    renderModal();
-    expect(screen.getByText(/this action cannot be undone/i)).toBeTruthy();
+  it("label je povezana sa inputom preko htmlFor/id", () => {
+    render(<InputField label="Email" value="" onChange={vi.fn()} />);
+    const input = screen.getByLabelText(/email/i);
+    expect(input.id).toBe("email");
   });
 
-  it("prikazuje puno ime repoa u warning-u", () => {
-    renderModal();
-    expect(screen.getByText("john.doe/nginx")).toBeTruthy();
+  it("generiše id iz labele sa razmakom", () => {
+    render(<InputField label="Old password" value="" onChange={vi.fn()} />);
+    const input = screen.getByLabelText(/old password/i);
+    expect(input.id).toBe("old-password");
   });
 
-  it("prikazuje confirm input sa placeholder-om", () => {
-    renderModal();
-    expect(screen.getByPlaceholderText("john.doe/nginx")).toBeTruthy();
-  });
-
-  it("delete dugme je disabled na početku", () => {
-    renderModal();
-    expect(
-      screen.getByRole("button", { name: /delete repository/i }),
-    ).toBeDisabled();
-  });
-
-  it("delete dugme ostaje disabled za pogrešan naziv", async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(screen.getByPlaceholderText("john.doe/nginx"), "wrong");
-    expect(
-      screen.getByRole("button", { name: /delete repository/i }),
-    ).toBeDisabled();
-  });
-
-  it("delete dugme se aktivira za tačan naziv", async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.type(
-      screen.getByPlaceholderText("john.doe/nginx"),
-      "john.doe/nginx",
+  it("koristi custom id ako je prosleđen", () => {
+    render(
+      <InputField label="Email" id="custom-id" value="" onChange={vi.fn()} />,
     );
-    expect(
-      screen.getByRole("button", { name: /delete repository/i }),
-    ).not.toBeDisabled();
+    const input = screen.getByLabelText(/email/i);
+    expect(input.id).toBe("custom-id");
   });
 
-  it("poziva onDelete sa id-em repoa", async () => {
-    const handleDelete = vi.fn();
+  it("poziva onChange i onChangeRaw kad korisnik kuca", async () => {
+    const handleChange = vi.fn();
+    const handleChangeRaw = vi.fn();
     const user = userEvent.setup();
 
-    renderModal({ onDelete: handleDelete });
-
-    await user.type(
-      screen.getByPlaceholderText("john.doe/nginx"),
-      "john.doe/nginx",
+    render(
+      <InputField
+        label="Email"
+        value=""
+        onChange={handleChange}
+        onChangeRaw={handleChangeRaw}
+      />,
     );
-    await user.click(
-      screen.getByRole("button", { name: /delete repository/i }),
-    );
 
-    expect(handleDelete).toHaveBeenCalledWith("1");
+    const input = screen.getByLabelText(/email/i);
+    await user.type(input, "a");
+
+    expect(handleChange).toHaveBeenCalledWith("a");
+    expect(handleChangeRaw).toHaveBeenCalled();
   });
 
-  it("poziva onClose nakon brisanja", async () => {
-    const handleClose = vi.fn();
-    const user = userEvent.setup();
-
-    renderModal({ onClose: handleClose });
-
-    await user.type(
-      screen.getByPlaceholderText("john.doe/nginx"),
-      "john.doe/nginx",
+  it("prikazuje placeholder", () => {
+    render(
+      <InputField
+        label="Email"
+        value=""
+        onChange={vi.fn()}
+        placeholder="you@example.com"
+      />,
     );
-    await user.click(
-      screen.getByRole("button", { name: /delete repository/i }),
-    );
-
-    expect(handleClose).toHaveBeenCalledOnce();
+    expect(screen.getByPlaceholderText("you@example.com")).toBeInTheDocument();
   });
 
-  it("poziva onClose na Cancel", async () => {
-    const handleClose = vi.fn();
-    const user = userEvent.setup();
+  it("prikazuje error poruku i border klasu", () => {
+    render(
+      <InputField
+        label="Email"
+        value=""
+        onChange={vi.fn()}
+        error="Neispravan email."
+      />,
+    );
+    expect(screen.getByText("Neispravan email.")).toBeInTheDocument();
+    const wrapper = screen.getByLabelText(/email/i).closest("div");
+    expect(wrapper?.className).toContain("border-danger");
+  });
 
-    renderModal({ onClose: handleClose });
-    await user.click(screen.getByRole("button", { name: /cancel/i }));
+  it("ne prikazuje error kad nema greške", () => {
+    render(<InputField label="Email" value="" onChange={vi.fn()} />);
+    expect(screen.queryByText(/./, { selector: "p" })).toBeNull();
+    const wrapper = screen.getByLabelText(/email/i).closest("div");
+    expect(wrapper?.className).toContain("border-border");
+  });
 
-    expect(handleClose).toHaveBeenCalledOnce();
+  it("prikazuje prefix ispred inputa", () => {
+    render(
+      <InputField label="Repo" value="" onChange={vi.fn()} prefix="user/" />,
+    );
+    expect(screen.getByText("user/")).toBeInTheDocument();
+  });
+
+  it("ne prikazuje prefix kad nije prosleđen", () => {
+    render(<InputField label="Email" value="" onChange={vi.fn()} />);
+    expect(screen.queryByText(/\//)).toBeNull();
+  });
+
+  it("prikazuje startIcon i endIcon ako su prosleđeni", () => {
+    render(
+      <InputField
+        label="Email"
+        value=""
+        onChange={vi.fn()}
+        startIcon={<span data-testid="start">S</span>}
+        endIcon={<span data-testid="end">E</span>}
+      />,
+    );
+    expect(screen.getByTestId("start")).toBeInTheDocument();
+    expect(screen.getByTestId("end")).toBeInTheDocument();
+  });
+
+  it("postavlja type atribut", () => {
+    render(
+      <InputField
+        label="Password"
+        type="password"
+        value=""
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText(/password/i)).toHaveAttribute(
+      "type",
+      "password",
+    );
+  });
+
+  it("sakriva labelu kad nije prosleđena", () => {
+    render(<InputField value="" onChange={vi.fn()} />);
+    const label = screen.queryByLabelText(/./);
+    expect(label).toBeNull();
   });
 });

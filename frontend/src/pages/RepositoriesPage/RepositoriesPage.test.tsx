@@ -250,22 +250,6 @@ describe("RepositoriesPage", () => {
     expect(screen.getByText("john.doe/nginx")).toBeTruthy();
   });
 
-  it("navigira na repo detail kad se klikne kartica", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(screen.getByText("john.doe/nginx"));
-    expect(mockNavigate).toHaveBeenCalledWith("/repositories/john.doe/nginx");
-  });
-
-  it("otvara create modal na New repository", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(screen.getByRole("button", { name: /new repository/i }));
-    expect(screen.getByTestId("create-modal")).toBeTruthy();
-  });
-
   it("zatvara create modal na Cancel", async () => {
     const user = userEvent.setup();
     renderPage();

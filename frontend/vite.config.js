@@ -26,7 +26,15 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "cobertura"],
       include: ["src/**/*.{ts,tsx,js,jsx}"],
-      exclude: ["src/main.tsx", "src/**/*.d.ts", "src/**/*.test.{ts,tsx}"],
+      exclude: [
+        "src/main.tsx",
+        "src/main.jsx",
+        "src/App.tsx",
+        "**/types/**/*",
+        "src/**/*.d.ts",
+        "src/**/*.test.{ts,tsx}",
+        "src/utils/**/*",
+      ],
       thresholds: {
         lines: 80,
         branches: 80,

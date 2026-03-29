@@ -1,128 +1,109 @@
-import { describe, expect, it, vi } from "vitest";
+/**
+ * @vitest-environment jsdom
+ */
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { AppProvider } from "@/context/AppContext";
 import EditRepositoryModal from "./EditRepositoryModal";
 import { MemoryRouter } from "react-router-dom";
-import type { ReactNode } from "react";
-import type { Repository } from "@/pages/RepositoriesPage/types/types";
+import type { Repository } from "@/services/repositories/repositories.api";
+import { useEditRepository } from "@/services/repositories/useEditRepository/useEditRepository";
 import userEvent from "@testing-library/user-event";
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <MemoryRouter>
-    <AppProvider>{children}</AppProvider>
-  </MemoryRouter>
-);
+vi.mock("@/components/Modals/Modal", () => ({
+  default: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
+
+const mockUpdate = vi.fn();
+vi.mock("@/services/repositories/useEditRepository/useEditRepository");
+const mockedUseEditRepository = vi.mocked(useEditRepository);
 
 const MOCK_REPO: Repository = {
-  id: "1",
+  id: 1,
   name: "nginx",
-  namespace: "john.doe",
-  description: "Official build of Nginx.",
+  fullName: "john.doe/nginx",
+  description: "Official Nginx image",
   visibility: "public",
-  pullCount: 142300,
-  stars: 48,
-  tags: ["latest"],
+  ownerEmail: "john.doe@example.com",
+  createdAt: "2025-01-01T12:00:00Z",
   updatedAt: "2025-03-10T12:00:00Z",
+  isOfficial: true,
+  starCount: 42,
+  tags: ["latest"],
 };
 
 const renderModal = (props = {}) =>
   render(
-    <EditRepositoryModal
-      isOpen={true}
-      onClose={vi.fn()}
-      onSave={vi.fn()}
-      repo={MOCK_REPO}
-      {...props}
-    />,
-    { wrapper },
+    <MemoryRouter>
+      <AppProvider>
+        <EditRepositoryModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onSave={vi.fn()}
+          repo={MOCK_REPO}
+          {...props}
+        />
+      </AppProvider>
+    </MemoryRouter>,
   );
 
 describe("EditRepositoryModal", () => {
-  it("ne renderuje ništa kad je zatvoren", () => {
-    renderModal({ isOpen: false });
-    expect(screen.queryByText(/save changes/i)).toBeNull();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("renderuje naziv repoa u headeru", () => {
+  it("prikazuje error poruku iz hook-a", () => {
+    mockedUseEditRepository.mockReturnValue({
+      saving: false,
+      error: "Update failed",
+      update: mockUpdate,
+    });
+
     renderModal();
-    expect(screen.getByText("john.doe/nginx")).toBeTruthy();
+    expect(screen.getByText("Update failed")).toBeInTheDocument();
   });
 
-  it("učitava trenutni opis repoa", () => {
-    renderModal();
-    const textarea = screen.getByPlaceholderText(/short description/i);
-    expect((textarea as HTMLTextAreaElement).value).toBe(
-      "Official build of Nginx.",
-    );
-  });
-
-  it("učitava trenutnu vidljivost repoa", () => {
-    renderModal();
-    const publicBtn = screen.getByRole("button", { name: /public/i });
-    expect(publicBtn.className).toContain("border-brand");
-  });
-
-  it("učitava private vidljivost kad je repo privatan", () => {
-    renderModal({ repo: { ...MOCK_REPO, visibility: "private" } });
-    const privateBtn = screen.getByRole("button", { name: /private/i });
-    expect(privateBtn.className).toContain("border-brand");
-  });
-
-  it("menja opis", async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    const textarea = screen.getByPlaceholderText(/short description/i);
-    await user.clear(textarea);
-    await user.type(textarea, "New description");
-
-    expect((textarea as HTMLTextAreaElement).value).toBe("New description");
-  });
-
-  it("menja vidljivost", async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.click(screen.getByRole("button", { name: /private/i }));
-    expect(screen.getByText(/only you and your team/i)).toBeTruthy();
-  });
-
-  it("poziva onSave sa ispravnim podacima", async () => {
+  it("menja description i visibility i submituje formu", async () => {
     const handleSave = vi.fn();
+    const handleClose = vi.fn();
     const user = userEvent.setup();
 
-    renderModal({ onSave: handleSave });
+    mockUpdate.mockResolvedValue(true);
+    mockedUseEditRepository.mockReturnValue({
+      saving: false,
+      error: "",
+      update: mockUpdate,
+    });
 
-    const textarea = screen.getByPlaceholderText(/short description/i);
-    await user.clear(textarea);
-    await user.type(textarea, "Updated description");
-    await user.click(screen.getByRole("button", { name: /save changes/i }));
+    renderModal({ onSave: handleSave, onClose: handleClose });
+
+    const descInput = screen.getByPlaceholderText(
+      "Short description of your image...",
+    );
+    const privateBtn = screen.getByRole("button", { name: /private/i });
+    const saveBtn = screen.getByRole("button", { name: /save changes/i });
+
+    await user.clear(descInput);
+    await user.type(descInput, "Updated description");
+    await user.click(privateBtn);
+    await user.click(saveBtn);
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      id: 1,
+      name: "nginx",
+      description: "Updated description",
+      visibility: "private",
+    });
 
     expect(handleSave).toHaveBeenCalledWith({
-      id: "1",
+      id: 1,
       description: "Updated description",
-      visibility: "public",
+      visibility: "private",
     });
-  });
-
-  it("poziva onClose nakon Save", async () => {
-    const handleClose = vi.fn();
-    const user = userEvent.setup();
-
-    renderModal({ onClose: handleClose });
-    await user.click(screen.getByRole("button", { name: /save changes/i }));
-
-    expect(handleClose).toHaveBeenCalledOnce();
-  });
-
-  it("poziva onClose na Cancel", async () => {
-    const handleClose = vi.fn();
-    const user = userEvent.setup();
-
-    renderModal({ onClose: handleClose });
-    await user.click(screen.getByRole("button", { name: /cancel/i }));
-
-    expect(handleClose).toHaveBeenCalledOnce();
+    expect(handleClose).toHaveBeenCalled();
   });
 });

@@ -1,116 +1,131 @@
-import * as authApi from "../../services/auth/auth.api";
+/**
+ * @vitest-environment jsdom
+ */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 
+import { AppProvider } from "@/context/AppContext";
+import { MemoryRouter } from "react-router-dom";
 import RegisterPage from "./RegisterPage";
-import { renderWithProviders } from "../../test/test.utils";
+import { useRegister as useRegisterMock } from "../../services/auth/useRegister/useRegister";
 import userEvent from "@testing-library/user-event";
 
-const registerSpy = vi.spyOn(authApi, "register");
+vi.mock("lucide-react", () => ({
+  UserPlus: () => <span data-testid="userplus" />,
+}));
 
-const mockNavigate = vi.fn();
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
-});
+const mockHandleRegister = vi.fn();
+vi.mock("../../services/auth/useRegister/useRegister", () => ({
+  useRegister: () => ({
+    loading: false,
+    error: "",
+    handleRegister: mockHandleRegister,
+  }),
+}));
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  localStorage.clear();
-});
+const renderPage = () =>
+  render(
+    <MemoryRouter>
+      <AppProvider>
+        <RegisterPage />
+      </AppProvider>
+    </MemoryRouter>,
+  );
 
 describe("RegisterPage", () => {
-  it("renderuje formu sa svim poljima", () => {
-    renderWithProviders(<RegisterPage />);
-    expect(screen.getByLabelText(/username/i)).toBeTruthy();
-    expect(screen.getByLabelText(/email/i)).toBeTruthy();
-    expect(screen.getByLabelText(/^password$/i)).toBeTruthy();
-    expect(screen.getByLabelText(/confirm password/i)).toBeTruthy();
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("prikazuje grešku za kratak username", async () => {
+  it("renderuje sve inpute i dugme", () => {
+    renderPage();
+
+    expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /create account/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("prikazuje grešku za slab password", async () => {
+    renderPage();
     const user = userEvent.setup();
-    renderWithProviders(<RegisterPage />);
+
+    await user.type(screen.getByLabelText(/^password$/i), "abc");
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(
+      await screen.findByText(/password must be at least 8 characters/i),
+    ).toBeInTheDocument();
+    expect(mockHandleRegister).not.toHaveBeenCalled();
+  });
+
+  it("prikazuje grešku kada password i confirm password ne poklapaju", async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText(/^password$/i), "Abcd1234");
+    await user.type(screen.getByLabelText(/confirm password/i), "Abcd12345");
+    await user.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(
+      await screen.findByText(/passwords do not match/i),
+    ).toBeInTheDocument();
+    expect(mockHandleRegister).not.toHaveBeenCalled();
+  });
+
+  it("prikazuje grešku kada username prekratak", async () => {
+    renderPage();
+    const user = userEvent.setup();
 
     await user.type(screen.getByLabelText(/username/i), "ab");
-    await user.type(screen.getByLabelText(/email/i), "test@test.com");
-    await user.type(screen.getByLabelText(/^password$/i), "Password1");
-    await user.type(screen.getByLabelText(/confirm password/i), "Password1");
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(screen.getByText(/at least 3 characters/i)).toBeTruthy();
+    expect(
+      await screen.findByText(/username must be at least 3 characters/i),
+    ).toBeInTheDocument();
+    expect(mockHandleRegister).not.toHaveBeenCalled();
   });
 
-  it("prikazuje grešku kad se lozinke ne poklapaju", async () => {
+  it("poziva handleRegister kada je forma validna", async () => {
+    renderPage();
     const user = userEvent.setup();
-    renderWithProviders(<RegisterPage />);
 
-    await user.type(screen.getByLabelText(/username/i), "john.doe");
-    await user.type(screen.getByLabelText(/email/i), "test@test.com");
-    await user.type(screen.getByLabelText(/^password$/i), "Password1");
-    await user.type(screen.getByLabelText(/confirm password/i), "Different1");
+    await user.type(screen.getByLabelText(/username/i), "john");
+    await user.type(screen.getByLabelText(/email/i), "john@example.com");
+    await user.type(screen.getByLabelText(/^password$/i), "Abcd1234");
+    await user.type(screen.getByLabelText(/confirm password/i), "Abcd1234");
+
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(screen.getByText(/do not match/i)).toBeTruthy();
+    expect(mockHandleRegister).toHaveBeenCalledOnce();
+    expect(mockHandleRegister).toHaveBeenCalledWith({
+      username: "john",
+      email: "john@example.com",
+      password: "Abcd1234",
+    });
   });
 
-  it("uspešna registracija navigira na /login", async () => {
-    registerSpy.mockResolvedValueOnce({
-      data: { message: "User registered." },
-    } as any);
+  vi.mock("../../services/auth/useRegister/useRegister", () => ({
+    useRegister: vi.fn(() => ({
+      loading: false,
+      error: "",
+      handleRegister: mockHandleRegister,
+    })),
+  }));
 
-    const user = userEvent.setup();
-    renderWithProviders(<RegisterPage />);
-
-    await user.type(screen.getByLabelText(/username/i), "fakeUsername");
-    await user.type(screen.getByLabelText(/email/i), "test@test.com");
-    await user.type(screen.getByLabelText(/^password$/i), "Password1");
-    await user.type(screen.getByLabelText(/confirm password/i), "Password1");
-    await user.click(screen.getByRole("button", { name: /create account/i }));
-
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/login"));
-  });
-
-  it("šalje username u API payload", async () => {
-    registerSpy.mockResolvedValueOnce({
-      data: { message: "User registered." },
-    } as any);
-
-    const user = userEvent.setup();
-    renderWithProviders(<RegisterPage />);
-
-    await user.type(screen.getByLabelText(/username/i), "john.doe");
-    await user.type(screen.getByLabelText(/email/i), "test@test.com");
-    await user.type(screen.getByLabelText(/^password$/i), "Password1");
-    await user.type(screen.getByLabelText(/confirm password/i), "Password1");
-    await user.click(screen.getByRole("button", { name: /create account/i }));
-
-    await waitFor(() =>
-      expect(registerSpy).toHaveBeenCalledWith({
-        username: "fakeUsername",
-        email: "test@test.com",
-        password: "Password1",
-      }),
-    );
-  });
-
-  it("prikazuje API grešku", async () => {
-    registerSpy.mockRejectedValueOnce({
-      response: { data: { message: "Email already in use." } },
+  it("prikazuje error sa servera", () => {
+    // @ts-ignore
+    useRegisterMock.mockReturnValue({
+      loading: false,
+      error: "Server error",
+      handleRegister: vi.fn(),
     });
 
-    const user = userEvent.setup();
-    renderWithProviders(<RegisterPage />);
-
-    await user.type(screen.getByLabelText(/username/i), "john.doe");
-    await user.type(screen.getByLabelText(/email/i), "test@test.com");
-    await user.type(screen.getByLabelText(/^password$/i), "Password1");
-    await user.type(screen.getByLabelText(/confirm password/i), "Password1");
-    await user.click(screen.getByRole("button", { name: /create account/i }));
-
-    await waitFor(() =>
-      expect(screen.getByText(/email already in use/i)).toBeTruthy(),
-    );
+    renderPage();
+    expect(screen.getByText("Server error")).toBeInTheDocument();
   });
 });

@@ -73,16 +73,13 @@ export function useTags(repositoryId: number | null): UseTagsReturn {
       .finally(() => setLoading(false));
   };
 
-  // 🔥 AUTO FETCH kad se bilo šta promeni
   useEffect(() => {
     fetchTags();
   }, [repositoryId, page, pageSize, search, sortBy, sortDir]);
 
-  // helpers
-
   const setSearch = (v: string) => {
     setSearchState(v);
-    setPage(1); // reset pagination
+    setPage(1);
   };
 
   const setSortDir = (v: TagSortDir) => {

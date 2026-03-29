@@ -4,6 +4,12 @@ import { render, screen } from "@testing-library/react";
 import InputField from "./InputField";
 import userEvent from "@testing-library/user-event";
 
+vi.mock("lucide-react", () => ({
+  Search: () => <span data-testid="mock-search" />,
+  Eye: () => <span data-testid="mock-eye" />,
+  EyeOff: () => <span data-testid="mock-eyeoff" />,
+}));
+
 describe("InputField", () => {
   it("renderuje label i input", () => {
     render(<InputField label="Email" value="" onChange={vi.fn()} />);
@@ -31,14 +37,25 @@ describe("InputField", () => {
     expect(input.id).toBe("custom-id");
   });
 
-  it("poziva onChange kad korisnik kuca", async () => {
+  it("poziva onChange i onChangeRaw kad korisnik kuca", async () => {
     const handleChange = vi.fn();
+    const handleChangeRaw = vi.fn();
     const user = userEvent.setup();
 
-    render(<InputField label="Email" value="" onChange={handleChange} />);
-    await user.type(screen.getByLabelText(/email/i), "a");
+    render(
+      <InputField
+        label="Email"
+        value=""
+        onChange={handleChange}
+        onChangeRaw={handleChangeRaw}
+      />,
+    );
+
+    const input = screen.getByLabelText(/email/i);
+    await user.type(input, "a");
 
     expect(handleChange).toHaveBeenCalledWith("a");
+    expect(handleChangeRaw).toHaveBeenCalled();
   });
 
   it("prikazuje placeholder", () => {
@@ -53,7 +70,7 @@ describe("InputField", () => {
     expect(screen.getByPlaceholderText("you@example.com")).toBeTruthy();
   });
 
-  it("prikazuje error poruku", () => {
+  it("prikazuje error poruku i border klasu", () => {
     render(
       <InputField
         label="Email"
@@ -62,41 +79,17 @@ describe("InputField", () => {
         error="Neispravan email."
       />,
     );
+
     expect(screen.getByText("Neispravan email.")).toBeTruthy();
-  });
-
-  it("ne prikazuje error kad nema greške", () => {
-    render(<InputField label="Email" value="" onChange={vi.fn()} />);
-    expect(screen.queryByRole("paragraph")).toBeNull();
-  });
-
-  it("primenjuje error border klasu na wrapper kad ima grešku", () => {
-    render(
-      <InputField label="Email" value="" onChange={vi.fn()} error="Greška" />,
-    );
     const wrapper = screen.getByLabelText(/email/i).closest("div");
     expect(wrapper?.className).toContain("border-danger");
   });
 
-  it("primenjuje default border klasu na wrapper bez greške", () => {
+  it("ne prikazuje error kad nema greške", () => {
     render(<InputField label="Email" value="" onChange={vi.fn()} />);
+    expect(screen.queryByText(/./, { selector: "p" })).toBeNull();
     const wrapper = screen.getByLabelText(/email/i).closest("div");
     expect(wrapper?.className).toContain("border-border");
-  });
-
-  it("postavlja type atribut", () => {
-    render(
-      <InputField
-        label="Password"
-        type="password"
-        value=""
-        onChange={vi.fn()}
-      />,
-    );
-    expect(screen.getByLabelText(/password/i)).toHaveAttribute(
-      "type",
-      "password",
-    );
   });
 
   it("prikazuje prefix ispred inputa", () => {
@@ -114,5 +107,40 @@ describe("InputField", () => {
   it("ne prikazuje prefix kad nije prosleđen", () => {
     render(<InputField label="Email" value="" onChange={vi.fn()} />);
     expect(screen.queryByText(/\//)).toBeNull();
+  });
+
+  it("prikazuje startIcon i endIcon ako su prosleđeni", () => {
+    render(
+      <InputField
+        label="Email"
+        value=""
+        onChange={vi.fn()}
+        startIcon={<span data-testid="start">S</span>}
+        endIcon={<span data-testid="end">E</span>}
+      />,
+    );
+    expect(screen.getByTestId("start")).toBeTruthy();
+    expect(screen.getByTestId("end")).toBeTruthy();
+  });
+
+  it("postavlja type atribut", () => {
+    render(
+      <InputField
+        label="Password"
+        type="password"
+        value=""
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText(/password/i)).toHaveAttribute(
+      "type",
+      "password",
+    );
+  });
+
+  it("sakriva labelu kad nije prosleđena", () => {
+    render(<InputField value="" onChange={vi.fn()} />);
+    const label = screen.queryByLabelText(/./);
+    expect(label).toBeNull();
   });
 });
