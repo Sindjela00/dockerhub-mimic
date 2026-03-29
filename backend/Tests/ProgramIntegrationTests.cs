@@ -96,7 +96,7 @@ public sealed class ProgramIntegrationTests
 
     private sealed class StubRepositoriesService : IRepositoriesService
     {
-        public Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir, bool mine, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
+        public Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir, bool mine, bool starred, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<RepositoryListResponse>(true, new RepositoryListResponse { Page = page, PageSize = pageSize, Total = 0 }, null));
 
         public Task<RepositoriesResult<RepositoryResponse>> GetRepositoryAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken)
@@ -111,7 +111,7 @@ public sealed class ProgramIntegrationTests
         public Task<RepositoriesResult<string>> DeleteRepositoryAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<string>(true, "deleted", null));
 
-        public Task<RepositoriesResult<RepositoryTagListResponse>> GetRepositoryTagsAsync(int id, string? sortBy, string? sortDir, int page, int pageSize, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+        public Task<RepositoriesResult<RepositoryTagListResponse>> GetRepositoryTagsAsync(int id, string? search, string? sortBy, string? sortDir, int page, int pageSize, string? currentUsername, string? userRole, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<RepositoryTagListResponse>(true, new RepositoryTagListResponse { RepositoryId = id, RepositoryFullName = "demo/repo", Page = page, PageSize = pageSize, Total = 0 }, null));
 
         public Task<RepositoriesResult<RepositoryCollaboratorListResponse>> GetRepositoryCollaboratorsAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken)
@@ -125,5 +125,11 @@ public sealed class ProgramIntegrationTests
 
         public Task<RepositoriesResult<string>> DeleteRepositoryTagAsync(int id, string tagName, string? currentUsername, string? userRole, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<string>(true, "deleted", null));
+
+        public Task<RepositoriesResult<RepositoryResponse>> StarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<RepositoryResponse>(true, new RepositoryResponse { Id = id, Name = "repo", StarCount = 1 }, null));
+
+        public Task<RepositoriesResult<RepositoryResponse>> UnstarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<RepositoryResponse>(true, new RepositoryResponse { Id = id, Name = "repo", StarCount = 0 }, null));
     }
 }

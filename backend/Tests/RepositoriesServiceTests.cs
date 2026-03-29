@@ -22,6 +22,7 @@ public sealed class RepositoriesServiceTests
             sortBy: null,
             sortDir: null,
             mine: true,
+            starred: false,
             page: 1,
             pageSize: 20,
             currentUsername: null,
@@ -52,6 +53,7 @@ public sealed class RepositoriesServiceTests
             sortBy: "name",
             sortDir: "asc",
             mine: false,
+            starred: false,
             page: 1,
             pageSize: 20,
             currentUsername: "demo",
@@ -84,6 +86,7 @@ public sealed class RepositoriesServiceTests
             sortBy: "pulls",
             sortDir: "desc",
             mine: false,
+            starred: false,
             page: 1,
             pageSize: 20,
             currentUsername: null,
@@ -202,6 +205,7 @@ public sealed class RepositoriesServiceTests
         var service = new RepositoriesService(dbContext);
         var result = await service.GetRepositoryTagsAsync(
             repository.Id,
+            search: null,
             sortBy: "pulls",
             sortDir: "desc",
             page: 1,
@@ -229,6 +233,7 @@ public sealed class RepositoriesServiceTests
         var service = new RepositoriesService(dbContext);
         var result = await service.GetRepositoryTagsAsync(
             repository.Id,
+            search: null,
             sortBy: "pullcount",
             sortDir: "desc",
             page: 1,
@@ -262,6 +267,7 @@ public sealed class RepositoriesServiceTests
         var service = new RepositoriesService(dbContext);
         var result = await service.GetRepositoryTagsAsync(
             repository.Id,
+            search: null,
             sortBy: "name",
             sortDir: "asc",
             page: 2,
@@ -295,6 +301,7 @@ public sealed class RepositoriesServiceTests
         var service = new RepositoriesService(dbContext);
         var result = await service.GetRepositoryTagsAsync(
             repository.Id,
+            search: null,
             sortBy: "size",
             sortDir: "asc",
             page: 1,
@@ -308,6 +315,134 @@ public sealed class RepositoriesServiceTests
 
         var tagNames = result.Data.Tags.Select(tag => tag.Name).ToList();
         CollectionAssert.AreEqual(new[] { "smallest", "medium", "largest" }, tagNames);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTagsAsync_WithSearch_ReturnsMatchingTags()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "demo", "demo@example.com");
+        var repository = await AddRepositoryAsync(dbContext, owner, "sample", "public", pullCount: 0);
+
+        await AddTagAsync(dbContext, repository, "v1.0-beta", pullCount: 1, compressedSizeBytes: 100);
+        await AddTagAsync(dbContext, repository, "v1.0-release", pullCount: 2, compressedSizeBytes: 150);
+        await AddTagAsync(dbContext, repository, "v2.0-beta", pullCount: 3, compressedSizeBytes: 200);
+        await AddTagAsync(dbContext, repository, "latest", pullCount: 4, compressedSizeBytes: 250);
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryTagsAsync(
+            repository.Id,
+            search: "beta",
+            sortBy: "name",
+            sortDir: "asc",
+            page: 1,
+            pageSize: 20,
+            currentUsername: null,
+            userRole: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual(2, result.Data.Total);
+
+        var tagNames = result.Data.Tags.Select(tag => tag.Name).ToList();
+        CollectionAssert.AreEqual(new[] { "v1.0-beta", "v2.0-beta" }, tagNames);
+    }
+
+    [TestMethod]
+    public async Task StarRepositoryAsync_WithValidUser_StarsRepository()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "demo", "demo@example.com");
+        var user = await AddUserAsync(dbContext, "fan", "fan@example.com");
+        var repository = await AddRepositoryAsync(dbContext, owner, "awesome-repo", "public", pullCount: 0);
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.StarRepositoryAsync(repository.Id, "fan", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual(1, result.Data.StarCount);
+
+        // Verify in database
+        var updatedRepo = await dbContext.Repositories
+            .Include(r => r.Stars)
+            .FirstOrDefaultAsync(r => r.Id == repository.Id);
+        
+        Assert.AreEqual(1, updatedRepo?.StarCount);
+        Assert.AreEqual(1, updatedRepo?.Stars.Count);
+    }
+
+    [TestMethod]
+    public async Task UnstarRepositoryAsync_WithValidStar_UnstarsRepository()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "demo", "demo@example.com");
+        var user = await AddUserAsync(dbContext, "fan", "fan@example.com");
+        var repository = await AddRepositoryAsync(dbContext, owner, "awesome-repo", "public", pullCount: 0);
+
+        var star = new RepositoryStar { RepositoryId = repository.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow };
+        dbContext.RepositoryStars.Add(star);
+        repository.StarCount = 1;
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.UnstarRepositoryAsync(repository.Id, "fan", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual(0, result.Data.StarCount);
+
+        // Verify in database
+        var updatedRepo = await dbContext.Repositories
+            .Include(r => r.Stars)
+            .FirstOrDefaultAsync(r => r.Id == repository.Id);
+        
+        Assert.AreEqual(0, updatedRepo?.StarCount);
+        Assert.AreEqual(0, updatedRepo?.Stars.Count);
+    }
+
+    [TestMethod]
+    public async Task ExploreRepositoriesAsync_WithStarredFilter_ReturnsOnlyStarredRepositories()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "demo", "demo@example.com");
+        var user = await AddUserAsync(dbContext, "fan", "fan@example.com");
+
+        var repo1 = await AddRepositoryAsync(dbContext, owner, "repo1", "public", pullCount: 0);
+        var repo2 = await AddRepositoryAsync(dbContext, owner, "repo2", "public", pullCount: 0);
+        var repo3 = await AddRepositoryAsync(dbContext, owner, "repo3", "public", pullCount: 0);
+
+        // Star only repo1 and repo3
+        dbContext.RepositoryStars.Add(new RepositoryStar { RepositoryId = repo1.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow });
+        dbContext.RepositoryStars.Add(new RepositoryStar { RepositoryId = repo3.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow });
+        repo1.StarCount = 1;
+        repo3.StarCount = 1;
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.ExploreRepositoriesAsync(
+            search: null,
+            owner: null,
+            visibility: null,
+            minStars: null,
+            sortBy: "name",
+            sortDir: "asc",
+            mine: false,
+            starred: true,
+            page: 1,
+            pageSize: 20,
+            currentUsername: "fan",
+            cancellationToken: CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual(2, result.Data.Total);
+
+        var repoNames = result.Data.Repositories.Select(r => r.Name).ToList();
+        CollectionAssert.AreEqual(new[] { "repo1", "repo3" }, repoNames);
     }
 
     [TestMethod]

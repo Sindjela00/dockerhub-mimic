@@ -19,7 +19,7 @@ public sealed class RepositoriesControllerTests
         };
         var controller = CreateController(service);
 
-        var result = await controller.ExploreRepositories(null, null, null, null, null, null, true, 1, 20, CancellationToken.None);
+        var result = await controller.ExploreRepositories(null, null, null, null, null, null, mine: true, starred: false, page: 1, pageSize: 20, cancellationToken: CancellationToken.None);
 
         Assert.IsInstanceOfType<UnauthorizedResult>(result);
     }
@@ -35,7 +35,7 @@ public sealed class RepositoriesControllerTests
         };
         var controller = CreateController(service, "demo", User.RoleUser);
 
-        var result = await controller.ExploreRepositories("repo", null, null, null, null, null, false, 1, 20, CancellationToken.None);
+        var result = await controller.ExploreRepositories("repo", null, null, null, null, null, mine: false, starred: false, page: 1, pageSize: 20, cancellationToken: CancellationToken.None);
 
         Assert.IsInstanceOfType<OkObjectResult>(result);
         Assert.AreEqual("demo", service.LastCurrentUsername);
@@ -127,7 +127,7 @@ public sealed class RepositoriesControllerTests
         };
         var controller = CreateController(service);
 
-        var result = await controller.GetRepositoryTags(1, "pulls", "desc", 2, 5, CancellationToken.None);
+        var result = await controller.GetRepositoryTags(1, null, "pulls", "desc", 2, 5, CancellationToken.None);
 
         Assert.IsInstanceOfType<OkObjectResult>(result);
     }
@@ -222,10 +222,12 @@ public sealed class RepositoriesControllerTests
         public RepositoriesResult<RepositoryCollaboratorResponse> AddCollaboratorResult { get; set; } = new(true, new RepositoryCollaboratorResponse(), null);
         public RepositoriesResult<string> RemoveCollaboratorResult { get; set; } = new(true, "removed", null);
         public RepositoriesResult<string> DeleteTagResult { get; set; } = new(true, "deleted", null);
+        public RepositoriesResult<RepositoryResponse> StarResult { get; set; } = new(true, new RepositoryResponse(), null);
+        public RepositoriesResult<RepositoryResponse> UnstarResult { get; set; } = new(true, new RepositoryResponse(), null);
         public string? LastCurrentUsername { get; private set; }
         public string? LastUserRole { get; private set; }
 
-        public Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir, bool mine, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
+        public Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir, bool mine, bool starred, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
         {
             LastCurrentUsername = currentUsername;
             return Task.FromResult(ExploreResult);
@@ -258,7 +260,7 @@ public sealed class RepositoriesControllerTests
             return Task.FromResult(DeleteResult);
         }
 
-        public Task<RepositoriesResult<RepositoryTagListResponse>> GetRepositoryTagsAsync(int id, string? sortBy, string? sortDir, int page, int pageSize, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+        public Task<RepositoriesResult<RepositoryTagListResponse>> GetRepositoryTagsAsync(int id, string? search, string? sortBy, string? sortDir, int page, int pageSize, string? currentUsername, string? userRole, CancellationToken cancellationToken)
         {
             LastCurrentUsername = currentUsername;
             LastUserRole = userRole;
@@ -291,6 +293,18 @@ public sealed class RepositoriesControllerTests
             LastCurrentUsername = currentUsername;
             LastUserRole = userRole;
             return Task.FromResult(DeleteTagResult);
+        }
+
+        public Task<RepositoriesResult<RepositoryResponse>> StarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken)
+        {
+            LastCurrentUsername = currentUsername;
+            return Task.FromResult(StarResult);
+        }
+
+        public Task<RepositoriesResult<RepositoryResponse>> UnstarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken)
+        {
+            LastCurrentUsername = currentUsername;
+            return Task.FromResult(UnstarResult);
         }
     }
 }
