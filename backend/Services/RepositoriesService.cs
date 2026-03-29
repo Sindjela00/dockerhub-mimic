@@ -54,6 +54,8 @@ public sealed record RepositoryTagListResponse
     public int RepositoryId { get; set; }
     public string RepositoryFullName { get; set; } = string.Empty;
     public int PullCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
     public List<RepositoryTagResponse> Tags { get; set; } = new();
     public int Total { get; set; }
 }
@@ -80,7 +82,7 @@ public interface IRepositoriesService
 {
     Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(
         string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir,
-        bool mine, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken);
+        bool mine, bool starred, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryResponse>> GetRepositoryAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
@@ -93,7 +95,7 @@ public interface IRepositoriesService
     Task<RepositoriesResult<string>> DeleteRepositoryAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryTagListResponse>> GetRepositoryTagsAsync(
-        int id, string? sortBy, string? sortDir, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+        int id, string? search, string? sortBy, string? sortDir, int page, int pageSize, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryCollaboratorListResponse>> GetRepositoryCollaboratorsAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
@@ -105,6 +107,10 @@ public interface IRepositoriesService
 
     Task<RepositoriesResult<string>> DeleteRepositoryTagAsync(
         int id, string tagName, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+
+    Task<RepositoriesResult<RepositoryResponse>> StarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken);
+
+    Task<RepositoriesResult<RepositoryResponse>> UnstarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken);
 }
 
 // --- Implementation ---
@@ -120,18 +126,35 @@ public class RepositoriesService : IRepositoriesService
 
     public async Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(
         string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir,
-        bool mine, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
+        bool mine, bool starred, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
     {
         (page, pageSize) = NormalizePaging(page, pageSize);
         var normalizedCurrentUsername = Normalize(currentUsername ?? string.Empty);
+
+        // If starred=true, require authentication
+        if (starred && string.IsNullOrWhiteSpace(normalizedCurrentUsername))
+            return new RepositoriesResult<RepositoryListResponse>(false, null, "Unauthorized");
 
         var query = _dbContext.Repositories
             .Include(r => r.Owner)
             .Include(r => r.Tags)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
+            .Include(r => r.Stars)
             .AsQueryable();
 
-        if (mine)
+        if (starred)
+        {
+            // Get the current user's ID
+            var currentUser = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Username == normalizedCurrentUsername, cancellationToken);
+            
+            if (currentUser is null)
+                return new RepositoriesResult<RepositoryListResponse>(false, null, "User not found.");
+
+            // Filter to only starred repositories
+            query = query.Where(r => r.Stars.Any(s => s.UserId == currentUser.Id));
+        }
+        else if (mine)
         {
             if (string.IsNullOrWhiteSpace(normalizedCurrentUsername))
                 return new RepositoriesResult<RepositoryListResponse>(false, null, "Unauthorized");
@@ -317,8 +340,10 @@ public class RepositoriesService : IRepositoriesService
     }
 
     public async Task<RepositoriesResult<RepositoryTagListResponse>> GetRepositoryTagsAsync(
-        int id, string? sortBy, string? sortDir, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+        int id, string? search, string? sortBy, string? sortDir, int page, int pageSize, string? currentUsername, string? userRole, CancellationToken cancellationToken)
     {
+        (page, pageSize) = NormalizePaging(page, pageSize);
+
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
@@ -333,7 +358,17 @@ public class RepositoriesService : IRepositoriesService
         var tagsQuery = _dbContext.RepositoryTags
             .Where(t => t.RepositoryId == id);
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim().ToLowerInvariant();
+            tagsQuery = tagsQuery.Where(t => t.Name.ToLower().Contains(normalizedSearch));
+        }
+
+        var total = await tagsQuery.CountAsync(cancellationToken);
+
         var tags = await ApplyTagSorting(tagsQuery, sortBy, sortDir)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         var fullName = repo.IsOfficial ? repo.Name : $"{repo.Owner?.Username ?? "user"}/{repo.Name}";
@@ -342,8 +377,10 @@ public class RepositoriesService : IRepositoriesService
             RepositoryId = repo.Id,
             RepositoryFullName = fullName,
             PullCount = repo.PullCount,
+            Page = page,
+            PageSize = pageSize,
             Tags = tags.Select(MapTagToResponse).ToList(),
-            Total = tags.Count
+            Total = total
         }, null);
     }
 
@@ -587,6 +624,82 @@ public class RepositoriesService : IRepositoriesService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new RepositoriesResult<string>(true, "Tag deleted successfully.", null);
+    }
+
+    public async Task<RepositoriesResult<RepositoryResponse>> StarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(currentUsername))
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Unauthorized");
+
+        var repo = await _dbContext.Repositories
+            .Include(r => r.Owner)
+            .Include(r => r.Tags)
+            .Include(r => r.Collaborators).ThenInclude(c => c.User)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is null)
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Repository not found.");
+
+        var normalizedUsername = Normalize(currentUsername);
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Username == normalizedUsername, cancellationToken);
+
+        if (user is null)
+            return new RepositoriesResult<RepositoryResponse>(false, null, "User not found.");
+
+        // Check if already starred
+        var alreadyStarred = await _dbContext.RepositoryStars
+            .AnyAsync(s => s.RepositoryId == id && s.UserId == user.Id, cancellationToken);
+
+        if (alreadyStarred)
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Repository already starred.");
+
+        var star = new RepositoryStar
+        {
+            RepositoryId = id,
+            UserId = user.Id,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.RepositoryStars.Add(star);
+        repo.StarCount++;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new RepositoriesResult<RepositoryResponse>(true, MapDbRepositoryToResponse(repo), null);
+    }
+
+    public async Task<RepositoriesResult<RepositoryResponse>> UnstarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(currentUsername))
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Unauthorized");
+
+        var repo = await _dbContext.Repositories
+            .Include(r => r.Owner)
+            .Include(r => r.Tags)
+            .Include(r => r.Collaborators).ThenInclude(c => c.User)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is null)
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Repository not found.");
+
+        var normalizedUsername = Normalize(currentUsername);
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Username == normalizedUsername, cancellationToken);
+
+        if (user is null)
+            return new RepositoriesResult<RepositoryResponse>(false, null, "User not found.");
+
+        var star = await _dbContext.RepositoryStars
+            .FirstOrDefaultAsync(s => s.RepositoryId == id && s.UserId == user.Id, cancellationToken);
+
+        if (star is null)
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Repository not starred.");
+
+        _dbContext.RepositoryStars.Remove(star);
+        repo.StarCount = Math.Max(0, repo.StarCount - 1);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new RepositoriesResult<RepositoryResponse>(true, MapDbRepositoryToResponse(repo), null);
     }
 
     private static bool IsValidVisibility(string visibility) => visibility == "public" || visibility == "private";

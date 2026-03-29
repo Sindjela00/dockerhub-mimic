@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Docker Environment Management Script for dockerhub-mimic
-Manages Docker Compose services: app (.NET), db (PostgreSQL), mem-cache (Redis), reverse-proxy (Nginx)
+Docker Environment Management Script for dockerhub-mimic.
+Manages Docker Compose services for backend, frontend, database, proxy, and registry.
 """
 
 import subprocess
@@ -14,7 +14,7 @@ from pathlib import Path
 class DockerEnvManager:
     """Manages Docker Compose environment for the application."""
 
-    SUPPORTED_SERVICES = {"app", "db", "mem-cache", "frontend", "reverse-proxy"}
+    SUPPORTED_SERVICES = {"backend", "db", "frontend", "nginx", "registry"}
     SUPPORTED_TEST_TARGETS = {"backend", "frontend"}
     
     def __init__(self):
@@ -22,6 +22,24 @@ class DockerEnvManager:
         if not self.compose_file.exists():
             print(f"Error: docker-compose.yml not found at {self.compose_file}")
             sys.exit(1)
+        self.compose_command = self._resolve_compose_command()
+
+    def _resolve_compose_command(self):
+        if shutil.which("docker"):
+            result = subprocess.run(
+                ["docker", "compose", "version"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                return "docker compose"
+
+        if shutil.which("docker-compose"):
+            return "docker-compose"
+
+        print("Error: neither 'docker compose' nor 'docker-compose' is available.")
+        sys.exit(1)
     
     def _run_command(self, command, check=True, cwd=None):
         """Execute a shell command."""
@@ -41,6 +59,9 @@ class DockerEnvManager:
 
     def _is_supported_service(self, service):
         return service in self.SUPPORTED_SERVICES
+
+    def _compose(self, command):
+        return f"{self.compose_command} {command}"
 
     def _resolve_test_targets(self, targets):
         if not targets:
@@ -63,7 +84,7 @@ class DockerEnvManager:
         if service and not self._is_supported_service(service):
             print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
             return False
-        cmd = "docker-compose build"
+        cmd = self._compose("build")
         if service:
             cmd += f" {service}"
         return self._run_command(cmd)
@@ -73,12 +94,12 @@ class DockerEnvManager:
         print("Starting services...")
 
         print("Restarting database service (db)...")
-        if not self._run_command("docker-compose up -d db"):
+        if not self._run_command(self._compose("up -d db")):
             return False
-        if not self._run_command("docker-compose restart db"):
+        if not self._run_command(self._compose("restart db")):
             return False
 
-        cmd = "docker-compose up"
+        cmd = self._compose("up")
         if detached:
             cmd += " -d"
         if build:
@@ -88,12 +109,12 @@ class DockerEnvManager:
     def stop(self):
         """Stop all services."""
         print("Stopping services...")
-        return self._run_command("docker-compose stop")
+        return self._run_command(self._compose("stop"))
     
     def down(self, volumes=False):
         """Stop and remove containers."""
         print("Stopping and removing containers...")
-        cmd = "docker-compose down"
+        cmd = self._compose("down")
         if volumes:
             cmd += " -v"
             print("Removing volumes (database data will be deleted)...")
@@ -105,7 +126,7 @@ class DockerEnvManager:
         if service and not self._is_supported_service(service):
             print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
             return False
-        cmd = "docker-compose restart"
+        cmd = self._compose("restart")
         if service:
             cmd += f" {service}"
         return self._run_command(cmd)
@@ -115,7 +136,7 @@ class DockerEnvManager:
         if service and not self._is_supported_service(service):
             print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
             return False
-        cmd = "docker-compose logs"
+        cmd = self._compose("logs")
         if follow:
             cmd += " -f"
         if service:
@@ -125,7 +146,7 @@ class DockerEnvManager:
     def status(self):
         """Show status of services."""
         print("Service status:")
-        return self._run_command("docker-compose ps")
+        return self._run_command(self._compose("ps"))
     
     def clean(self):
         """Clean up all containers, images, and volumes."""
@@ -137,7 +158,7 @@ class DockerEnvManager:
         # Remove images
         print("Removing Docker images...")
         images = [
-            "dockerhub-mimic-app",
+            "dockerhub-mimic-backend",
             "dockerhub-mimic-frontend"
         ]
         for img in images:
@@ -209,25 +230,42 @@ class DockerEnvManager:
         """Generate HTML coverage report from collected Cobertura files."""
         backend_dir = Path(__file__).parent / "backend"
 
-        cobertura_files = list(backend_dir.rglob("coverage.cobertura.xml"))
+        coverage_root = backend_dir / "coverage"
+        test_results_root = backend_dir / "Tests" / "TestResults"
+
+        candidate_files = []
+        if coverage_root.exists():
+            candidate_files.extend(coverage_root.rglob("coverage.cobertura.xml"))
+        if test_results_root.exists():
+            candidate_files.extend(test_results_root.rglob("coverage.cobertura.xml"))
+
+        cobertura_files = [
+            file for file in candidate_files
+            if "\\normalized\\" not in str(file).lower()
+            and "\\report\\" not in str(file).lower()
+        ]
+
         if not cobertura_files:
             print("No coverage files found. Run 'python run_env.py test --coverage' first.")
             return False
 
+        # Use only the newest raw report to avoid stale references to deleted files.
+        latest_cobertura = max(cobertura_files, key=lambda file: file.stat().st_mtime)
+        print(f"Using coverage input: {latest_cobertura}")
+
         normalized_dir = backend_dir / "coverage" / "normalized"
+        if normalized_dir.exists():
+            shutil.rmtree(normalized_dir)
         normalized_dir.mkdir(parents=True, exist_ok=True)
 
         backend_path = backend_dir.as_posix()
-        normalized_files = []
-        for index, source_file in enumerate(cobertura_files, start=1):
-            xml = source_file.read_text(encoding="utf-8")
-            xml = xml.replace("\\src\\", f"{backend_path}/")
-            xml = xml.replace("/src/", f"{backend_path}/")
-            normalized_file = normalized_dir / f"coverage.{index}.cobertura.xml"
-            normalized_file.write_text(xml, encoding="utf-8")
-            normalized_files.append(str(normalized_file))
+        xml = latest_cobertura.read_text(encoding="utf-8")
+        xml = xml.replace("\\src\\", f"{backend_path}/")
+        xml = xml.replace("/src/", f"{backend_path}/")
+        normalized_file = normalized_dir / "coverage.latest.cobertura.xml"
+        normalized_file.write_text(xml, encoding="utf-8")
 
-        reports_arg = ";".join(normalized_files)
+        reports_arg = str(normalized_file)
         target_dir = backend_dir / "coverage" / "report"
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -283,7 +321,7 @@ class DockerEnvManager:
             print(f"Error: unknown service '{service}'. Supported: {', '.join(sorted(self.SUPPORTED_SERVICES))}")
             return False
         print(f"🔧 Executing command in {service}...")
-        cmd = f"docker-compose exec {service} {command}"
+        cmd = self._compose(f"exec {service} {command}")
         return self._run_command(cmd, check=False)
 
 
@@ -297,11 +335,11 @@ Examples:
     python run_env.py start              # Start all services
     python run_env.py start --build      # Build and start
     python run_env.py stop               # Stop all services
-    python run_env.py restart app        # Restart app service
+    python run_env.py restart backend    # Restart backend service
     python run_env.py restart db         # Restart db service
     python run_env.py logs -f            # Follow logs
-    python run_env.py logs reverse-proxy # View reverse-proxy logs
-    python run_env.py logs mem-cache     # View Redis logs
+    python run_env.py logs nginx         # View reverse proxy logs
+    python run_env.py logs registry      # View registry logs
     python run_env.py status             # Show service status
     python run_env.py clean              # Clean up everything
     python run_env.py test               # Run backend + frontend tests
@@ -373,11 +411,11 @@ Examples:
     elif args.command == "start":
         success = manager.start(detached=not args.foreground, build=args.build)
         if success:
-            print("\n sServices started successfully!")
+            print("\nServices started successfully!")
             print("   Reverse Proxy: http://localhost:3000")
-            print("   App (internal): http://app:8080")
+            print("   Backend (internal): http://backend:8080")
             print("   Database: localhost:5432")
-            print("   Redis (internal): mem-cache:6379")
+            print("   Registry (internal): http://registry:5000")
     elif args.command == "stop":
         success = manager.stop()
     elif args.command == "down":

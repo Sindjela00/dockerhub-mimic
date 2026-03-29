@@ -27,13 +27,14 @@ public class RepositoriesController : ControllerBase
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDir,
         [FromQuery] bool mine = false,
+        [FromQuery] bool starred = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         var currentUsername = GetCurrentUsername();
         var result = await _repositoriesService.ExploreRepositoriesAsync(
-            search, owner, visibility, minStars, sortBy, sortDir, mine, page, pageSize, currentUsername, cancellationToken);
+            search, owner, visibility, minStars, sortBy, sortDir, mine, starred, page, pageSize, currentUsername, cancellationToken);
         if (!result.Succeeded)
             return result.ErrorMessage == "Unauthorized" ? Unauthorized() : BadRequest(new { message = result.ErrorMessage });
         return Ok(result.Data);
@@ -101,13 +102,16 @@ public class RepositoriesController : ControllerBase
     [HttpGet("{id:int}/tags")]
     public async Task<IActionResult> GetRepositoryTags(
         int id,
+        [FromQuery] string? search,
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDir,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         var currentUsername = GetCurrentUsername();
         var userRole = GetCurrentUserRole();
-        var result = await _repositoriesService.GetRepositoryTagsAsync(id, sortBy, sortDir, currentUsername, userRole, cancellationToken);
+        var result = await _repositoriesService.GetRepositoryTagsAsync(id, search, sortBy, sortDir, page, pageSize, currentUsername, userRole, cancellationToken);
         if (!result.Succeeded)
             return result.ErrorMessage == "Repository not found." ? NotFound(new { message = result.ErrorMessage }) : Forbid();
         return Ok(result.Data);
@@ -182,6 +186,38 @@ public class RepositoriesController : ControllerBase
                 _ => BadRequest(new { message = result.ErrorMessage })
             };
         return NoContent();
+    }
+
+    [HttpPost("{id:int}/star")]
+    [Authorize]
+    public async Task<IActionResult> StarRepository(int id, CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var result = await _repositoriesService.StarRepositoryAsync(id, currentUsername, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Repository not found." => NotFound(new { message = result.ErrorMessage }),
+                "Repository already starred." => Conflict(new { message = result.ErrorMessage }),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(new { message = "Repository starred successfully.", repository = result.Data });
+    }
+
+    [HttpDelete("{id:int}/star")]
+    [Authorize]
+    public async Task<IActionResult> UnstarRepository(int id, CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var result = await _repositoriesService.UnstarRepositoryAsync(id, currentUsername, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Repository not found." => NotFound(new { message = result.ErrorMessage }),
+                "Repository not starred." => NotFound(new { message = result.ErrorMessage }),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(new { message = "Repository unstarred successfully.", repository = result.Data });
     }
 
     private string? GetCurrentUsername()

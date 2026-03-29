@@ -108,10 +108,14 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-using (var scope = app.Services.CreateScope())
+var skipDatabaseSeeding = builder.Configuration.GetValue<bool>("SkipDatabaseSeeding");
+if (!skipDatabaseSeeding)
 {
+    using var scope = app.Services.CreateScope();
     var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
     await seeder.SeedAsync();
 }
 
 app.Run();
+
+public partial class Program;
