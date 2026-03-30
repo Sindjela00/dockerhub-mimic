@@ -1,144 +1,208 @@
-/**
- * @vitest-environment jsdom
- */
+import * as hook from "@/services/repositories/useDeleteRepository/useDeleteRepository";
 
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-import InputField from "@/components/InputField/InputField";
-import userEvent from "@testing-library/user-event";
+import DeleteRepositoryModal from "./DeleteRepositoryModal";
 
-vi.mock("lucide-react", () => ({
-  Search: () => <span data-testid="mock-search" />,
-  Eye: () => <span data-testid="mock-eye" />,
-  EyeOff: () => <span data-testid="mock-eyeoff" />,
-}));
+// mock hook
+vi.mock(
+  "@/services/repositories/useDeleteRepository/useDeleteRepository",
+  () => ({
+    useDeleteRepository: vi.fn(),
+  }),
+);
 
-describe("InputField", () => {
-  it("renderuje label i input", () => {
-    render(<InputField label="Email" value="" onChange={vi.fn()} />);
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByRole("textbox")).toBeInTheDocument();
+const mockedUseDeleteRepository =
+  hook.useDeleteRepository as unknown as ReturnType<typeof vi.fn>;
+
+const MOCK_REPO = {
+  id: "1",
+  fullName: "marija/test-repo",
+};
+
+describe("DeleteRepositoryModal", () => {
+  const onClose = vi.fn();
+  const onDelete = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockedUseDeleteRepository.mockReturnValue({
+      loading: false,
+      error: "",
+      handleDelete: vi.fn().mockResolvedValue(true),
+    });
   });
 
-  it("label je povezana sa inputom preko htmlFor/id", () => {
-    render(<InputField label="Email" value="" onChange={vi.fn()} />);
-    const input = screen.getByLabelText(/email/i);
-    expect(input.id).toBe("email");
-  });
-
-  it("generiše id iz labele sa razmakom", () => {
-    render(<InputField label="Old password" value="" onChange={vi.fn()} />);
-    const input = screen.getByLabelText(/old password/i);
-    expect(input.id).toBe("old-password");
-  });
-
-  it("koristi custom id ako je prosleđen", () => {
+  it("renders modal content", () => {
     render(
-      <InputField label="Email" id="custom-id" value="" onChange={vi.fn()} />,
-    );
-    const input = screen.getByLabelText(/email/i);
-    expect(input.id).toBe("custom-id");
-  });
-
-  it("poziva onChange i onChangeRaw kad korisnik kuca", async () => {
-    const handleChange = vi.fn();
-    const handleChangeRaw = vi.fn();
-    const user = userEvent.setup();
-
-    render(
-      <InputField
-        label="Email"
-        value=""
-        onChange={handleChange}
-        onChangeRaw={handleChangeRaw}
+      <DeleteRepositoryModal
+        isOpen={true}
+        onClose={onClose}
+        onDelete={onDelete}
+        repo={MOCK_REPO as any}
       />,
     );
 
-    const input = screen.getByLabelText(/email/i);
-    await user.type(input, "a");
-
-    expect(handleChange).toHaveBeenCalledWith("a");
-    expect(handleChangeRaw).toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: /delete repository/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/This action cannot be undone/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("marija/test-repo")).toBeInTheDocument();
   });
 
-  it("prikazuje placeholder", () => {
+  it("disables delete button if not confirmed", () => {
     render(
-      <InputField
-        label="Email"
-        value=""
-        onChange={vi.fn()}
-        placeholder="you@example.com"
+      <DeleteRepositoryModal
+        isOpen={true}
+        onClose={onClose}
+        onDelete={onDelete}
+        repo={MOCK_REPO as any}
       />,
     );
-    expect(screen.getByPlaceholderText("you@example.com")).toBeInTheDocument();
+
+    const deleteBtn = screen.getByRole("button", {
+      name: /delete repository/i,
+    });
+
+    expect(deleteBtn).toBeDisabled();
   });
 
-  it("prikazuje error poruku i border klasu", () => {
+  it("enables delete button when input matches repo name", () => {
     render(
-      <InputField
-        label="Email"
-        value=""
-        onChange={vi.fn()}
-        error="Neispravan email."
+      <DeleteRepositoryModal
+        isOpen={true}
+        onClose={onClose}
+        onDelete={onDelete}
+        repo={MOCK_REPO as any}
       />,
     );
-    expect(screen.getByText("Neispravan email.")).toBeInTheDocument();
-    const wrapper = screen.getByLabelText(/email/i).closest("div");
-    expect(wrapper?.className).toContain("border-danger");
+
+    const input = screen.getByPlaceholderText("marija/test-repo");
+    fireEvent.change(input, { target: { value: "marija/test-repo" } });
+
+    const deleteBtn = screen.getByRole("button", {
+      name: /delete repository/i,
+    });
+
+    expect(deleteBtn).not.toBeDisabled();
   });
 
-  it("ne prikazuje error kad nema greške", () => {
-    render(<InputField label="Email" value="" onChange={vi.fn()} />);
-    expect(screen.queryByText(/./, { selector: "p" })).toBeNull();
-    const wrapper = screen.getByLabelText(/email/i).closest("div");
-    expect(wrapper?.className).toContain("border-border");
-  });
+  it("calls delete flow on confirm", async () => {
+    const handleDelete = vi.fn().mockResolvedValue(true);
 
-  it("prikazuje prefix ispred inputa", () => {
+    mockedUseDeleteRepository.mockReturnValue({
+      loading: false,
+      error: "",
+      handleDelete,
+    });
+
     render(
-      <InputField label="Repo" value="" onChange={vi.fn()} prefix="user/" />,
-    );
-    expect(screen.getByText("user/")).toBeInTheDocument();
-  });
-
-  it("ne prikazuje prefix kad nije prosleđen", () => {
-    render(<InputField label="Email" value="" onChange={vi.fn()} />);
-    expect(screen.queryByText(/\//)).toBeNull();
-  });
-
-  it("prikazuje startIcon i endIcon ako su prosleđeni", () => {
-    render(
-      <InputField
-        label="Email"
-        value=""
-        onChange={vi.fn()}
-        startIcon={<span data-testid="start">S</span>}
-        endIcon={<span data-testid="end">E</span>}
+      <DeleteRepositoryModal
+        isOpen={true}
+        onClose={onClose}
+        onDelete={onDelete}
+        repo={MOCK_REPO as any}
       />,
     );
-    expect(screen.getByTestId("start")).toBeInTheDocument();
-    expect(screen.getByTestId("end")).toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText("marija/test-repo");
+    fireEvent.change(input, { target: { value: "marija/test-repo" } });
+
+    const deleteBtn = screen.getByRole("button", {
+      name: /delete repository/i,
+    });
+
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(handleDelete).toHaveBeenCalledWith("1");
+    });
+
+    expect(onDelete).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it("postavlja type atribut", () => {
+  it("does not call delete if not confirmed", async () => {
+    const handleDelete = vi.fn();
+
+    mockedUseDeleteRepository.mockReturnValue({
+      loading: false,
+      error: "",
+      handleDelete,
+    });
+
     render(
-      <InputField
-        label="Password"
-        type="password"
-        value=""
-        onChange={vi.fn()}
+      <DeleteRepositoryModal
+        isOpen={true}
+        onClose={onClose}
+        onDelete={onDelete}
+        repo={MOCK_REPO as any}
       />,
     );
-    expect(screen.getByLabelText(/password/i)).toHaveAttribute(
-      "type",
-      "password",
-    );
+
+    const deleteBtn = screen.getByRole("button", {
+      name: /delete repository/i,
+    });
+
+    fireEvent.click(deleteBtn);
+
+    expect(handleDelete).not.toHaveBeenCalled();
   });
 
-  it("sakriva labelu kad nije prosleđena", () => {
-    render(<InputField value="" onChange={vi.fn()} />);
-    const label = screen.queryByLabelText(/./);
-    expect(label).toBeNull();
+  it("shows loading state", () => {
+    mockedUseDeleteRepository.mockReturnValue({
+      loading: true,
+      error: "",
+      handleDelete: vi.fn(),
+    });
+
+    render(
+      <DeleteRepositoryModal
+        isOpen={true}
+        onClose={onClose}
+        onDelete={onDelete}
+        repo={MOCK_REPO as any}
+      />,
+    );
+
+    expect(screen.getByText("Deleting...")).toBeInTheDocument();
+  });
+
+  it("shows error message", () => {
+    mockedUseDeleteRepository.mockReturnValue({
+      loading: false,
+      error: "Delete failed",
+      handleDelete: vi.fn(),
+    });
+
+    render(
+      <DeleteRepositoryModal
+        isOpen={true}
+        onClose={onClose}
+        onDelete={onDelete}
+        repo={MOCK_REPO as any}
+      />,
+    );
+
+    expect(screen.getByText("Delete failed")).toBeInTheDocument();
+  });
+
+  it("calls onClose when cancel is clicked", () => {
+    render(
+      <DeleteRepositoryModal
+        isOpen={true}
+        onClose={onClose}
+        onDelete={onDelete}
+        repo={MOCK_REPO as any}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(onClose).toHaveBeenCalled();
   });
 });

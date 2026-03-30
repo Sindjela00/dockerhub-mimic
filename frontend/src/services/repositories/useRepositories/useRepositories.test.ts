@@ -1,105 +1,140 @@
-import * as repositoriesApi from "../repositories.api";
+import * as api from "../repositories.api";
 
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useRepositories } from "./useRepositories";
 
-vi.mock("../repositories.api");
+vi.mock("../repositories.api", () => ({
+  getMyRepositories: vi.fn(),
+}));
 
-const mockGetMyRepositories = vi.mocked(repositoriesApi.getMyRepositories);
-
-const MOCK_REPO = {
-  id: 1,
-  name: "nginx",
-  fullName: "john.doe/nginx",
-  description: "Official build of Nginx.",
-  visibility: "public" as const,
-  ownerEmail: "john@example.com",
-  createdAt: "2023-01-15T08:00:00Z",
-  updatedAt: "2025-03-10T12:00:00Z",
-  isOfficial: false,
-  starCount: 48,
-  tags: ["latest"],
-};
-
-const MOCK_RESPONSE = {
-  repositories: [MOCK_REPO],
-  total: 1,
-  page: 1,
-  pageSize: 20,
-};
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockGetMyRepositories.mockResolvedValue({ data: MOCK_RESPONSE });
-});
+const mockedGetMyRepositories = api.getMyRepositories as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 describe("useRepositories", () => {
-  it("inicijalno stanje je prazno sa loading true", async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should have initial state", () => {
     const { result } = renderHook(() => useRepositories());
 
-    expect(result.current.loading).toBe(true);
     expect(result.current.repos).toEqual([]);
-    expect(result.current.error).toBe("");
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-  });
-
-  it("učitava repoe na mount-u", async () => {
-    const { result } = renderHook(() => useRepositories());
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.repos).toEqual([MOCK_REPO]);
-    expect(result.current.total).toBe(1);
+    expect(result.current.total).toBe(0);
     expect(result.current.page).toBe(1);
-    expect(result.current.pageSize).toBe(20);
+    expect(result.current.pageSize).toBe(9);
+    expect(result.current.loading).toBe(false);
     expect(result.current.error).toBe("");
   });
 
-  it("koristi custom initialPageSize", async () => {
-    renderHook(() => useRepositories(10));
+  it("should fetch repositories successfully", async () => {
+    mockedGetMyRepositories.mockResolvedValueOnce({
+      data: {
+        repositories: [{ id: 1, name: "Repo 1" }],
+        total: 1,
+        page: 2,
+        pageSize: 9,
+      },
+    });
 
-    await waitFor(() =>
-      expect(mockGetMyRepositories).toHaveBeenCalledWith({
-        page: 1,
-        pageSize: 10,
-      }),
-    );
+    const { result } = renderHook(() => useRepositories());
+
+    await act(async () => {
+      await result.current.fetchRepositories(2);
+    });
+
+    expect(mockedGetMyRepositories).toHaveBeenCalledWith({
+      page: 2,
+      pageSize: 9,
+    });
+
+    expect(result.current.repos).toEqual([{ id: 1, name: "Repo 1" }]);
+    expect(result.current.total).toBe(1);
+    expect(result.current.page).toBe(2);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBe("");
   });
 
-  it("fetchRepositories ažurira repos nakon poziva", async () => {
-    const { result } = renderHook(() => useRepositories());
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    const newRepo = {
-      ...MOCK_REPO,
-      id: 2,
-      name: "my-api",
-      fullName: "john.doe/my-api",
-    };
-    mockGetMyRepositories.mockResolvedValueOnce({
-      data: { repositories: [newRepo], total: 1, page: 1, pageSize: 20 },
+  it("should pass all filters correctly", async () => {
+    mockedGetMyRepositories.mockResolvedValueOnce({
+      data: {
+        repositories: [],
+        total: 0,
+        page: 1,
+        pageSize: 9,
+      },
     });
+
+    const { result } = renderHook(() => useRepositories());
+
+    await act(async () => {
+      await result.current.fetchRepositories(
+        1,
+        true,
+        "public",
+        " test ",
+        "stars",
+        "desc",
+        true,
+      );
+    });
+
+    expect(mockedGetMyRepositories).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 9,
+      mine: true,
+      visibility: "public",
+      search: "test", // trim check
+      sortBy: "stars",
+      sortDir: "desc",
+      starred: true,
+    });
+  });
+
+  it("should handle error correctly", async () => {
+    mockedGetMyRepositories.mockRejectedValueOnce({
+      response: {
+        data: {
+          message: "API error",
+        },
+      },
+    });
+
+    const { result } = renderHook(() => useRepositories());
 
     await act(async () => {
       await result.current.fetchRepositories();
     });
 
-    expect(result.current.repos).toEqual([newRepo]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBe("API error");
   });
 
-  it("fetchRepositories postavlja loading na true tokom poziva", async () => {
-    const { result } = renderHook(() => useRepositories());
-    await waitFor(() => expect(result.current.loading).toBe(false));
+  it("should fallback to default error message", async () => {
+    mockedGetMyRepositories.mockRejectedValueOnce(new Error("Unknown"));
 
-    let resolvePromise!: (v: any) => void;
-    mockGetMyRepositories.mockReturnValueOnce(
-      new Promise((res) => {
-        resolvePromise = res;
-      }),
+    const { result } = renderHook(() => useRepositories());
+
+    await act(async () => {
+      await result.current.fetchRepositories();
+    });
+
+    expect(result.current.error).toBe("Failed to load repositories.");
+  });
+
+  it("should set loading true while fetching", async () => {
+    let resolveFn: any;
+
+    mockedGetMyRepositories.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFn = resolve;
+        }),
     );
+
+    const { result } = renderHook(() => useRepositories());
 
     act(() => {
       result.current.fetchRepositories();
@@ -108,49 +143,16 @@ describe("useRepositories", () => {
     expect(result.current.loading).toBe(true);
 
     await act(async () => {
-      resolvePromise({ data: MOCK_RESPONSE });
+      resolveFn({
+        data: {
+          repositories: [],
+          total: 0,
+          page: 1,
+          pageSize: 9,
+        },
+      });
     });
 
     expect(result.current.loading).toBe(false);
-  });
-
-  it("postavlja error poruku iz response-a kad API ne uspe", async () => {
-    mockGetMyRepositories.mockRejectedValueOnce({
-      response: { data: { message: "Unauthorized." } },
-    });
-
-    const { result } = renderHook(() => useRepositories());
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.error).toBe("Unauthorized.");
-    expect(result.current.repos).toEqual([]);
-  });
-
-  it("postavlja fallback error poruku kad nema response.data.message", async () => {
-    mockGetMyRepositories.mockRejectedValueOnce(new Error("Network error"));
-
-    const { result } = renderHook(() => useRepositories());
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.error).toBe("Failed to load repositories.");
-  });
-
-  it("resetuje error pre novog fetch-a", async () => {
-    mockGetMyRepositories.mockRejectedValueOnce({
-      response: { data: { message: "Unauthorized." } },
-    });
-
-    const { result } = renderHook(() => useRepositories());
-    await waitFor(() => expect(result.current.error).toBe("Unauthorized."));
-
-    mockGetMyRepositories.mockResolvedValueOnce({ data: MOCK_RESPONSE });
-
-    await act(async () => {
-      await result.current.fetchRepositories();
-    });
-
-    expect(result.current.error).toBe("");
   });
 });

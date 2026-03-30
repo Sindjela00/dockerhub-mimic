@@ -89,7 +89,7 @@ describe("repositories.api", () => {
       });
     });
 
-    it("vraća data iz response-a", async () => {
+    it("vraca data iz response-a", async () => {
       mockGet.mockResolvedValueOnce({ data: MOCK_REPOSITORIES_RESPONSE });
 
       const result = await repositoriesApi.getMyRepositories();

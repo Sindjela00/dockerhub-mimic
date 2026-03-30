@@ -27,7 +27,6 @@ import { useRepository } from "@/services/repositories/useRepository/useReposito
 import { timeAgo } from "@/utils/timeAgo";
 import { formatDate } from "@/utils/formatDate";
 import TagsTab from "./components/TabsContent/TabsContent";
-import ErrorPage from "../ErrorPage/ErrorPage";
 
 export default function RepositoryDetailPage() {
   const navigate = useNavigate();
@@ -65,16 +64,7 @@ export default function RepositoryDetailPage() {
   }
 
   if (error || !repo) {
-    return (
-      <ErrorPage
-        title="Repository not found"
-        message={
-          error ||
-          "This repository does not exist or you don't have access to it."
-        }
-        onBack={() => navigate("/repositories")}
-      />
-    );
+    return Error;
   }
 
   const cmd = `docker pull ${repo.fullName}:latest`;

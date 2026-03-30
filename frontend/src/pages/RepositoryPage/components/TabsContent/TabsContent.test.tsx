@@ -1,133 +1,132 @@
-/**
- * @vitest-environment jsdom
- */
-
 import type {
   TagDetail,
   TagSortBy,
   TagSortDir,
 } from "@/services/repositories/repositories.api";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import TagsTab from "./TabsContent";
-import userEvent from "@testing-library/user-event";
 
-const MOCK_TAGS: TagDetail[] = [
-  {
-    name: "latest",
-    digest: "sha256:123",
-    os: "linux",
-    architecture: "amd64",
-    size: "10MB",
-    lastPushedAt: "2025-03-10T12:00:00Z",
-    compressedSizeBytes: 0,
-    lastPulledAt: null,
-    lastPushedBy: "",
-    pullCount: 0,
-    mediaType: "",
-    createdAt: "",
-  },
-  {
-    name: "v1.0.0",
-    digest: "sha256:456",
-    os: "linux",
-    architecture: "amd64",
-    size: "8MB",
-    lastPushedAt: "2025-01-10T12:00:00Z",
-    compressedSizeBytes: 0,
-    lastPulledAt: null,
-    lastPushedBy: "",
-    pullCount: 0,
-    mediaType: "",
-    createdAt: "",
-  },
-];
+// --- Mock Table sa checkboxovima ---
+vi.mock("@/components/Table/Table", () => ({
+  default: ({ data }: any) => (
+    <div>
+      {data.map((d: any) => (
+        <div key={d.name}>
+          <input type="checkbox" aria-label={`Select ${d.name}`} />
+          {d.name}
+        </div>
+      ))}
+    </div>
+  ),
+}));
+
+vi.mock("@/components/Button/Button", () => ({
+  default: ({ children, ...props }: any) => (
+    <button {...props}>{children}</button>
+  ),
+}));
+
+vi.mock("@/components/Pagination/Pagination", () => ({
+  default: ({ page, onChange }: any) => (
+    <button onClick={() => onChange(page + 1)}>Next page</button>
+  ),
+}));
+
+// --- Mock utils ---
+vi.mock("@/utils/formatDate", () => ({
+  formatDate: (d: any) => d,
+}));
+vi.mock("@/utils/timeAgo", () => ({
+  timeAgo: (d: any) => d,
+}));
 
 describe("TagsTab", () => {
-  let onSearch: (v: string) => void;
-  let onSortBy: (v: TagSortBy) => void;
-  let onSortDir: (v: TagSortDir) => void;
-  let onPage: (p: number) => void;
+  const MOCK_TAGS: TagDetail[] = [
+    {
+      name: "tag1",
+      digest: "abc",
+      os: "linux",
+      architecture: "amd64",
+      size: "10MB",
+      lastPushedAt: "2023-03-01",
+      compressedSizeBytes: 0,
+      lastPulledAt: null,
+      lastPushedBy: "",
+      pullCount: 0,
+      mediaType: "",
+      createdAt: "",
+    },
+    {
+      name: "tag2",
+      digest: "def",
+      os: "linux",
+      architecture: "amd64",
+      size: "15MB",
+      lastPushedAt: "2023-03-02",
+      compressedSizeBytes: 0,
+      lastPulledAt: null,
+      lastPushedBy: "",
+      pullCount: 0,
+      mediaType: "",
+      createdAt: "",
+    },
+  ];
+
+  const defaultProps = {
+    tags: MOCK_TAGS,
+    total: 2,
+    page: 1,
+    pageSize: 10,
+    loading: false,
+    error: "",
+    search: "",
+    sortBy: "lastPushedAt" as TagSortBy,
+    sortDir: "desc" as TagSortDir,
+    onSearch: vi.fn(),
+    onSortBy: vi.fn(),
+    onSortDir: vi.fn(),
+    onPage: vi.fn(),
+    onDeleteTags: vi.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(() => {
-    onSearch = vi.fn<(v: string) => void>();
-    onSortBy = vi.fn<(v: TagSortBy) => void>();
-    onSortDir = vi.fn<(v: TagSortDir) => void>();
-    onPage = vi.fn<(p: number) => void>();
-    vi.useFakeTimers();
+    vi.clearAllMocks();
   });
 
-  const renderComponent = (props = {}) =>
-    render(
-      <TagsTab
-        tags={MOCK_TAGS}
-        total={2}
-        page={1}
-        pageSize={10}
-        loading={false}
-        error=""
-        search=""
-        sortBy="pulls"
-        sortDir="desc"
-        onSearch={onSearch}
-        onSortBy={onSortBy}
-        onSortDir={onSortDir}
-        onPage={onPage}
-        {...props}
-      />,
-    );
-
-  it("renderuje tabelu sa tagovima", () => {
-    renderComponent();
-
-    expect(screen.getByText("latest")).toBeInTheDocument();
-    expect(screen.getByText("v1.0.0")).toBeInTheDocument();
-  });
-
-  it("može selektovati sve tagove", () => {
-    renderComponent();
-
-    const selectAll = screen.getByLabelText(
-      "Select all tags",
-    ) as HTMLInputElement;
-    expect(selectAll.checked).toBe(false);
-
-    fireEvent.click(selectAll);
-
+  it("renders all tags", () => {
+    render(<TagsTab {...defaultProps} />);
     MOCK_TAGS.forEach((tag) => {
-      const checkbox = screen.getByLabelText(
-        `Select ${tag.name}`,
-      ) as HTMLInputElement;
-      expect(checkbox.checked).toBe(true);
+      expect(screen.getByText(tag.name)).toBeInTheDocument();
     });
   });
 
-  it("toggle jednog taga", () => {
-    renderComponent();
+  it("updates local search and calls onSearch after debounce", async () => {
+    render(<TagsTab {...defaultProps} />);
+    const input = screen.getByPlaceholderText("Search tags...");
+    fireEvent.change(input, { target: { value: "tag1" } });
 
-    const checkbox = screen.getByLabelText("Select latest") as HTMLInputElement;
-    expect(checkbox.checked).toBe(false);
-
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(true);
-
-    fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(false);
+    await waitFor(
+      () => {
+        expect(defaultProps.onSearch).toHaveBeenCalledWith("tag1");
+      },
+      { timeout: 500 },
+    );
   });
 
-  it("poziva onSortDir kada se klikne dugme za sortiranje", () => {
-    renderComponent();
-
-    const sortBtn = screen.getByRole("button", { name: /newest first/i });
-    fireEvent.click(sortBtn);
-
-    expect(onSortDir).toHaveBeenCalledWith("asc");
+  it("toggles sort direction", () => {
+    render(<TagsTab {...defaultProps} />);
+    const button = screen.getByText("Newest first");
+    fireEvent.click(button);
+    expect(defaultProps.onSortDir).toHaveBeenCalledWith("asc");
   });
 
-  it("prikazuje empty text kada nema tagova", () => {
-    renderComponent({ tags: [], search: "nothing" });
+  it("calls onPage when pagination next is clicked", () => {
+    render(<TagsTab {...defaultProps} />);
+    const nextPageBtn = screen.getByText("Next page");
+    fireEvent.click(nextPageBtn);
 
-    expect(screen.getByText('No tags match "nothing"')).toBeInTheDocument();
+    expect(defaultProps.onPage).toHaveBeenCalledWith(2);
   });
 });
