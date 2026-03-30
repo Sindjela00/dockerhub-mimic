@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Calendar,
@@ -21,28 +21,24 @@ import EditRepositoryModal from "../../components/Modals/EditRepositoryModal/Edi
 import DeleteRepositoryModal from "../../components/Modals/DeleteRepositoryModal/DeleteRepositoryModal";
 import { StatBadge } from "./components/StatBadge/StatBadge";
 
-import { getRepositoryById } from "@/services/repositories/repositories.api";
-import { MOCK_REPO_DETAIL } from "./types/mock";
-import { TABS, type RepositoryDetail, type Tab } from "./types/types";
+import { TABS, type Tab } from "./types/types";
 import { useTags } from "@/services/repositories/useTags/useTags";
+import { useRepository } from "@/services/repositories/useRepository/useRepository";
 import { timeAgo } from "@/utils/timeAgo";
 import { formatDate } from "@/utils/formatDate";
 import TagsTab from "./components/TabsContent/TabsContent";
+import ErrorPage from "../ErrorPage/ErrorPage";
 
 export default function RepositoryDetailPage() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [copied, setCopied] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const { id } = useParams<{ id: string }>();
-
-  const [repo, setRepo] = useState<RepositoryDetail>(MOCK_REPO_DETAIL);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
-
+  const { repo, loading, error, setRepo } = useRepository(Number(id));
   const {
     tags,
     total: tagsTotal,
@@ -57,59 +53,50 @@ export default function RepositoryDetailPage() {
     changePage,
     loading: tagsLoading,
     error: tagsError,
+    deleteTags,
   } = useTags(Number(id));
 
+  if (loading) {
+    return (
+      <div className="page-wrapper items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
+
+  if (error || !repo) {
+    return (
+      <ErrorPage
+        title="Repository not found"
+        message={
+          error ||
+          "This repository does not exist or you don't have access to it."
+        }
+        onBack={() => navigate("/repositories")}
+      />
+    );
+  }
+
   const cmd = `docker pull ${repo.fullName}:latest`;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      if (!id) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError("");
-
-        const { data: apiRepo } = await getRepositoryById(Number(id));
-        if (cancelled) return;
-
-        setRepo((prev) => ({
-          ...prev,
-          id: apiRepo.id,
-          name: apiRepo.name,
-          fullName: apiRepo.fullName,
-          description: apiRepo.description,
-          visibility: apiRepo.visibility,
-          ownerEmail: apiRepo.ownerEmail,
-          isOfficial: apiRepo.isOfficial,
-          starCount: apiRepo.starCount,
-          createdAt: apiRepo.createdAt,
-          updatedAt: apiRepo.updatedAt,
-          // keep tags + tagDetails mocked
-        }));
-      } catch (err: any) {
-        if (cancelled) return;
-        setError(err?.response?.data?.message ?? "Failed to load repository.");
-        setLoading(false);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(cmd);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const sharedTagsTabProps = {
+    total: tagsTotal,
+    page,
+    pageSize,
+    search,
+    sortBy,
+    sortDir,
+    onSearch: setSearch,
+    onSortBy: setSortBy,
+    onSortDir: setSortDir,
+    onPage: changePage,
+    onDeleteTags: deleteTags,
   };
 
   return (
@@ -119,8 +106,8 @@ export default function RepositoryDetailPage() {
         <div className="flex items-center gap-4">
           <div
             className="w-14 h-14 rounded-xl bg-bg-elevated border border-border
-                          flex items-center justify-center text-lg font-bold
-                          text-text-secondary select-none"
+                        flex items-center justify-center text-lg font-bold
+                        text-text-secondary select-none"
           >
             {repo.name.slice(0, 2).toUpperCase()}
           </div>
@@ -134,7 +121,7 @@ export default function RepositoryDetailPage() {
                   "inline-flex items-center gap-1 text-[10px] font-medium",
                   "px-2 py-0.5 rounded-full",
                   repo.visibility === "public"
-                    ? "bg-success-secondary text-success"
+                    ? "bg-success-muted text-success"
                     : "bg-bg-elevated text-text-secondary border border-border",
                 ].join(" ")}
               >
@@ -159,34 +146,17 @@ export default function RepositoryDetailPage() {
             onToggle={(starred) => console.log("Starred:", starred)}
           />
           <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil size={13} />
-            Edit
+            <Pencil size={13} /> Edit
           </Button>
           <Button
             variant="danger"
             size="sm"
             onClick={() => setDeleteOpen(true)}
           >
-            <Trash2 size={13} />
-            Delete
+            <Trash2 size={13} /> Delete
           </Button>
         </div>
       </div>
-
-      {/* Load status */}
-      {error && (
-        <div
-          className="px-4 py-3 rounded-lg bg-danger-muted border border-danger/20
-                        text-xs text-danger"
-        >
-          {error}
-        </div>
-      )}
-      {loading && !error && (
-        <div className="mt-4">
-          <Loader />
-        </div>
-      )}
 
       {/* Stats */}
       <div className="flex items-center gap-6 flex-wrap">
@@ -197,7 +167,7 @@ export default function RepositoryDetailPage() {
         />
         <StatBadge
           icon={<Tag size={13} />}
-          value={String(repo.tags.length)}
+          value={String(tagsTotal)}
           label="tags"
         />
         <StatBadge
@@ -213,15 +183,11 @@ export default function RepositoryDetailPage() {
       </div>
 
       {/* Pull command */}
-      <div
-        className="flex items-center justify-between gap-3 px-4 py-3
-                      rounded-lg bg-bg-base border border-border font-mono"
-      >
+      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-bg-base border border-border font-mono">
         <span className="text-xs text-text-secondary truncate">{cmd}</span>
         <button
           onClick={handleCopy}
-          className="p-1.5 rounded text-text-secondary hover:text-brand
-                     hover:bg-bg-elevated transition-colors"
+          className="p-1.5 rounded text-text-secondary hover:text-brand hover:bg-bg-elevated transition-colors"
           title="Copy"
         >
           {copied ? (
@@ -248,49 +214,29 @@ export default function RepositoryDetailPage() {
                 View all
               </button>
             </div>
-            {activeTab === "overview" && (
-              <TagsTab
-                tags={tags}
-                total={tagsTotal}
-                page={page}
-                pageSize={pageSize}
-                loading={tagsLoading}
-                error={tagsError}
-                search={search}
-                sortBy={sortBy}
-                sortDir={sortDir}
-                onSearch={setSearch}
-                onSortBy={setSortBy}
-                onSortDir={setSortDir}
-                onPage={changePage}
-              />
-            )}
+            <TagsTab
+              tags={tags}
+              loading={tagsLoading}
+              error={tagsError}
+              {...sharedTagsTabProps}
+            />
           </div>
         )}
         {activeTab === "tags" && (
           <TagsTab
             tags={tagsLoading ? [] : tags}
-            total={tagsTotal}
-            page={page}
-            pageSize={pageSize}
             loading={tagsLoading}
             error={tagsError}
-            search={search}
-            sortBy={sortBy}
-            sortDir={sortDir}
-            onSearch={setSearch}
-            onSortBy={setSortBy}
-            onSortDir={setSortDir}
-            onPage={changePage}
+            {...sharedTagsTabProps}
           />
-        )}{" "}
+        )}
       </div>
 
       <EditRepositoryModal
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
         onSave={(updatedRepo) => {
-          setRepo((prev) => ({ ...prev, ...updatedRepo }));
+          setRepo((prev) => (prev ? { ...prev, ...updatedRepo } : prev));
           setEditOpen(false);
         }}
         repo={repo}

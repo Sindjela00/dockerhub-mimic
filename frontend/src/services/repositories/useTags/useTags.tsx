@@ -2,6 +2,7 @@ import {
   TagDetail,
   TagSortBy,
   TagSortDir,
+  deleteTag,
   getRepositoryTags,
 } from "../repositories.api";
 import { useEffect, useState } from "react";
@@ -25,6 +26,7 @@ interface UseTagsReturn {
   setSortDir: (v: TagSortDir) => void;
   changePage: (p: number) => void;
   setPageSize: (s: number) => void;
+  deleteTags: (tagNames: string[]) => Promise<void>;
 
   refetch: () => void;
 }
@@ -43,6 +45,12 @@ export function useTags(repositoryId: number | null): UseTagsReturn {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const deleteTags = async (tagNames: string[]): Promise<void> => {
+    if (!repositoryId) return;
+    await Promise.all(tagNames.map((name) => deleteTag(repositoryId, name)));
+    fetchTags();
+  };
 
   const fetchTags = () => {
     if (!repositoryId) return;
@@ -113,6 +121,7 @@ export function useTags(repositoryId: number | null): UseTagsReturn {
     setSortDir,
     changePage,
     setPageSize,
+    deleteTags,
 
     refetch: fetchTags,
   };

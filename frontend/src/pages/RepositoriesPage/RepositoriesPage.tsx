@@ -23,6 +23,19 @@ import { useNavigate } from "react-router-dom";
 import { useRepositories } from "@/services/repositories/useRepositories/useRepositories";
 import InputField from "@/components/InputField/InputField";
 
+type SortOption = {
+  label: string;
+  sortBy: "createdAt" | "stars";
+  sortDir: "asc" | "desc";
+};
+
+const sortOptions: SortOption[] = [
+  { label: "Newest", sortBy: "createdAt", sortDir: "desc" },
+  { label: "Oldest", sortBy: "createdAt", sortDir: "asc" },
+  { label: "Most stars", sortBy: "stars", sortDir: "desc" },
+  { label: "Least stars", sortBy: "stars", sortDir: "asc" },
+];
+
 export default function RepositoriesPage() {
   const navigate = useNavigate();
   const { username } = useAuth();
@@ -32,24 +45,28 @@ export default function RepositoriesPage() {
   const [search, setSearch] = useState("");
   const [visibility, setVisibility] = useState<VisibilityFilter>("all");
   const [mineOnly, setMineOnly] = useState(false);
+  const [starredOnly, setStarredOnly] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>("all");
+  const [selectedSort, setSelectedSort] = useState<SortOption>(sortOptions[0]);
   const [view, setView] = useState<ViewMode>("grid");
   const [modalOpen, setModalOpen] = useState(false);
   const [editRepo, setEditRepo] = useState<Repository | null>(null);
   const [deleteRepo, setDeleteRepo] = useState<Repository | null>(null);
+
   const searchFetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const selectedVisibility = visibility === "all" ? undefined : visibility;
+  const initialFetchDone = useRef(false);
 
   const trimmedSearch = search.trim();
+
   const hasActiveFilters =
     mineOnly ||
     visibility !== "all" ||
     timeRange !== "all" ||
-    trimmedSearch.length > 0;
+    trimmedSearch.length > 0 ||
+    starredOnly;
 
-  const selectedSearch = trimmedSearch.length > 0 ? trimmedSearch : undefined;
   const filtered = useMemo(() => {
     const now = Date.now();
     const msForRange =
@@ -63,16 +80,16 @@ export default function RepositoriesPage() {
     const createdAfter = timeRange === "all" ? 0 : now - msForRange;
 
     return repos
+      .filter((r) =>
+        visibility === "all" ? true : r.visibility === visibility,
+      )
+      .filter((r) =>
+        timeRange === "all"
+          ? true
+          : new Date(r.createdAt).getTime() >= createdAfter,
+      )
       .filter((r) => {
-        if (visibility === "all") return true;
-        return r.visibility === visibility;
-      })
-      .filter((r) => {
-        if (timeRange === "all") return true;
-        return new Date(r.createdAt).getTime() >= createdAfter;
-      })
-      .filter((r) => {
-        const q = search.toLowerCase();
+        const q = trimmedSearch.toLowerCase();
         return (
           r.name.toLowerCase().includes(q) ||
           r.fullName.toLowerCase().includes(q) ||
@@ -80,110 +97,164 @@ export default function RepositoriesPage() {
           r.tags.some((t) => t.toLowerCase().includes(q))
         );
       });
-  }, [repos, visibility, timeRange, search]);
+  }, [repos, visibility, timeRange, trimmedSearch]);
 
-  const handleRepoClick = (repo: Repository) => {
-    navigate(`/repositories/${repo.id}`);
+  const clearSearchTimeout = () => {
+    if (searchFetchTimeoutRef.current)
+      clearTimeout(searchFetchTimeoutRef.current);
   };
+
+  useEffect(() => {
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
+    fetchRepositories(1);
+  }, []);
+
+  useEffect(() => {
+    return () => clearSearchTimeout();
+  }, []);
+
+  const handleRepoClick = (repo: Repository) =>
+    navigate(`/repositories/${repo.id}`);
 
   const handleRepoCreated = () => {
     setModalOpen(false);
-    if (searchFetchTimeoutRef.current) {
-      clearTimeout(searchFetchTimeoutRef.current);
-    }
+    clearSearchTimeout();
     fetchRepositories(
       1,
-      mineOnly ? true : undefined,
-      selectedVisibility,
-      selectedSearch,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      starredOnly || undefined,
     );
   };
 
   const handleSaveEdit = () => {
     setEditRepo(null);
-    if (searchFetchTimeoutRef.current) {
-      clearTimeout(searchFetchTimeoutRef.current);
-    }
+    clearSearchTimeout();
     fetchRepositories(
       page,
-      mineOnly ? true : undefined,
-      selectedVisibility,
-      selectedSearch,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      starredOnly || undefined,
     );
   };
 
   const handleConfirmDelete = () => {
     setDeleteRepo(null);
-    if (searchFetchTimeoutRef.current) {
-      clearTimeout(searchFetchTimeoutRef.current);
-    }
+    clearSearchTimeout();
     fetchRepositories(
       page,
-      mineOnly ? true : undefined,
-      selectedVisibility,
-      selectedSearch,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      starredOnly || undefined,
     );
   };
 
   const handleVisibilityChange = (next: VisibilityFilter) => {
     setVisibility(next);
-    if (searchFetchTimeoutRef.current) {
-      clearTimeout(searchFetchTimeoutRef.current);
-    }
+    setStarredOnly(false);
     fetchRepositories(
       1,
-      mineOnly ? true : undefined,
+      mineOnly || undefined,
       next === "all" ? undefined : next,
-      selectedSearch,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      undefined,
     );
   };
 
   const handleMineOnlyChange = (checked: boolean) => {
     setMineOnly(checked);
-    if (searchFetchTimeoutRef.current) {
-      clearTimeout(searchFetchTimeoutRef.current);
-    }
     fetchRepositories(
       1,
-      checked ? true : undefined,
-      selectedVisibility,
-      selectedSearch,
+      checked || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      starredOnly || undefined,
     );
   };
 
-  const refetchPage = (newPage: number) => {
-    if (searchFetchTimeoutRef.current) {
-      clearTimeout(searchFetchTimeoutRef.current);
-    }
+  const handleStarredChange = (next: boolean) => {
+    setStarredOnly(next);
     fetchRepositories(
-      newPage,
-      mineOnly ? true : undefined,
-      selectedVisibility,
-      selectedSearch,
+      1,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      next ? true : undefined,
     );
+  };
+
+  const handleSortChange = (option: SortOption) => {
+    setSelectedSort(option);
+    fetchRepositories(
+      1,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      option.sortBy,
+      option.sortDir,
+      starredOnly || undefined,
+    );
+  };
+
+  const handleSearchChange = (next: string) => {
+    setSearch(next);
+    clearSearchTimeout();
+    searchFetchTimeoutRef.current = setTimeout(() => {
+      const trimmed = next.trim();
+      fetchRepositories(
+        1,
+        mineOnly || undefined,
+        visibility === "all" ? undefined : visibility,
+        trimmed || undefined,
+        selectedSort.sortBy,
+        selectedSort.sortDir,
+        starredOnly || undefined,
+      );
+    }, 300);
   };
 
   const handleClearSearch = () => {
     setSearch("");
-    if (searchFetchTimeoutRef.current) {
-      clearTimeout(searchFetchTimeoutRef.current);
-    }
-
+    clearSearchTimeout();
     fetchRepositories(
       1,
-      mineOnly ? true : undefined,
-      selectedVisibility,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
       undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      starredOnly || undefined,
     );
   };
 
-  useEffect(() => {
-    return () => {
-      if (searchFetchTimeoutRef.current) {
-        clearTimeout(searchFetchTimeoutRef.current);
-      }
-    };
-  }, []);
+  const refetchPage = (newPage: number) => {
+    clearSearchTimeout();
+    fetchRepositories(
+      newPage,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      starredOnly || undefined,
+    );
+  };
 
   return (
     <div className="page-wrapper">
@@ -198,79 +269,61 @@ export default function RepositoriesPage() {
           </p>
         </div>
         <Button variant="primary" size="md" onClick={() => setModalOpen(true)}>
-          <Plus size={15} />
-          New repository
+          <Plus size={15} /> New repository
         </Button>
       </div>
 
       {/* Error */}
       {error && (
-        <div
-          className="px-4 py-3 rounded-lg bg-danger-muted border border-danger/20
-                        text-xs text-danger"
-        >
+        <div className="px-4 py-3 rounded-lg bg-danger-muted border border-danger/20 text-xs text-danger">
           {error}
         </div>
       )}
 
-      {/* Content */}
+      {/* Toolbar */}
       {!error && (
         <>
-          {/* Toolbar */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap mt-4">
             <InputField
               value={search}
-              onChangeRaw={(e) => {
-                const next = e.target.value;
-                setSearch(next);
-                if (searchFetchTimeoutRef.current)
-                  clearTimeout(searchFetchTimeoutRef.current);
-                searchFetchTimeoutRef.current = setTimeout(() => {
-                  fetchRepositories(
-                    1,
-                    mineOnly ? true : undefined,
-                    selectedVisibility,
-                    next.trim().length > 0 ? next.trim() : undefined,
-                  );
-                }, 300);
-              }}
+              onChangeRaw={(e) => handleSearchChange(e.target.value)}
               placeholder="Search repositories..."
               startIcon={<Search size={14} />}
               className="flex-1 min-w-50"
             />
-            <label
-              className="flex items-center gap-2 shrink-0 h-10 px-3 rounded-lg
-                         bg-bg-elevated border border-border cursor-pointer
-                         text-sm text-text-secondary hover:text-text-primary
-                         transition-colors select-none"
-            >
+
+            <label className="flex items-center gap-2 shrink-0 h-10 px-3 rounded-lg bg-bg-elevated border border-border cursor-pointer text-sm text-text-secondary hover:text-text-primary transition-colors select-none">
               <input
                 type="checkbox"
                 checked={mineOnly}
                 onChange={(e) => handleMineOnlyChange(e.target.checked)}
-                className="rounded border-border text-brand focus:ring-brand
-                           focus:ring-offset-0 focus:ring-2 cursor-pointer"
+                className="rounded border-border text-brand focus:ring-brand focus:ring-offset-0 focus:ring-2 cursor-pointer"
               />
               <span>Mine only</span>
             </label>
+
             <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value as TimeRangeFilter)}
-              aria-label="Filter by upload time"
-              className="shrink-0 h-10 px-3 rounded-lg bg-bg-elevated border
-                         border-border text-sm text-text-primary cursor-pointer
-                         focus:outline-none focus:border-border-strong
-                         transition-colors"
+              value={selectedSort.label}
+              onChange={(e) =>
+                handleSortChange(
+                  sortOptions.find((o) => o.label === e.target.value)!,
+                )
+              }
+              className="shrink-0 h-10 px-3 rounded-lg bg-bg-elevated border border-border text-sm text-text-primary cursor-pointer focus:outline-none focus:border-border-strong transition-colors"
             >
-              <option value="all">Any time</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
+              {sortOptions.map((option) => (
+                <option key={option.label} value={option.label}>
+                  {option.label}
+                </option>
+              ))}
             </select>
+
             <FilterTabs
               active={visibility}
               onChange={handleVisibilityChange}
               counts={total}
+              starredOnly={starredOnly}
+              onStarredChange={handleStarredChange}
             />
             <ViewToggle view={view} onChange={setView} />
           </div>
@@ -318,14 +371,12 @@ export default function RepositoriesPage() {
       )}
 
       {!loading && repos.length > 0 && (
-        <>
-          <Pagination
-            page={page}
-            total={total}
-            pageSize={pageSize}
-            onChange={refetchPage}
-          />
-        </>
+        <Pagination
+          page={page}
+          total={total}
+          pageSize={pageSize}
+          onChange={refetchPage}
+        />
       )}
 
       {/* Modals */}

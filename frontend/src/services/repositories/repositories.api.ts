@@ -19,11 +19,13 @@ export interface GetRepositoriesParams {
   page?: number;
   pageSize?: number;
   mine?: boolean;
-  visibility?: RepoVisibility;
+  visibility?: "all" | "public" | "private";
   search?: string;
   owner?: string;
+  sortBy?: "createdAt" | "stars";
+  sortDir?: "asc" | "desc";
+  starred?: boolean;
 }
-
 export interface RepositoriesResponse {
   repositories: Repository[];
   total: number;
@@ -83,15 +85,29 @@ export interface GetTagsParams {
 export const getMyRepositories = (
   params: GetRepositoriesParams = {},
 ): Promise<{ data: RepositoriesResponse }> => {
-  const { page = 1, pageSize = 20, mine, visibility, search, owner } = params;
+  const {
+    page = 1,
+    pageSize = 20,
+    mine,
+    visibility,
+    search,
+    owner,
+    sortBy,
+    sortDir,
+    starred,
+  } = params;
+
   return api.get("/api/repositories/explore", {
     params: {
       page,
       pageSize,
-      ...(mine !== undefined && { mine }),
-      ...(visibility !== undefined && { visibility }),
-      ...(search !== undefined && { search }),
-      ...(owner !== undefined && { owner }),
+      ...(mine !== undefined ? { mine } : {}),
+      ...(visibility !== undefined ? { visibility } : {}),
+      ...(search !== undefined ? { search } : {}),
+      ...(owner !== undefined ? { owner } : {}),
+      ...(sortBy !== undefined ? { sortBy } : {}),
+      ...(sortDir !== undefined ? { sortDir } : {}),
+      ...(starred !== undefined ? { starred } : {}),
     },
   });
 };
@@ -132,3 +148,9 @@ export function updateRepository(
 ) {
   return api.put(`/api/repositories/${id}`, data);
 }
+
+export const deleteTag = (
+  repositoryId: number,
+  tagName: string,
+): Promise<{ data: { message: string } }> =>
+  api.delete(`/api/repositories/${repositoryId}/tags/${tagName}`);

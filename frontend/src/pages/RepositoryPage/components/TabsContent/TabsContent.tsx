@@ -1,15 +1,15 @@
 import { Clock, Search, Trash2 } from "lucide-react";
-import { SortDirection, TableProps } from "@/components/Table/types/types";
 import {
   TagDetail,
   TagSortBy,
   TagSortDir,
 } from "@/services/repositories/repositories.api";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import Button from "@/components/Button/Button";
 import Pagination from "@/components/Pagination/Pagination";
 import Table from "@/components/Table/Table";
+import { TableProps } from "@/components/Table/types/types";
 import { formatDate } from "@/utils/formatDate";
 import { timeAgo } from "@/utils/timeAgo";
 
@@ -27,6 +27,7 @@ interface TagsTabProps {
   onSortBy: (v: TagSortBy) => void;
   onSortDir: (v: TagSortDir) => void;
   onPage: (p: number) => void;
+  onDeleteTags: (names: string[]) => Promise<void>;
 }
 
 export default function TagsTab({
@@ -43,9 +44,11 @@ export default function TagsTab({
   onSortBy,
   onSortDir,
   onPage,
+  onDeleteTags,
 }: TagsTabProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [localSearch, setLocalSearch] = useState(search);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -86,9 +89,14 @@ export default function TagsTab({
     });
   };
 
-  const handleBulkDelete = () => {
-    console.log("Delete tags:", [...selected]);
-    setSelected(new Set());
+  const handleBulkDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDeleteTags([...selected]);
+      setSelected(new Set());
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const columns: TableProps<TagDetail>["columns"] = [
@@ -205,9 +213,16 @@ export default function TagsTab({
           {sortDir === "desc" ? "Newest first" : "Oldest first"}
         </button>
         {someSelected && (
-          <Button variant="danger" size="sm" onClick={handleBulkDelete}>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={handleBulkDelete}
+            disabled={deleting}
+          >
             <Trash2 size={13} />
-            Delete {selectedCount} {selectedCount === 1 ? "tag" : "tags"}
+            {deleting
+              ? "Deleting..."
+              : `Delete ${selectedCount} ${selectedCount === 1 ? "tag" : "tags"}`}
           </Button>
         )}
       </div>

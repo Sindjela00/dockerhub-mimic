@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import RepoCard from "./RepoCard";
-import type { Repository } from "@/pages/RepositoriesPage/types/types";
+import { Repository } from "@/services/repositories/repositories.api";
 import userEvent from "@testing-library/user-event";
 
 const MOCK_REPO: Repository = {

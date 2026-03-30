@@ -17,6 +17,9 @@ interface UseRepositoriesReturn extends UseRepositoriesState {
     mine?: boolean,
     visibility?: RepoVisibility,
     search?: string,
+    sortBy?: "createdAt" | "stars",
+    sortDir?: "asc" | "desc",
+    starred?: boolean,
   ) => Promise<void>;
 }
 
@@ -36,18 +39,24 @@ export function useRepositories(initialPageSize = 9): UseRepositoriesReturn {
       mine?: boolean,
       visibility?: RepoVisibility,
       search?: string,
+      sortBy?: "createdAt" | "stars",
+      sortDir?: "asc" | "desc",
+      starred?: boolean,
     ) => {
       setState((s) => ({ ...s, loading: true, error: "" }));
+
       try {
         const { data } = await getMyRepositories({
           page,
           pageSize: initialPageSize,
           ...(mine !== undefined ? { mine } : {}),
           ...(visibility !== undefined ? { visibility } : {}),
-          ...(search !== undefined && search.trim().length > 0
-            ? { search }
-            : {}),
+          ...(search?.trim().length ? { search: search.trim() } : {}),
+          ...(sortBy ? { sortBy } : {}),
+          ...(sortDir ? { sortDir } : {}),
+          ...(starred !== undefined ? { starred } : {}),
         });
+
         setState({
           repos: data.repositories,
           total: data.total,
@@ -66,10 +75,6 @@ export function useRepositories(initialPageSize = 9): UseRepositoriesReturn {
     },
     [initialPageSize],
   );
-
-  useEffect(() => {
-    fetchRepositories(1);
-  }, [fetchRepositories]);
 
   return { ...state, fetchRepositories };
 }
