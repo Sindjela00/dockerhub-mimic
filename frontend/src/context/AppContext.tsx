@@ -20,6 +20,8 @@ const decodeEmail = (token: string): string => {
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [repoCount, setRepoCount] = useState<number | undefined>(undefined);
+
   const token = localStorage.getItem("token");
   const [auth, setAuthState] = useState<AuthState>({
     token: token,
@@ -72,6 +74,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     clearAuth,
     theme,
     toggleTheme,
+    repoCount,
+    setRepoCount,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

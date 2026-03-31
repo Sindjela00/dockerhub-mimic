@@ -1,30 +1,24 @@
 import Button from "../Button/Button";
 import { Star } from "lucide-react";
-import { useState } from "react";
 
 interface FavoriteStarProps {
-  initialStarred?: boolean;
+  starred: boolean;
   count?: number;
-  onToggle?: (starred: boolean) => void;
+  loading?: boolean;
+  onToggle: () => void;
 }
 
 export default function FavoriteStar({
-  initialStarred = false,
+  starred,
   count,
+  loading = false,
   onToggle,
 }: FavoriteStarProps) {
-  const [starred, setStarred] = useState(initialStarred);
-
-  const handleClick = () => {
-    const next = !starred;
-    setStarred(next);
-    onToggle?.(next);
-  };
-
   return (
     <Button
       size="xs"
-      onClick={handleClick}
+      onClick={onToggle}
+      disabled={loading}
       className={[
         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md",
         "text-xs font-medium border transition-colors duration-150",
@@ -45,7 +39,7 @@ export default function FavoriteStar({
               : "bg-bg-surface text-text-muted",
           ].join(" ")}
         >
-          {count + (starred && !initialStarred ? 1 : 0)}
+          {count}
         </span>
       )}
     </Button>

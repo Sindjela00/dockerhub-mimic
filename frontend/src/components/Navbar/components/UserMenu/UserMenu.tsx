@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { ChevronDown } from "lucide-react";
-import { Role } from "../../../context/types/types";
-import UserDropdown from "./UserDropdown";
+import { Role } from "../../../../context/types/types";
+import UserDropdown from "../UserDropdown/UserDropdown";
 
 interface UserMenuProps {
   email: string;

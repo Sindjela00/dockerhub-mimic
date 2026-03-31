@@ -1,5 +1,5 @@
-import AuthButtons from "./components/AuthButtons";
-import UserMenu from "./components/UserMenu";
+import AuthButtons from "./components/AuthButtons/AuthButtons";
+import UserMenu from "./components/UserMenu/UserMenu";
 import { useAuth } from "../../context/AppContext";
 
 interface NavbarProps {

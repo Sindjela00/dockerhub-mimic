@@ -13,6 +13,7 @@ export interface Repository {
   isOfficial: boolean;
   starCount: number;
   tags: string[];
+  isStarredByCurrentUser?: boolean;
 }
 
 export interface GetRepositoriesParams {
@@ -154,3 +155,9 @@ export const deleteTag = (
   tagName: string,
 ): Promise<{ data: { message: string } }> =>
   api.delete(`/api/repositories/${repositoryId}/tags/${tagName}`);
+
+export const starRepository = (id: number) =>
+  api.post(`/api/repositories/${id}/star`);
+
+export const unstarRepository = (id: number) =>
+  api.delete(`/api/repositories/${id}/star`);

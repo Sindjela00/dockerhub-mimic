@@ -27,6 +27,8 @@ import { useRepository } from "@/services/repositories/useRepository/useReposito
 import { timeAgo } from "@/utils/timeAgo";
 import { formatDate } from "@/utils/formatDate";
 import TagsTab from "./components/TabsContent/TabsContent";
+import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
+import ErrorPage from "../ErrorPage/ErrorPage";
 
 export default function RepositoryDetailPage() {
   const navigate = useNavigate();
@@ -55,6 +57,17 @@ export default function RepositoryDetailPage() {
     deleteTags,
   } = useTags(Number(id));
 
+  const {
+    starred,
+    count: starCount,
+    loading: starLoading,
+    toggle: toggleStar,
+  } = useStarRepository(
+    Number(id),
+    repo?.isStarredByCurrentUser ?? false,
+    repo?.starCount ?? 0,
+  );
+
   if (loading) {
     return (
       <div className="page-wrapper items-center justify-center">
@@ -64,7 +77,16 @@ export default function RepositoryDetailPage() {
   }
 
   if (error || !repo) {
-    return Error;
+    return (
+      <ErrorPage
+        title="Repository not found"
+        message={
+          error ||
+          "This repository does not exist or you don't have access to it."
+        }
+        onBack={() => navigate("/repositories")}
+      />
+    );
   }
 
   const cmd = `docker pull ${repo.fullName}:latest`;
@@ -131,9 +153,10 @@ export default function RepositoryDetailPage() {
 
         <div className="flex items-center gap-2">
           <FavoriteStar
-            initialStarred={false}
-            count={repo.starCount}
-            onToggle={(starred) => console.log("Starred:", starred)}
+            starred={starred}
+            count={starCount}
+            loading={starLoading}
+            onToggle={toggleStar}
           />
           <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil size={13} /> Edit
@@ -152,7 +175,7 @@ export default function RepositoryDetailPage() {
       <div className="flex items-center gap-6 flex-wrap">
         <StatBadge
           icon={<Star size={13} />}
-          value={String(repo.starCount)}
+          value={String(starCount)}
           label="stars"
         />
         <StatBadge

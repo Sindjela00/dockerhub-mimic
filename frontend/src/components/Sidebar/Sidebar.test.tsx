@@ -83,11 +83,6 @@ describe("Sidebar", () => {
     expect(collapseBtn.className).toContain("hidden!");
   });
 
-  it("prikazuje badge za repositories", () => {
-    renderSidebar();
-    expect(screen.getByText("12")).toBeTruthy();
-  });
-
   it("prikazuje sekcijske naslove", () => {
     renderSidebar();
     expect(screen.getAllByText("Explore").length).toBeGreaterThanOrEqual(1);

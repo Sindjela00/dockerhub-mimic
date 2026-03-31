@@ -1,11 +1,12 @@
 import { ChevronLeft, ChevronRight, LogOut, Menu } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import Button from "../Button/Button";
 import Logo from "../Logo/Logo";
 import { NAV_SECTIONS } from "./types/sidebarConfig";
 import { Plan } from "./types/types";
+import { getMyRepositories } from "@/services/repositories/repositories.api";
 import { useAppContext } from "../../context/AppContext";
-import { useState } from "react";
 
 export interface SidebarProps {
   activePath?: string;
@@ -20,7 +21,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { clearAuth } = useAppContext();
+  const { repoCount, setRepoCount, clearAuth } = useAppContext();
 
   const handleNavigate = (path: string) => {
     onNavigate?.(path);
@@ -31,6 +32,14 @@ export default function Sidebar({
     clearAuth();
     onNavigate?.("/landing");
   };
+
+  useEffect(() => {
+    // to do: change after integrating home page with backend
+    if (repoCount !== undefined) return;
+    getMyRepositories({ pageSize: 1, mine: true })
+      .then(({ data }) => setRepoCount(data.total))
+      .catch(() => {});
+  }, []);
 
   return (
     <>
@@ -140,7 +149,7 @@ export default function Sidebar({
                                    transition-opacity duration-150"
                         style={{ opacity: collapsed ? 0 : 1 }}
                       >
-                        {item.badge}
+                        {item.path === "/repositories" ? repoCount : item.badge}
                       </span>
                     )}
                   </Button>
