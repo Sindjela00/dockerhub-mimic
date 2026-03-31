@@ -1,6 +1,7 @@
 import { Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 
 import { Repository } from "@/services/repositories/repositories.api";
+import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 
 interface RepoCardProps {
   repo: Repository;
@@ -23,6 +24,12 @@ export default function RepoCard({
   onEdit,
   onDelete,
 }: RepoCardProps) {
+  const { starred, count, loading, toggle } = useStarRepository(
+    repo.id,
+    repo.isStarredByCurrentUser ?? false,
+    repo.starCount,
+  );
+
   return (
     <button
       onClick={() => onClick?.(repo)}
@@ -70,6 +77,25 @@ export default function RepoCard({
 
         {/* Actions */}
         <div className="flex items-center gap-1 ml-auto">
+          {/* ⭐ Star dugme */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggle();
+            }}
+            disabled={loading}
+            className={[
+              "p-1 rounded transition-colors",
+              starred
+                ? "text-brand"
+                : "text-text-muted hover:text-brand hover:bg-bg-elevated",
+              loading ? "opacity-50 cursor-not-allowed" : "",
+            ].join(" ")}
+            title={starred ? "Unstar" : "Star"}
+          >
+            <Star size={13} fill={starred ? "currentColor" : "none"} />
+          </button>
+
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -126,7 +152,7 @@ export default function RepoCard({
           <div className="mt-auto flex items-center gap-1.5 flex-wrap">
             <Tag size={11} className="text-text-secondary" />
             <span className="text-[10px] text-text-secondary">
-              There are no tabs
+              There are no tags
             </span>
           </div>
         )}
@@ -134,9 +160,10 @@ export default function RepoCard({
 
       {/* Stats */}
       <div className="flex items-center gap-4 pt-2 border-t border-border">
+        {/* Broj zvezdica se sada čita iz hook-a */}
         <span className="flex items-center gap-1 text-[11px] text-text-secondary">
-          <Star size={11} />
-          {repo.starCount}
+          <Star size={11} fill="none" />
+          {count}
         </span>
         {repo.isOfficial && (
           <span
