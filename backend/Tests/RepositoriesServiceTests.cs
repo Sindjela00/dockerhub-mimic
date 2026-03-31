@@ -141,6 +141,71 @@ public sealed class RepositoriesServiceTests
     }
 
     [TestMethod]
+    public async Task GetRepositoryAsync_WithStarredRepo_PopulatesIsStarredByCurrentUser()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "demo", "demo@example.com");
+        var user = await AddUserAsync(dbContext, "fan", "fan@example.com");
+        var repository = await AddRepositoryAsync(dbContext, owner, "awesome-repo", "public", pullCount: 0);
+
+        dbContext.RepositoryStars.Add(new RepositoryStar { RepositoryId = repository.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow });
+        repository.StarCount = 1;
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+
+        var starredResult = await service.GetRepositoryAsync(repository.Id, "fan", User.RoleUser, CancellationToken.None);
+        Assert.IsTrue(starredResult.Succeeded);
+        Assert.AreEqual(true, starredResult.Data?.IsStarredByCurrentUser);
+
+        var notStarredResult = await service.GetRepositoryAsync(repository.Id, "demo", User.RoleUser, CancellationToken.None);
+        Assert.IsTrue(notStarredResult.Succeeded);
+        Assert.AreEqual(false, notStarredResult.Data?.IsStarredByCurrentUser);
+
+        var anonResult = await service.GetRepositoryAsync(repository.Id, null, null, CancellationToken.None);
+        Assert.IsTrue(anonResult.Succeeded);
+        Assert.IsNull(anonResult.Data?.IsStarredByCurrentUser);
+    }
+
+    [TestMethod]
+    public async Task ExploreRepositoriesAsync_WithLoggedInUser_PopulatesIsStarredByCurrentUser()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "demo", "demo@example.com");
+        var user = await AddUserAsync(dbContext, "fan", "fan@example.com");
+        var repo1 = await AddRepositoryAsync(dbContext, owner, "repo1", "public", pullCount: 0);
+        var repo2 = await AddRepositoryAsync(dbContext, owner, "repo2", "public", pullCount: 0);
+
+        dbContext.RepositoryStars.Add(new RepositoryStar { RepositoryId = repo1.Id, UserId = user.Id, CreatedAt = DateTime.UtcNow });
+        repo1.StarCount = 1;
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.ExploreRepositoriesAsync(
+            search: null,
+            owner: null,
+            visibility: null,
+            minStars: null,
+            sortBy: "name",
+            sortDir: "asc",
+            mine: false,
+            starred: false,
+            page: 1,
+            pageSize: 20,
+            currentUsername: "fan",
+            cancellationToken: CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+
+        var r1 = result.Data.Repositories.First(r => r.Name == "repo1");
+        var r2 = result.Data.Repositories.First(r => r.Name == "repo2");
+
+        Assert.AreEqual(true, r1.IsStarredByCurrentUser);
+        Assert.AreEqual(false, r2.IsStarredByCurrentUser);
+    }
+
+    [TestMethod]
     public async Task UpdateRepositoryAsync_SettingPrivateVisibility_RemovesCollaborators()
     {
         using var dbContext = CreateDbContext();
