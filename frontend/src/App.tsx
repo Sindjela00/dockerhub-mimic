@@ -6,9 +6,10 @@ import HomePage from "./pages/HomePage/HomePage";
 import LandingPage from "./pages/LandingPage/LandingPage";
 import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage/LoginPage";
-import Logo from "./components/Logo/Logo";
 import { Navigate } from "react-router-dom";
 import RegisterPage from "./pages/RegisterPage/RegisterPage";
+import RepositoriesPage from "./pages/RepositoriesPage/RepositoriesPage";
+import RepositoryDetailPage from "./pages/RepositoryPage/RepositoryDetailPage";
 import { useAuth } from "./context/AppContext";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -65,6 +66,28 @@ export default function App() {
           <ProtectedRoute>
             <Layout pageTitle="Home">
               <HomePage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/repositories"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Repositories">
+              <RepositoriesPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/repositories/:id"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Repository">
+              <RepositoryDetailPage />
             </Layout>
           </ProtectedRoute>
         }

@@ -1,10 +1,6 @@
 import { Box, Shield, Users, Zap } from "lucide-react";
 
-interface FeatureCardProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}
+import { FeatureCardProps } from "@/components/Cards/FeatureCard/FeatureCard";
 
 interface StatItemProps {
   value: string;

@@ -6,12 +6,15 @@ export interface AuthState {
   role: Role;
   isLoggedIn: boolean;
   email: string;
+  username: string;
 }
 
 export interface AppState {
   auth: AuthState;
-  setAuth: (token: string, role: string) => void;
+  setAuth: (token: string, role: string, username: string) => void;
   clearAuth: () => void;
+  repoCount: number | undefined;
+  setRepoCount: (count: number) => void;
 
   theme: Theme;
   toggleTheme: () => void;

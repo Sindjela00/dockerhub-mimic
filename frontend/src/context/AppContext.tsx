@@ -20,29 +20,41 @@ const decodeEmail = (token: string): string => {
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [repoCount, setRepoCount] = useState<number | undefined>(undefined);
+
   const token = localStorage.getItem("token");
   const [auth, setAuthState] = useState<AuthState>({
-    token,
+    token: token,
     role: localStorage.getItem("role") as Role,
     isLoggedIn: !!token,
     email: token ? decodeEmail(token) : "",
+    username: localStorage.getItem("username") ?? "",
   });
 
-  const setAuth = (token: string, role: string) => {
+  const setAuth = (token: string, role: string, username: string) => {
     localStorage.setItem("token", token);
     localStorage.setItem("role", role);
+    localStorage.setItem("username", username);
     setAuthState({
       token,
       role: role as Role,
       isLoggedIn: true,
       email: decodeEmail(token),
+      username,
     });
   };
 
   const clearAuth = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
-    setAuthState({ token: null, role: null, isLoggedIn: false, email: "" });
+    localStorage.removeItem("username");
+    setAuthState({
+      token: null,
+      role: null,
+      isLoggedIn: false,
+      email: "",
+      username: "",
+    });
   };
 
   const [theme, setTheme] = useState<Theme>(
@@ -62,6 +74,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     clearAuth,
     theme,
     toggleTheme,
+    repoCount,
+    setRepoCount,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -1,10 +1,12 @@
-import { LogoProps } from "./types/types";
-
 const sizeStyles = {
   sm: "w-7 h-7 text-[11px] rounded-md",
   md: "w-10 h-10 text-sm rounded-lg",
   lg: "w-14 h-14 text-base rounded-xl",
 };
+
+export interface LogoProps {
+  size?: "sm" | "md" | "lg";
+}
 
 export default function Logo({ size = "md" }: LogoProps) {
   return (

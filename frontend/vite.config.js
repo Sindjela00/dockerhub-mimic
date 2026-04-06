@@ -25,8 +25,16 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "cobertura"],
-      include: ["src/**/*.{js,jsx}"],
-      exclude: ["src/main.jsx"],
+      include: ["src/**/*.{ts,tsx,js,jsx}"],
+      exclude: [
+        "src/main.tsx",
+        "src/main.jsx",
+        "src/App.tsx",
+        "**/types/**/*",
+        "src/**/*.d.ts",
+        "src/**/*.test.{ts,tsx}",
+        "src/utils/**/*",
+      ],
       thresholds: {
         lines: 80,
         branches: 80,

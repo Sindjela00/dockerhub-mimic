@@ -1,28 +1,22 @@
 import Button from "../../components/Button/Button";
+import { FormState } from "./types/types";
 import InputField from "../../components/InputField/InputField";
 import { Link } from "react-router-dom";
 import { LogIn } from "lucide-react";
 import Logo from "../../components/Logo/Logo";
-import { useLogin } from "../../services/auth/useLogin";
+import { useLogin } from "../../services/auth/useLogin/useLogin";
 import { useState } from "react";
-
-interface FormState {
-  email: string;
-  password: string;
-}
 
 export default function LoginPage() {
   const { loading, error, handleLogin } = useLogin();
 
-  const [form, setForm] = useState<FormState>({ email: "", password: "" });
+  const [form, setForm] = useState<FormState>({ identifier: "", password: "" });
   const [validationErrors, setValidationErrors] = useState<Partial<FormState>>(
     {},
   );
 
   const validate = (): boolean => {
     const next: Partial<FormState> = {};
-
-    if (!form.email.includes("@")) next.email = "Enter a valid email address.";
 
     if (!form.password) next.password = "Password is required.";
 
@@ -33,7 +27,7 @@ export default function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    handleLogin({ email: form.email, password: form.password });
+    handleLogin({ identifier: form.identifier, password: form.password });
   };
 
   return (
@@ -53,12 +47,12 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <InputField
-              label="Email"
-              type="email"
-              value={form.email}
-              onChange={(v) => setForm((f) => ({ ...f, email: v }))}
+              label="Email/Username"
+              type="text"
+              value={form.identifier}
+              onChange={(v) => setForm((f) => ({ ...f, identifier: v }))}
               placeholder="you@example.com"
-              error={validationErrors.email}
+              error={validationErrors.identifier}
             />
             <InputField
               label="Password"
