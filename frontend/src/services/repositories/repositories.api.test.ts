@@ -144,7 +144,7 @@ describe("repositories.api", () => {
       });
     });
 
-    it("poziva GET sa sortBy i sortDir params kad su prosleđeni", async () => {
+    it("poziva GET sa sortBy i sortDir params kad su prosledjeni", async () => {
       mockGet.mockResolvedValueOnce({ data: MOCK_REPOSITORIES_RESPONSE });
 
       await repositoriesApi.getMyRepositories({
@@ -173,7 +173,7 @@ describe("repositories.api", () => {
       });
     });
 
-    it("ne šalje undefined parametre u query", async () => {
+    it("ne salje undefined parametre u query", async () => {
       mockGet.mockResolvedValueOnce({ data: MOCK_REPOSITORIES_RESPONSE });
 
       await repositoriesApi.getMyRepositories({ page: 1, pageSize: 20 });
@@ -199,7 +199,7 @@ describe("repositories.api", () => {
       expect(result.data.pageSize).toBe(20);
     });
 
-    it("baca grešku kad API ne uspe", async () => {
+    it("baca gresku kad API ne uspe", async () => {
       mockGet.mockRejectedValueOnce(new Error("Network error"));
 
       await expect(repositoriesApi.getMyRepositories()).rejects.toThrow(
@@ -226,7 +226,7 @@ describe("repositories.api", () => {
       expect(result.data.name).toBe("nginx");
     });
 
-    it("baca grešku kad repozitorijum nije pronađen", async () => {
+    it("baca gresku kad repozitorijum nije pronadjen", async () => {
       mockGet.mockRejectedValueOnce({ response: { status: 404 } });
 
       await expect(
@@ -252,7 +252,7 @@ describe("repositories.api", () => {
       expect(mockPost).toHaveBeenCalledWith("/api/repositories", PAYLOAD);
     });
 
-    it("vraća message i repository iz response-a", async () => {
+    it("vraca message i repository iz response-a", async () => {
       mockPost.mockResolvedValueOnce({
         data: {
           message: "Repository created successfully.",
@@ -266,7 +266,7 @@ describe("repositories.api", () => {
       expect(result.data.repository.name).toBe("nginx");
     });
 
-    it("šalje private visibility ispravno", async () => {
+    it("salje private visibility ispravno", async () => {
       mockPost.mockResolvedValueOnce({
         data: {
           message: "Created.",
@@ -285,7 +285,7 @@ describe("repositories.api", () => {
       });
     });
 
-    it("baca grešku kad API ne uspe", async () => {
+    it("baca gresku kad API ne uspe", async () => {
       mockPost.mockRejectedValueOnce({
         response: { data: { message: "Name already taken." } },
       });
@@ -319,7 +319,7 @@ describe("repositories.api", () => {
       expect(result.data.message).toBe("Repository deleted successfully.");
     });
 
-    it("baca grešku kad repozitorijum nije pronađen", async () => {
+    it("baca gresku kad repozitorijum nije pronadjen", async () => {
       mockDelete.mockRejectedValueOnce({ response: { status: 404 } });
 
       await expect(repositoriesApi.deleteRepository(999)).rejects.toMatchObject(
@@ -372,7 +372,7 @@ describe("repositories.api", () => {
       });
     });
 
-    it("ne šalje falsy search/sortBy/sortDir parametre", async () => {
+    it("ne salje falsy search/sortBy/sortDir parametre", async () => {
       mockGet.mockResolvedValueOnce({ data: MOCK_TAGS_RESPONSE });
 
       await repositoriesApi.getRepositoryTags(1, {
@@ -397,7 +397,7 @@ describe("repositories.api", () => {
       expect(result.data.repositoryId).toBe(1);
     });
 
-    it("baca grešku kad API ne uspe", async () => {
+    it("baca gresku kad API ne uspe", async () => {
       mockGet.mockRejectedValueOnce(new Error("Network error"));
 
       await expect(repositoriesApi.getRepositoryTags(1)).rejects.toThrow(
@@ -423,7 +423,7 @@ describe("repositories.api", () => {
       );
     });
 
-    it("šalje opcioni name field ispravno", async () => {
+    it("salje opcioni name field ispravno", async () => {
       mockPut.mockResolvedValueOnce({ data: MOCK_REPO });
 
       await repositoriesApi.updateRepository(1, {
@@ -439,7 +439,7 @@ describe("repositories.api", () => {
       });
     });
 
-    it("baca grešku kad API ne uspe", async () => {
+    it("baca gresku kad API ne uspe", async () => {
       mockPut.mockRejectedValueOnce({
         response: { data: { message: "Forbidden." } },
       });
@@ -473,7 +473,7 @@ describe("repositories.api", () => {
       expect(result.data.message).toBe("Tag deleted successfully.");
     });
 
-    it("baca grešku kad tag nije pronađen", async () => {
+    it("baca gresku kad tag nije pronadjen", async () => {
       mockDelete.mockRejectedValueOnce({ response: { status: 404 } });
 
       await expect(
@@ -491,7 +491,7 @@ describe("repositories.api", () => {
       expect(mockPost).toHaveBeenCalledWith("/api/repositories/1/star");
     });
 
-    it("baca grešku kad API ne uspe", async () => {
+    it("baca gresku kad API ne uspe", async () => {
       mockPost.mockRejectedValueOnce({ response: { status: 401 } });
 
       await expect(repositoriesApi.starRepository(1)).rejects.toMatchObject({
@@ -509,7 +509,7 @@ describe("repositories.api", () => {
       expect(mockDelete).toHaveBeenCalledWith("/api/repositories/1/star");
     });
 
-    it("baca grešku kad API ne uspe", async () => {
+    it("baca gresku kad API ne uspe", async () => {
       mockDelete.mockRejectedValueOnce({ response: { status: 401 } });
 
       await expect(repositoriesApi.unstarRepository(1)).rejects.toMatchObject({

@@ -57,25 +57,25 @@ describe("Button", () => {
     expect(btn.className).toContain("text-[var(--color-danger)]");
   });
 
-  it("primenjuje sm veličinu", () => {
+  it("primenjuje sm velicinu", () => {
     render(<Button size="sm">Small</Button>);
     const btn = screen.getByRole("button");
     expect(btn.className).toContain("text-xs");
   });
 
-  it("primenjuje md veličinu po defaultu", () => {
+  it("primenjuje md velicinu po defaultu", () => {
     render(<Button>Medium</Button>);
     const btn = screen.getByRole("button");
     expect(btn.className).toContain("text-sm");
   });
 
-  it("prosleđuje dodatne className", () => {
+  it("prosledjuje dodatne className", () => {
     render(<Button className="w-full">Button</Button>);
     const btn = screen.getByRole("button");
     expect(btn.className).toContain("w-full");
   });
 
-  it("prosleđuje type atribut", () => {
+  it("prosledjuje type atribut", () => {
     render(<Button type="submit">Submit</Button>);
     expect(screen.getByRole("button")).toHaveAttribute("type", "submit");
   });

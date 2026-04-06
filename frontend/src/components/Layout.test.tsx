@@ -58,7 +58,7 @@ describe("Layout", () => {
     expect(screen.getByTestId("navbar")).toBeTruthy();
   });
 
-  it("prosleđuje pageTitle u navbar", () => {
+  it("prosledjuje pageTitle u navbar", () => {
     renderLayout({ pageTitle: "Repositories" });
     expect(screen.getByText("Repositories")).toBeTruthy();
   });
@@ -78,7 +78,7 @@ describe("Layout", () => {
     expect(screen.queryByTestId("sidebar")).toBeNull();
   });
 
-  it("prosleđuje pathname kao activePath u sidebar", () => {
+  it("prosledjuje pathname kao activePath u sidebar", () => {
     render(
       <MemoryRouter initialEntries={["/repositories"]}>
         <AppProvider>
@@ -90,7 +90,7 @@ describe("Layout", () => {
     );
   });
 
-  it("sidebar prima tačan activePath za trenutnu rutu", () => {
+  it("sidebar prima tacan activePath za trenutnu rutu", () => {
     localStorage.setItem("token", "fake.token.here");
 
     render(

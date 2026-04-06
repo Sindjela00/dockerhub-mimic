@@ -88,7 +88,7 @@ describe("RepoCard", () => {
     expect(screen.queryByText("d")).toBeNull();
   });
 
-  it("prikazuje +N kad ima više od 3 taga", () => {
+  it("prikazuje +N kad ima vise od 3 taga", () => {
     const repo = { ...MOCK_REPO, tags: ["a", "b", "c", "d", "e"] };
     render(<RepoCard repo={repo} />);
     expect(screen.getByText("+2")).toBeTruthy();

@@ -66,12 +66,12 @@ describe("Table", () => {
     expect(screen.getByText("Nema podataka.")).toBeTruthy();
   });
 
-  it("prikazuje default emptyText kad nije prosleđen", () => {
+  it("prikazuje default emptyText kad nije prosledjen", () => {
     render(<Table columns={COLUMNS} data={[]} rowKey={(r) => r.id} />);
     expect(screen.getByText("No data available.")).toBeTruthy();
   });
 
-  it("renderuje custom cell sadržaj", () => {
+  it("renderuje custom cell sadrzaj", () => {
     const cols: ColumnDef<Person>[] = [
       {
         key: "role",
@@ -122,7 +122,7 @@ describe("Table", () => {
     expect(handleClick).toHaveBeenCalledWith(MOCK_DATA[0]);
   });
 
-  it("ne poziva onRowClick kad nije prosleđen", async () => {
+  it("ne poziva onRowClick kad nije prosledjen", async () => {
     const user = userEvent.setup();
     render(<Table columns={COLUMNS} data={MOCK_DATA} rowKey={(r) => r.id} />);
     await user.click(screen.getByText("Ana"));
@@ -167,7 +167,7 @@ describe("Table", () => {
     expect(handleSort).toHaveBeenCalledWith("age", "asc");
   });
 
-  it("sortabilni header poziva onSort sa desc kad je već aktivan asc", async () => {
+  it("sortabilni header poziva onSort sa desc kad je vec aktivan asc", async () => {
     const handleSort = vi.fn();
     const user = userEvent.setup();
 

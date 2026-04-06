@@ -137,7 +137,7 @@ describe("RepositoriesPage", () => {
     expect(screen.getByText("john.doe/my-api")).toBeTruthy();
   });
 
-  it("prikazuje loader dok se učitava", () => {
+  it("prikazuje loader dok se ucitava", () => {
     mockHook({ loading: true, repos: [], total: 0 });
     const { container } = renderPage();
     expect(container.querySelector(".animate-spin")).toBeTruthy();
@@ -203,7 +203,7 @@ describe("RepositoriesPage", () => {
     expect(screen.getByText("john.doe/my-api")).toBeTruthy();
   });
 
-  it("pretražuje po imenu", async () => {
+  it("pretrazuje po imenu", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -215,7 +215,7 @@ describe("RepositoriesPage", () => {
     expect(screen.queryByText("john.doe/my-api")).toBeNull();
   });
 
-  it("pretražuje po fullName", async () => {
+  it("pretrazuje po fullName", async () => {
     const user = userEvent.setup();
     renderPage();
 

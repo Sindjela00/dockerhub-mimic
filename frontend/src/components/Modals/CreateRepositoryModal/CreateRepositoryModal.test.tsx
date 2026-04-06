@@ -82,7 +82,7 @@ describe("CreateRepositoryModal", () => {
     expect(screen.getByText("Create repository")).toBeTruthy();
   });
 
-  it("ne renderuje ništa kad je zatvoren", () => {
+  it("ne renderuje nista kad je zatvoren", () => {
     renderModal({ isOpen: false });
     expect(screen.queryByText("Create new repository")).toBeNull();
   });
@@ -114,7 +114,7 @@ describe("CreateRepositoryModal", () => {
     expect(screen.getByTestId("owner-value").textContent).toBe("acme-corp");
   });
 
-  it("prikazuje grešku za prazan naziv", async () => {
+  it("prikazuje gresku za prazan naziv", async () => {
     const user = userEvent.setup();
     renderModal();
 
@@ -124,7 +124,7 @@ describe("CreateRepositoryModal", () => {
     expect(screen.getByText(/name is required/i)).toBeTruthy();
   });
 
-  it("prikazuje grešku za neispravan naziv", async () => {
+  it("prikazuje gresku za neispravan naziv", async () => {
     const user = userEvent.setup();
     renderModal();
 
@@ -135,7 +135,7 @@ describe("CreateRepositoryModal", () => {
     expect(screen.getByText(/lowercase letters/i)).toBeTruthy();
   });
 
-  it("ne poziva handleCreate kad validacija ne prođe", async () => {
+  it("ne poziva handleCreate kad validacija ne prodje", async () => {
     const handleCreate = vi.fn().mockResolvedValue(null);
     mockHook({ handleCreate });
     const user = userEvent.setup();
@@ -169,7 +169,7 @@ describe("CreateRepositoryModal", () => {
     });
   });
 
-  it("poziva onCreate nakon uspešnog kreiranja", async () => {
+  it("poziva onCreate nakon uspesnog kreiranja", async () => {
     const onCreate = vi.fn();
     const user = userEvent.setup();
     renderModal({ onCreate });
@@ -182,7 +182,7 @@ describe("CreateRepositoryModal", () => {
     expect(onCreate).toHaveBeenCalledOnce();
   });
 
-  it("poziva onClose nakon uspešnog kreiranja", async () => {
+  it("poziva onClose nakon uspesnog kreiranja", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     renderModal({ onClose });
@@ -209,7 +209,7 @@ describe("CreateRepositoryModal", () => {
     expect(onCreate).not.toHaveBeenCalled();
   });
 
-  it("prikazuje API grešku", () => {
+  it("prikazuje API gresku", () => {
     mockHook({ error: "Name already taken.", handleCreate: vi.fn() });
     renderModal();
     expect(screen.getByText("Name already taken.")).toBeTruthy();

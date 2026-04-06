@@ -4,14 +4,14 @@
   --color-brand: #0ea5e9; /* sky-500 — primary akcija, linkovi       */
   --color-brand-hover: #0284c7; /* sky-600 — hover stanje                  */
   --color-brand-muted: #0c3a52; /* tamni teal — badge bg, highlight        */
-  --color-brand-subtle: #082d40; /* još tamniji — active nav bg             */
+  --color-brand-subtle: #082d40; /* jos tamniji — active nav bg             */
 
   --color-bg-base: #0d1117; /* najdublja pozadina — body               */
   --color-bg-surface: #161b22; /* kartice, sidebar                        */
   --color-bg-elevated: #1c2128; /* hover stanja, dropdown-ovi              */
   --color-bg-overlay: #21262d; /* modali, tooltip-i                       */
 
-  --color-text-primary: #e6edf3; /* naslovi, važan tekst                  */
+  --color-text-primary: #e6edf3; /* naslovi, vazan tekst                  */
   --color-text-secondary: #8b949e; /* opisi, labele                         */
   --color-text-muted: #484f58; /* placeholder, disabled                 */
   --color-text-inverse: #0d1117; /* tekst na svetloj pozadini             */
@@ -21,7 +21,7 @@
 
   --color-success: #3fb950; /* zelena — verified, active             */
   --color-success-muted: #0d3320; /* bg za success badge                   */
-  --color-warning: #d29922; /* žuta — deprecated, limit              */
+  --color-warning: #d29922; /* zuta — deprecated, limit              */
   --color-warning-muted: #2f2108; /* bg za warning badge                   */
   --color-danger: #f85149; /* crvena — error, delete                */
   --color-danger-muted: #3a0c0b; /* bg za danger badge                    */

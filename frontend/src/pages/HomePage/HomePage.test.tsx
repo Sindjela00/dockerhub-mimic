@@ -151,13 +151,13 @@ describe("HomePage — CreateRepositoryModal", () => {
     expect(screen.queryByTestId("create-repo-modal")).not.toBeInTheDocument();
   });
 
-  it("prosleđuje username iz useAuth u modal", () => {
+  it("prosledjuje username iz useAuth u modal", () => {
     render(<HomePage />);
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
     expect(screen.getByTestId("modal-username")).toHaveTextContent("john");
   });
 
-  it("prosleđuje prazan string ako je username null", () => {
+  it("prosledjuje prazan string ako je username null", () => {
     vi.doMock("@/context/AppContext", () => ({
       useAuth: () => ({ username: null }),
     }));
@@ -175,7 +175,7 @@ describe("HomePage — CreateRepositoryModal", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/repositories");
   });
 
-  it("modal se može ponovo otvoriti nakon zatvaranja", () => {
+  it("modal se moze ponovo otvoriti nakon zatvaranja", () => {
     render(<HomePage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
