@@ -50,7 +50,7 @@ describe("RegisterPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("prikazuje grešku za slab password", async () => {
+  it("prikazuje gresku za slab password", async () => {
     renderPage();
     const user = userEvent.setup();
 
@@ -63,7 +63,7 @@ describe("RegisterPage", () => {
     expect(mockHandleRegister).not.toHaveBeenCalled();
   });
 
-  it("prikazuje grešku kada password i confirm password ne poklapaju", async () => {
+  it("prikazuje gresku kada password i confirm password ne poklapaju", async () => {
     renderPage();
     const user = userEvent.setup();
 
@@ -77,7 +77,7 @@ describe("RegisterPage", () => {
     expect(mockHandleRegister).not.toHaveBeenCalled();
   });
 
-  it("prikazuje grešku kada username prekratak", async () => {
+  it("prikazuje gresku kada username prekratak", async () => {
     renderPage();
     const user = userEvent.setup();
 

@@ -41,7 +41,7 @@ describe("useCreateRepository", () => {
     expect(result.current.error).toBe("");
   });
 
-  it("vraća repository nakon uspešnog kreiranja", async () => {
+  it("vraca repository nakon uspesnog kreiranja", async () => {
     mockCreateRepository.mockResolvedValueOnce({
       data: {
         message: "Repository created successfully.",
@@ -93,7 +93,7 @@ describe("useCreateRepository", () => {
     });
   });
 
-  it("error je prazan nakon uspešnog kreiranja", async () => {
+  it("error je prazan nakon uspesnog kreiranja", async () => {
     mockCreateRepository.mockResolvedValueOnce({
       data: { message: "Created.", repository: MOCK_REPO },
     });
@@ -130,7 +130,7 @@ describe("useCreateRepository", () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it("loading je false nakon uspešnog poziva", async () => {
+  it("loading je false nakon uspesnog poziva", async () => {
     mockCreateRepository.mockResolvedValueOnce({
       data: { message: "Created.", repository: MOCK_REPO },
     });
@@ -144,7 +144,7 @@ describe("useCreateRepository", () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it("vraća null kad API ne uspe", async () => {
+  it("vraca null kad API ne uspe", async () => {
     mockCreateRepository.mockRejectedValueOnce({
       response: { data: { message: "Name already taken." } },
     });
@@ -185,7 +185,7 @@ describe("useCreateRepository", () => {
     expect(result.current.error).toBe("Failed to create repository.");
   });
 
-  it("loading je false čak i kad API ne uspe", async () => {
+  it("loading je false cak i kad API ne uspe", async () => {
     mockCreateRepository.mockRejectedValueOnce(new Error("Network error"));
 
     const { result } = renderHook(() => useCreateRepository());
@@ -197,7 +197,7 @@ describe("useCreateRepository", () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it("resetuje error pre novog pokušaja", async () => {
+  it("resetuje error pre novog pokusaja", async () => {
     mockCreateRepository.mockRejectedValueOnce({
       response: { data: { message: "Name already taken." } },
     });

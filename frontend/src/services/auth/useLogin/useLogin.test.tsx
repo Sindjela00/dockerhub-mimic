@@ -28,7 +28,7 @@ beforeEach(() => {
 });
 
 describe("useLogin", () => {
-  it("uspešan login čuva token i navigira na /", async () => {
+  it("uspesan login cuva token i navigira na /", async () => {
     loginSpy.mockResolvedValueOnce({
       data: { token: "jwt-token", role: "User", message: "Login successful." },
     } as any);
@@ -47,7 +47,7 @@ describe("useLogin", () => {
     expect(result.current.error).toBe("");
   });
 
-  it("neuspešan login postavlja grešku", async () => {
+  it("neuspesan login postavlja gresku", async () => {
     loginSpy.mockRejectedValueOnce({
       response: { data: { message: "Invalid credentials." } },
     });

@@ -31,7 +31,7 @@ describe("AppContext — auth", () => {
     expect(localStorage.getItem("token")).toBe("test-token");
   });
 
-  it("clearAuth odjavljuje korisnika i briše localStorage", () => {
+  it("clearAuth odjavljuje korisnika i brise localStorage", () => {
     const { result } = renderHook(() => useAppContext(), { wrapper });
 
     act(() => result.current.setAuth("test-token", "User"));
@@ -42,7 +42,7 @@ describe("AppContext — auth", () => {
     expect(localStorage.getItem("token")).toBeNull();
   });
 
-  it("čita token iz localStorage na inicijalizaciji", () => {
+  it("cita token iz localStorage na inicijalizaciji", () => {
     localStorage.setItem("token", "existing-token");
     localStorage.setItem("role", "Admin");
 
@@ -69,7 +69,7 @@ describe("AppContext — tema", () => {
     expect(result.current.theme).toBe("dark");
   });
 
-  it("čuva temu u localStorage", () => {
+  it("cuva temu u localStorage", () => {
     const { result } = renderHook(() => useTheme(), { wrapper });
 
     act(() => result.current.toggleTheme());

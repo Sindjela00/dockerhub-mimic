@@ -23,13 +23,13 @@ describe("InputField", () => {
     expect(input.id).toBe("email");
   });
 
-  it("generiše id iz labele sa razmakom", () => {
+  it("generise id iz labele sa razmakom", () => {
     render(<InputField label="Old password" value="" onChange={vi.fn()} />);
     const input = screen.getByLabelText(/old password/i);
     expect(input.id).toBe("old-password");
   });
 
-  it("koristi custom id ako je prosleđen", () => {
+  it("koristi custom id ako je prosledjen", () => {
     render(
       <InputField label="Email" id="custom-id" value="" onChange={vi.fn()} />,
     );
@@ -85,7 +85,7 @@ describe("InputField", () => {
     expect(wrapper?.className).toContain("border-danger");
   });
 
-  it("ne prikazuje error kad nema greške", () => {
+  it("ne prikazuje error kad nema greske", () => {
     render(<InputField label="Email" value="" onChange={vi.fn()} />);
     expect(screen.queryByText(/./, { selector: "p" })).toBeNull();
     const wrapper = screen.getByLabelText(/email/i).closest("div");
@@ -104,12 +104,12 @@ describe("InputField", () => {
     expect(screen.getByText("fakeUsername/")).toBeTruthy();
   });
 
-  it("ne prikazuje prefix kad nije prosleđen", () => {
+  it("ne prikazuje prefix kad nije prosledjen", () => {
     render(<InputField label="Email" value="" onChange={vi.fn()} />);
     expect(screen.queryByText(/\//)).toBeNull();
   });
 
-  it("prikazuje startIcon i endIcon ako su prosleđeni", () => {
+  it("prikazuje startIcon i endIcon ako su prosledjeni", () => {
     render(
       <InputField
         label="Email"
@@ -138,7 +138,7 @@ describe("InputField", () => {
     );
   });
 
-  it("sakriva labelu kad nije prosleđena", () => {
+  it("sakriva labelu kad nije prosledjena", () => {
     render(<InputField value="" onChange={vi.fn()} />);
     const label = screen.queryByLabelText(/./);
     expect(label).toBeNull();

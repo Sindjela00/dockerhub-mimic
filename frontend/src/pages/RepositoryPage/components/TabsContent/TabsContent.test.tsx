@@ -8,7 +8,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import TagsTab from "./TabsContent";
 
-// --- Mock Table sa checkboxovima ---
 vi.mock("@/components/Table/Table", () => ({
   default: ({ data }: any) => (
     <div>

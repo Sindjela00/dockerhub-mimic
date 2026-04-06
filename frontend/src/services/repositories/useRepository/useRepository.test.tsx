@@ -38,7 +38,7 @@ describe("useRepository", () => {
 
     const { result } = renderHook(() => useRepository(1));
 
-    // Početno stanje
+    // Pocetno stanje
     expect(result.current.repo).toBeNull();
     expect(result.current.loading).toBe(true);
     expect(result.current.error).toBe("");

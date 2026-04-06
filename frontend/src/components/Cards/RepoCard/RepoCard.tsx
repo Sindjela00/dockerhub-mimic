@@ -160,7 +160,6 @@ export default function RepoCard({
 
       {/* Stats */}
       <div className="flex items-center gap-4 pt-2 border-t border-border">
-        {/* Broj zvezdica se sada čita iz hook-a */}
         <span className="flex items-center gap-1 text-[11px] text-text-secondary">
           <Star size={11} fill="none" />
           {count}

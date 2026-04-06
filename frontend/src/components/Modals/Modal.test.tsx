@@ -12,13 +12,13 @@ const renderModal = (props = {}) =>
   );
 
 describe("Modal", () => {
-  it("renderuje sadržaj kad je otvoren", () => {
+  it("renderuje sadrzaj kad je otvoren", () => {
     renderModal();
     expect(screen.getByText("Test modal")).toBeTruthy();
     expect(screen.getByText("Modal content")).toBeTruthy();
   });
 
-  it("ne renderuje ništa kad je zatvoren", () => {
+  it("ne renderuje nista kad je zatvoren", () => {
     render(
       <Modal isOpen={false} onClose={vi.fn()} title="Test modal">
         <p>Modal content</p>

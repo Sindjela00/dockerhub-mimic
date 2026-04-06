@@ -28,7 +28,7 @@ beforeEach(() => {
 });
 
 describe("useRegister", () => {
-  it("uspešna registracija navigira na /login", async () => {
+  it("uspesna registracija navigira na /login", async () => {
     registerSpy.mockResolvedValueOnce({
       data: { message: "User registered." },
     } as any);
@@ -47,7 +47,7 @@ describe("useRegister", () => {
     expect(result.current.error).toBe("");
   });
 
-  it("neuspešna registracija postavlja grešku", async () => {
+  it("neuspesna registracija postavlja gresku", async () => {
     registerSpy.mockRejectedValueOnce({
       response: { data: { message: "Email already in use." } },
     });

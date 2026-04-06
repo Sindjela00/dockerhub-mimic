@@ -70,7 +70,7 @@ describe("LoginPage", () => {
 
   // ─── Validacija ───────────────────────────────────────────────────────────
 
-  it("prikazuje grešku za praznu lozinku", async () => {
+  it("prikazuje gresku za praznu lozinku", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -78,7 +78,7 @@ describe("LoginPage", () => {
     expect(screen.getByText(/password is required/i)).toBeTruthy();
   });
 
-  it("ne poziva handleLogin kad validacija ne prođe", async () => {
+  it("ne poziva handleLogin kad validacija ne prodje", async () => {
     const handleLogin = vi.fn();
     mockHook({ handleLogin });
     const user = userEvent.setup();
@@ -127,7 +127,7 @@ describe("LoginPage", () => {
 
   // ─── API error ────────────────────────────────────────────────────────────
 
-  it("prikazuje API grešku", () => {
+  it("prikazuje API gresku", () => {
     mockHook({ error: "Invalid credentials." });
     renderPage();
     expect(screen.getByText("Invalid credentials.")).toBeTruthy();
