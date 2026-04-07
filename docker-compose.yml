@@ -1,94 +1,84 @@
 services:
+
   db:
     image: postgres:16-alpine
-    container_name: dockerhub-mimic-db
+    container_name: postgres
+    command: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-dockerhub_mimic}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
-    ports:
-      - "5432:5432"
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - app-network
 
-  mem-cache:
-    image: redis:7-alpine
-    container_name: dockerhub-mimic-mem-cache
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  app:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: dockerhub-mimic-app
-    ports:
-      - "8080:8080"
+  backend:
+    build: ./backend
+    container_name: backend
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-dockerhub_mimic};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres123}"
-      Redis__Configuration: "mem-cache:6379"
-      Seed__DemoEmail: "${SEED_DEMO_EMAIL:-demo@dockerhubmimic.local}"
-      Seed__DemoPassword: "${SEED_DEMO_PASSWORD:-Password1}"
-      Seed__DemoRole: "${SEED_DEMO_ROLE:-User}"
-      Seed__AdminEmail: "${SEED_ADMIN_EMAIL:-admin@dockerhubmimic.local}"
-      Seed__AdminPassword: "${SEED_ADMIN_PASSWORD:-Welcome1}"
-      Seed__AdminRole: "${SEED_ADMIN_ROLE:-Administrator}"
-      Jwt__Key: "${JWT_KEY:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345}"
-      Jwt__Issuer: "${JWT_ISSUER:-dockerhub-mimic}"
-      Jwt__Audience: "${JWT_AUDIENCE:-dockerhub-mimic-clients}"
-      Jwt__ExpiresMinutes: "${JWT_EXPIRES_MINUTES:-60}"
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REGISTRY_JWT_ISSUER=${REGISTRY_JWT_ISSUER}
+      - REGISTRY_JWT_KEY_ID=${REGISTRY_JWT_KEY_ID}
+      - REGISTRY_JWT_PRIVATE_KEY_PATH=${REGISTRY_JWT_PRIVATE_KEY_PATH}
+      - REGISTRY_JWT_PUBLIC_CERT_PATH=${REGISTRY_JWT_PUBLIC_CERT_PATH}
+      - JWT_KEY=${JWT_KEY}
+      - JWT_ISSUER=${JWT_ISSUER}
+      - JWT_AUDIENCE=${JWT_AUDIENCE}
+    volumes:
+      - ./deploy/registry/registry-private.pem:/app/registry-private.pem:ro
+      - ./deploy/registry/registry-public.crt:/app/registry-public.crt:ro
     depends_on:
       db:
         condition: service_healthy
-      mem-cache:
-        condition: service_healthy
-    networks:
-      - app-network
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: dockerhub-mimic-frontend
+    build: ./frontend
+    container_name: frontend
+    environment:
+      - BACKEND_HOST=${BACKEND_HOST}
+      - BACKEND_PORT=${BACKEND_PORT}
     depends_on:
-      - app
-    networks:
-      - app-network
+      - backend
     restart: unless-stopped
 
-  reverse-proxy:
+  nginx:
     image: nginx:alpine
-    container_name: dockerhub-mimic-reverse-proxy
+    container_name: nginx
+    ports:
+      - "${HTTP_PORT:-3000}:80"
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      - "3000:80"
     depends_on:
-      - app
       - frontend
-    networks:
-      - app-network
+      - backend
+    restart: unless-stopped
+
+  registry:
+    image: registry:2
+    container_name: registry
+    command: ["registry", "serve", "/etc/docker/registry/config.yml"]
+    volumes:
+      - registry_data:/var/lib/registry
+      - ./deploy/registry/config.yml:/etc/docker/registry/config.yml:ro
+      - ./deploy/registry/jwks.json:/certs/jwks.json:ro
+      - ./deploy/registry/registry-public.crt:/certs/registry-public.crt:ro
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:
   postgres_data:
-    driver: local
-
-networks:
-  app-network:
-    driver: bridge
+  registry_data:

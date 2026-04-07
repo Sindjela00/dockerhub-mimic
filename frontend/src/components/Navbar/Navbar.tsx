@@ -1,5 +1,5 @@
-import AuthButtons from "./AuthButtons";
-import UserMenu from "./UserMenu";
+import AuthButtons from "./components/AuthButtons/AuthButtons";
+import UserMenu from "./components/UserMenu/UserMenu";
 import { useAuth } from "../../context/AppContext";
 
 interface NavbarProps {
@@ -7,7 +7,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ title = "" }: NavbarProps) {
-  const { isLoggedIn, email, role } = useAuth();
+  const { isLoggedIn, username, email, role } = useAuth();
 
   return (
     <header
@@ -17,7 +17,11 @@ export default function Navbar({ title = "" }: NavbarProps) {
       <h1 className="font-medium text-text-primary">{title}</h1>
 
       <div className="flex items-center gap-2">
-        {isLoggedIn ? <UserMenu email={email} role={role} /> : <AuthButtons />}
+        {isLoggedIn ? (
+          <UserMenu email={email} role={role} username={username} />
+        ) : (
+          <AuthButtons />
+        )}
       </div>
     </header>
   );

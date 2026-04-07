@@ -4,6 +4,7 @@ using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 
 namespace backend.Tests;
@@ -18,7 +19,7 @@ public sealed class AuthControllerTests
         var controller = CreateController(dbContext);
 
         var result = await controller.Register(
-            new AuthController.RegisterRequest("TestUser@Example.com", "Password1"),
+            new AuthController.RegisterRequest("testuser", "TestUser@Example.com", "Password1"),
             CancellationToken.None);
 
         var okResult = result as OkObjectResult;
@@ -32,6 +33,7 @@ public sealed class AuthControllerTests
         var createdUser = await dbContext.Users.FirstOrDefaultAsync(user => user.Email == "testuser@example.com");
         Assert.IsNotNull(createdUser);
         Assert.AreEqual(User.RoleUser, createdUser.Role);
+        Assert.AreEqual("testuser", createdUser.Username);
     }
 
     [TestMethod]
@@ -41,7 +43,7 @@ public sealed class AuthControllerTests
         var controller = CreateController(dbContext);
 
         var result = await controller.Register(
-            new AuthController.RegisterRequest("user@example.com", "weak"),
+            new AuthController.RegisterRequest("user", "user@example.com", "weak"),
             CancellationToken.None);
 
         Assert.IsInstanceOfType<BadRequestObjectResult>(result);
@@ -54,6 +56,7 @@ public sealed class AuthControllerTests
         dbContext.Users.Add(new User
         {
             Email = "user@example.com",
+            Username = "user",
             PasswordHash = User.HashPassword("Password1"),
             Role = User.RoleUser,
             CreatedAt = DateTime.UtcNow
@@ -62,7 +65,7 @@ public sealed class AuthControllerTests
 
         var controller = CreateController(dbContext);
         var result = await controller.Register(
-            new AuthController.RegisterRequest("user@example.com", "Password1"),
+            new AuthController.RegisterRequest("user", "user@example.com", "Password1"),
             CancellationToken.None);
 
         Assert.IsInstanceOfType<ConflictObjectResult>(result);
@@ -75,6 +78,7 @@ public sealed class AuthControllerTests
         dbContext.Users.Add(new User
         {
             Email = "admin@example.com",
+            Username = "admin",
             PasswordHash = User.HashPassword("Password1"),
             Role = User.RoleAdministrator,
             CreatedAt = DateTime.UtcNow
@@ -83,7 +87,7 @@ public sealed class AuthControllerTests
 
         var controller = CreateController(dbContext);
         var result = await controller.Login(
-            new AuthController.LoginRequest("admin@example.com", "Password1"),
+            new AuthController.LoginRequest("admin", "Password1"),
             CancellationToken.None);
 
         var okResult = result as OkObjectResult;
@@ -100,6 +104,7 @@ public sealed class AuthControllerTests
         dbContext.Users.Add(new User
         {
             Email = "user@example.com",
+            Username = "user",
             PasswordHash = User.HashPassword("Password1"),
             Role = User.RoleUser,
             CreatedAt = DateTime.UtcNow
@@ -108,7 +113,7 @@ public sealed class AuthControllerTests
 
         var controller = CreateController(dbContext);
         var result = await controller.Login(
-            new AuthController.LoginRequest("user@example.com", "WrongPassword1"),
+            new AuthController.LoginRequest("user", "WrongPassword1"),
             CancellationToken.None);
 
         Assert.IsInstanceOfType<UnauthorizedObjectResult>(result);
@@ -121,6 +126,7 @@ public sealed class AuthControllerTests
         dbContext.Users.Add(new User
         {
             Email = "user@example.com",
+            Username = "user",
             PasswordHash = User.HashPassword("Password1"),
             Role = User.RoleUser,
             CreatedAt = DateTime.UtcNow
@@ -147,6 +153,7 @@ public sealed class AuthControllerTests
         dbContext.Users.Add(new User
         {
             Email = "user@example.com",
+            Username = "user",
             PasswordHash = User.HashPassword("Password1"),
             Role = User.RoleUser,
             CreatedAt = DateTime.UtcNow
@@ -178,12 +185,13 @@ public sealed class AuthControllerTests
                 ["Jwt:Key"] = "unit-test-secret-key-unit-test-secret-key-123456",
                 ["Jwt:Issuer"] = "unit-tests",
                 ["Jwt:Audience"] = "unit-tests-client",
-                ["Jwt:ExpiresMinutes"] = "60"
+                ["Jwt:ExpiresMinutes"] = "60",
+                ["Registry:BaseUrl"] = "http://localhost:5002"
             })
             .Build();
 
-        var tokenService = new JwtTokenService(config);
-        return new AuthController(dbContext, tokenService);
+        var tokenService = new AuthService(dbContext, config, new MemoryCache(new MemoryCacheOptions()));
+        return new AuthController(tokenService);
     }
 
     private static T GetProperty<T>(object source, string propertyName)

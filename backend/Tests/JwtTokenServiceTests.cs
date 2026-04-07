@@ -1,7 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using backend.Data;
 using backend.Models;
 using backend.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 
 namespace backend.Tests;
@@ -22,7 +25,10 @@ public sealed class JwtTokenServiceTests
             })
             .Build();
 
-        var service = new JwtTokenService(config);
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        var service = new AuthService(new AppDbContext(dbOptions), config, new MemoryCache(new MemoryCacheOptions()));
 
         var token = service.GenerateToken(new User
         {

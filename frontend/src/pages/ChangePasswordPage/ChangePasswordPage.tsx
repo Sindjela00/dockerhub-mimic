@@ -3,7 +3,7 @@ import InputField from "../../components/InputField/InputField";
 import { KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import Logo from "../../components/Logo/Logo";
-import { useChangePassword } from "../../services/auth/useChangePassword";
+import { useChangePassword } from "../../services/auth/useChangePassword/useChangePassword";
 import { useState } from "react";
 
 interface FormState {
@@ -129,15 +129,6 @@ export default function ChangePasswordPage() {
             </>
           )}
         </div>
-
-        {!submitted && (
-          <p className="text-center text-xs text-text-muted mt-4">
-            Remember your password?{" "}
-            <Link to="/login" className="text-brand hover:underline">
-              Sign in
-            </Link>
-          </p>
-        )}
       </div>
     </div>
   );

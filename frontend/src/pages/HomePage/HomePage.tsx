@@ -1,10 +1,18 @@
-import { QUICK_LINKS, STATS } from "./type/HomePageConfig";
+import { QUICK_LINKS, STATS } from "./types/HomePageConfig";
 
 import Button from "../../components/Button/Button";
-import QuickLink from "../../components/Cards/QuickLink";
-import StatCard from "../../components/Cards/StatCard";
+import CreateRepositoryModal from "@/components/Modals/CreateRepositoryModal/CreateRepositoryModal";
+import QuickLink from "@/components/Cards/QuickLink/QuickLink";
+import StatCard from "@/components/Cards/StatCard/StatCard";
+import { useAuth } from "@/context/AppContext";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 export default function HomePage() {
+  const [modalOpen, setModalOpen] = useState(false);
+  const { username } = useAuth();
+  const navigate = useNavigate();
+
   return (
     <div className="page-wrapper">
       <div
@@ -40,10 +48,18 @@ export default function HomePage() {
           </p>
 
           <div className="flex items-center gap-3">
-            <Button variant="primary" size="md">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setModalOpen(true)}
+            >
               Create repository
             </Button>
-            <Button variant="ghost" size="md">
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => navigate("/repositories")}
+            >
               Explore images
             </Button>
           </div>
@@ -51,7 +67,7 @@ export default function HomePage() {
       </div>
 
       <section>
-        <h2 className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">
+        <h2 className="text-xs font-medium uppercase tracking-widest text-text-secondary mb-3">
           Overview
         </h2>
         <div className="card-grid grid-cols-2 sm:grid-cols-4">
@@ -62,7 +78,7 @@ export default function HomePage() {
       </section>
 
       <section>
-        <h2 className="text-xs font-medium uppercase tracking-widest text-text-muted mb-3">
+        <h2 className="text-xs font-medium uppercase tracking-widest text-text-secondary mb-3">
           Quick actions
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -71,6 +87,16 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <CreateRepositoryModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreate={() => {
+          setModalOpen(false);
+          navigate("/repositories");
+        }}
+        username={username ?? ""}
+      />
     </div>
   );
 }
