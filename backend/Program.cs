@@ -33,6 +33,7 @@ builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRegistryService, RegistryService>();
 builder.Services.AddScoped<IRepositoriesService, RepositoriesService>();
+builder.Services.AddScoped<IOrganizationsService, OrganizationsService>();
 builder.Services.AddHttpClient();
 builder.Services.AddMemoryCache();
 var jwtKey = builder.Configuration.GetValue<string>("Jwt:Key")

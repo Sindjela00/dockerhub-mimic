@@ -34,6 +34,9 @@ public class User
     public DateTime CreatedAt { get; set; }
 
     public virtual ICollection<Repository> Repositories { get; set; } = new List<Repository>();
+    public virtual ICollection<Organization> OwnedOrganizations { get; set; } = new List<Organization>();
+    public virtual ICollection<OrganizationMember> OrganizationMemberships { get; set; } = new List<OrganizationMember>();
+    public virtual ICollection<OrganizationTeamMember> TeamMemberships { get; set; } = new List<OrganizationTeamMember>();
     public virtual ICollection<RepositoryStar> Stars { get; set; } = new List<RepositoryStar>();
     public virtual ICollection<RepositoryCollaborator> Collaborations { get; set; } = new List<RepositoryCollaborator>();
 

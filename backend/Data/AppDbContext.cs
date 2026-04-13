@@ -14,6 +14,11 @@ public class AppDbContext : DbContext
     public DbSet<RepositoryTag> RepositoryTags => Set<RepositoryTag>();
     public DbSet<RepositoryStar> RepositoryStars => Set<RepositoryStar>();
     public DbSet<RepositoryCollaborator> RepositoryCollaborators => Set<RepositoryCollaborator>();
+    public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
+    public DbSet<OrganizationTeam> OrganizationTeams => Set<OrganizationTeam>();
+    public DbSet<OrganizationTeamMember> OrganizationTeamMembers => Set<OrganizationTeamMember>();
+    public DbSet<OrganizationTeamRepository> OrganizationTeamRepositories => Set<OrganizationTeamRepository>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +39,12 @@ public class AppDbContext : DbContext
             .WithMany(u => u.Repositories)
             .HasForeignKey(r => r.OwnerId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Repository>()
+            .HasOne(r => r.Organization)
+            .WithMany(o => o.Repositories)
+            .HasForeignKey(r => r.OrganizationId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Repository>()
             .HasMany(r => r.Tags)
@@ -66,17 +77,90 @@ public class AppDbContext : DbContext
             .HasForeignKey(c => c.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<Organization>()
+            .HasOne(o => o.Owner)
+            .WithMany(u => u.OwnedOrganizations)
+            .HasForeignKey(o => o.OwnerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationMember>()
+            .HasOne(m => m.Organization)
+            .WithMany(o => o.Members)
+            .HasForeignKey(m => m.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationMember>()
+            .HasOne(m => m.User)
+            .WithMany(u => u.OrganizationMemberships)
+            .HasForeignKey(m => m.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationTeam>()
+            .HasOne(t => t.Organization)
+            .WithMany(o => o.Teams)
+            .HasForeignKey(t => t.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationTeamMember>()
+            .HasOne(tm => tm.Team)
+            .WithMany(t => t.TeamMembers)
+            .HasForeignKey(tm => tm.TeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationTeamMember>()
+            .HasOne(tm => tm.User)
+            .WithMany(u => u.TeamMemberships)
+            .HasForeignKey(tm => tm.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationTeamRepository>()
+            .HasOne(tr => tr.Team)
+            .WithMany(t => t.TeamRepositories)
+            .HasForeignKey(tr => tr.TeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationTeamRepository>()
+            .HasOne(tr => tr.Repository)
+            .WithMany(r => r.TeamRepositories)
+            .HasForeignKey(tr => tr.RepositoryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Create unique constraint on Repository name + owner
         modelBuilder.Entity<Repository>()
             .HasIndex(r => new { r.Name, r.OwnerId })
             .IsUnique()
-            .HasFilter($"\"{nameof(Repository.IsOfficial)}\" = false");
+            .HasFilter($"\"{nameof(Repository.IsOfficial)}\" = false AND \"{nameof(Repository.OrganizationId)}\" IS NULL");
 
         // Create unique constraint on official repository names
         modelBuilder.Entity<Repository>()
             .HasIndex(r => r.Name)
             .IsUnique()
             .HasFilter($"\"{nameof(Repository.IsOfficial)}\" = true");
+
+        modelBuilder.Entity<Repository>()
+            .HasIndex(r => new { r.OrganizationId, r.Name })
+            .IsUnique()
+            .HasFilter($"\"{nameof(Repository.OrganizationId)}\" IS NOT NULL");
+
+        modelBuilder.Entity<Organization>()
+            .HasIndex(o => o.Name)
+            .IsUnique();
+
+        modelBuilder.Entity<OrganizationMember>()
+            .HasIndex(m => new { m.OrganizationId, m.UserId })
+            .IsUnique();
+
+        modelBuilder.Entity<OrganizationTeam>()
+            .HasIndex(t => new { t.OrganizationId, t.Name })
+            .IsUnique();
+
+        modelBuilder.Entity<OrganizationTeamMember>()
+            .HasIndex(tm => new { tm.TeamId, tm.UserId })
+            .IsUnique();
+
+        modelBuilder.Entity<OrganizationTeamRepository>()
+            .HasIndex(tr => new { tr.TeamId, tr.RepositoryId })
+            .IsUnique();
 
         // Create unique constraint on RepositoryStar (user can star repo only once)
         modelBuilder.Entity<RepositoryStar>()

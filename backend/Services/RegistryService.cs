@@ -135,10 +135,16 @@ public class RegistryService : IRegistryService
             if (string.IsNullOrWhiteSpace(namespacePart) || string.IsNullOrWhiteSpace(repoName)) continue;
 
             var owner = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == namespacePart, cancellationToken);
-            if (owner is null) continue;
+            var organization = owner is null
+                ? await _dbContext.Organizations.FirstOrDefaultAsync(o => o.Name == namespacePart, cancellationToken)
+                : null;
 
-            var existing = await _dbContext.Repositories
-                .FirstOrDefaultAsync(r => r.OwnerId == owner.Id && r.Name == repoName, cancellationToken);
+            if (owner is null && organization is null)
+                continue;
+
+            var existing = organization is null
+                ? await _dbContext.Repositories.FirstOrDefaultAsync(r => r.OrganizationId == null && r.OwnerId == owner!.Id && r.Name == repoName, cancellationToken)
+                : await _dbContext.Repositories.FirstOrDefaultAsync(r => r.OrganizationId == organization.Id && r.Name == repoName, cancellationToken);
 
             Repository repo;
             if (existing is null)
@@ -148,7 +154,8 @@ public class RegistryService : IRegistryService
                     Name = repoName,
                     Description = "Synced from Docker Registry push event.",
                     Visibility = "private",
-                    OwnerId = owner.Id,
+                    OwnerId = organization?.OwnerId ?? owner!.Id,
+                    OrganizationId = organization?.Id,
                     CreatedAt = now,
                     UpdatedAt = now,
                     IsOfficial = false,
@@ -257,11 +264,24 @@ public class RegistryService : IRegistryService
         var query = _dbContext.Repositories
             .Include(r => r.Owner)
             .Include(r => r.Collaborators)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
             .AsQueryable();
 
-        query = !string.IsNullOrWhiteSpace(ownerUsername)
-            ? query.Where(r => r.Owner != null && r.Owner.Username == ownerUsername && r.Name == repoName)
-            : query.Where(r => r.IsOfficial && r.Name == repoName);
+        if (!string.IsNullOrWhiteSpace(ownerUsername))
+        {
+            query = query.Where(r =>
+                r.Name == repoName
+                && ((r.Organization != null && r.Organization.Name == ownerUsername)
+                    || (r.OrganizationId == null && r.Owner != null && r.Owner.Username == ownerUsername)));
+        }
+        else
+        {
+            query = query.Where(r => r.IsOfficial && r.Name == repoName);
+        }
 
         var repository = await query.FirstOrDefaultAsync(cancellationToken);
         if (repository is null) return Array.Empty<string>();
@@ -273,8 +293,22 @@ public class RegistryService : IRegistryService
         var canPushAsCollaborator = repository.Visibility == "public"
             && (collaboratorRole == "write" || collaboratorRole == "admin");
 
-        var canPull = repository.Visibility == "public" || isOwner || isAdmin;
-        var canPush = isOwner || isAdmin || canPushAsCollaborator;
+        var organizationMembership = repository.Organization?.Members.FirstOrDefault(m => m.UserId == user.Id);
+        var organizationRole = Normalize(organizationMembership?.Role ?? string.Empty);
+        var isOrganizationMember = organizationMembership is not null;
+        var canPushAsOrganizationMember = organizationRole == OrganizationMember.RoleOwner || organizationRole == OrganizationMember.RoleAdmin;
+
+        // Check team-based permissions for this specific repository
+        var teamPermission = repository.TeamRepositories
+            .Where(tr => tr.Team != null && tr.Team.TeamMembers.Any(tm => tm.UserId == user.Id))
+            .Select(tr => tr.Permission)
+            .FirstOrDefault();
+        var canPushViaTeam = teamPermission == OrganizationTeamRepository.PermissionReadWrite
+                             || teamPermission == OrganizationTeamRepository.PermissionAdmin;
+        var canPullViaTeam = teamPermission is not null;
+
+        var canPull = repository.Visibility == "public" || isOwner || isAdmin || isOrganizationMember || canPullViaTeam;
+        var canPush = isOwner || isAdmin || canPushAsCollaborator || canPushAsOrganizationMember || canPushViaTeam;
 
         return requestedActions
             .Select(Normalize)
