@@ -138,6 +138,9 @@ public class RepositoriesService : IRepositoriesService
 
         var query = _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .Include(r => r.Tags)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
             .Include(r => r.Stars)
@@ -169,7 +172,10 @@ public class RepositoriesService : IRepositoriesService
                 (string.IsNullOrWhiteSpace(visibility) || normalizedVisibilityFilter == "private");
             if (includeOwnPrivate)
             {
-                query = query.Where(r => r.Visibility == "public" || (r.Owner != null && r.Owner.Username == normalizedCurrentUsername));
+                query = query.Where(r =>
+                    r.Visibility == "public"
+                    || (r.Owner != null && r.Owner.Username == normalizedCurrentUsername)
+                    || (r.Organization != null && r.Organization.Members.Any(m => m.User != null && m.User.Username == normalizedCurrentUsername)));
             }
             else
             {
@@ -186,7 +192,9 @@ public class RepositoriesService : IRepositoriesService
         if (!string.IsNullOrWhiteSpace(owner))
         {
             var normalizedOwner = Normalize(owner);
-            query = query.Where(r => r.Owner != null && r.Owner.Username == normalizedOwner);
+            query = query.Where(r =>
+                (r.Owner != null && r.Owner.Username == normalizedOwner)
+                || (r.Organization != null && r.Organization.Name == normalizedOwner));
         }
 
         if (!string.IsNullOrWhiteSpace(visibility))
@@ -235,6 +243,9 @@ public class RepositoriesService : IRepositoriesService
     {
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .Include(r => r.Tags)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -305,6 +316,9 @@ public class RepositoriesService : IRepositoriesService
 
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .Include(r => r.Collaborators)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
@@ -321,7 +335,11 @@ public class RepositoriesService : IRepositoriesService
                 return new RepositoriesResult<RepositoryResponse>(false, null, "Repository name must not exceed 100 characters.");
 
             var nameTaken = await _dbContext.Repositories.AnyAsync(
-                r => r.OwnerId == repo.OwnerId && r.Name == normalizedName && r.Id != repo.Id, cancellationToken);
+                r => r.Id != repo.Id
+                    && r.Name == normalizedName
+                    && ((repo.OrganizationId == null && r.OrganizationId == null && r.OwnerId == repo.OwnerId)
+                        || (repo.OrganizationId != null && r.OrganizationId == repo.OrganizationId)),
+                cancellationToken);
             if (nameTaken)
                 return new RepositoriesResult<RepositoryResponse>(false, null, "Repository with this name already exists.");
 
@@ -353,6 +371,9 @@ public class RepositoriesService : IRepositoriesService
     {
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -374,6 +395,9 @@ public class RepositoriesService : IRepositoriesService
 
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
@@ -399,7 +423,7 @@ public class RepositoriesService : IRepositoriesService
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        var fullName = repo.IsOfficial ? repo.Name : $"{repo.Owner?.Username ?? "user"}/{repo.Name}";
+        var fullName = repo.IsOfficial ? repo.Name : $"{repo.Organization?.Name ?? repo.Owner?.Username ?? "user"}/{repo.Name}";
         return new RepositoriesResult<RepositoryTagListResponse>(true, new RepositoryTagListResponse
         {
             RepositoryId = repo.Id,
@@ -416,6 +440,9 @@ public class RepositoriesService : IRepositoriesService
     {
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
@@ -425,7 +452,7 @@ public class RepositoriesService : IRepositoriesService
         if (repo.Visibility == "private" && !CanAccessPrivateRepository(repo, currentUsername, userRole))
             return new RepositoriesResult<RepositoryCollaboratorListResponse>(false, null, "Forbidden");
 
-        var fullName = repo.IsOfficial ? repo.Name : $"{repo.Owner?.Username ?? "user"}/{repo.Name}";
+        var fullName = repo.IsOfficial ? repo.Name : $"{repo.Organization?.Name ?? repo.Owner?.Username ?? "user"}/{repo.Name}";
         var collaborators = repo.Collaborators.OrderBy(c => c.User?.Username).Select(MapCollaboratorToResponse).ToList();
 
         return new RepositoriesResult<RepositoryCollaboratorListResponse>(true, new RepositoryCollaboratorListResponse
@@ -442,6 +469,9 @@ public class RepositoriesService : IRepositoriesService
     {
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .Include(r => r.Collaborators)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
@@ -496,6 +526,9 @@ public class RepositoriesService : IRepositoriesService
     {
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -526,14 +559,36 @@ public class RepositoriesService : IRepositoriesService
         if (string.IsNullOrWhiteSpace(normalized)) return false;
 
         var isAdmin = string.Equals(userRole, UserModelRoleAdmin, StringComparison.OrdinalIgnoreCase);
+        if (isAdmin)
+            return true;
+
+        if (repo.OrganizationId is not null)
+        {
+            var membership = repo.Organization?.Members.FirstOrDefault(m => Normalize(m.User?.Username ?? string.Empty) == normalized);
+            var role = Normalize(membership?.Role ?? string.Empty);
+            return role == OrganizationMember.RoleOwner || role == OrganizationMember.RoleAdmin;
+        }
+
         var ownerUsername = Normalize(repo.Owner?.Username ?? string.Empty);
-        return normalized == ownerUsername || isAdmin;
+        return normalized == ownerUsername;
     }
 
     private bool CanAccessPrivateRepository(Repository repo, string? currentUsername, string? userRole = null)
     {
         if (repo.Visibility != "private") return true;
-        return CanManageRepository(repo, currentUsername, userRole);
+        if (CanManageRepository(repo, currentUsername, userRole))
+            return true;
+
+        if (repo.OrganizationId is not null)
+        {
+            var normalized = Normalize(currentUsername ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(normalized))
+                return false;
+
+            return repo.Organization?.Members.Any(m => Normalize(m.User?.Username ?? string.Empty) == normalized) == true;
+        }
+
+        return false;
     }
 
     private static (int Page, int PageSize) NormalizePaging(int page, int pageSize)
@@ -580,7 +635,7 @@ public class RepositoriesService : IRepositoriesService
 
     private static RepositoryResponse MapDbRepositoryToResponse(Repository repo, bool? isStarredByCurrentUser = null)
     {
-        var fullName = repo.IsOfficial ? repo.Name : $"{repo.Owner?.Username ?? "user"}/{repo.Name}";
+        var fullName = repo.IsOfficial ? repo.Name : $"{repo.Organization?.Name ?? repo.Owner?.Username ?? "user"}/{repo.Name}";
         return new RepositoryResponse
         {
             Id = repo.Id,
@@ -634,6 +689,9 @@ public class RepositoriesService : IRepositoriesService
     {
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -662,9 +720,15 @@ public class RepositoriesService : IRepositoriesService
 
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .Include(r => r.Tags)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is not null && repo.Visibility == "private" && !CanAccessPrivateRepository(repo, currentUsername, null))
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Forbidden");
 
         if (repo is null)
             return new RepositoriesResult<RepositoryResponse>(false, null, "Repository not found.");
@@ -704,9 +768,15 @@ public class RepositoriesService : IRepositoriesService
 
         var repo = await _dbContext.Repositories
             .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
             .Include(r => r.Tags)
             .Include(r => r.Collaborators).ThenInclude(c => c.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is not null && repo.Visibility == "private" && !CanAccessPrivateRepository(repo, currentUsername, null))
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Forbidden");
 
         if (repo is null)
             return new RepositoriesResult<RepositoryResponse>(false, null, "Repository not found.");

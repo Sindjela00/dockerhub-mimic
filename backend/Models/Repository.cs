@@ -28,6 +28,11 @@ public class Repository
 
     public virtual User? Owner { get; set; }
 
+    [ForeignKey("Organization")]
+    public int? OrganizationId { get; set; }
+
+    public virtual Organization? Organization { get; set; }
+
     [Column(TypeName = "timestamp with time zone")]
     public DateTime CreatedAt { get; set; }
 
@@ -46,8 +51,10 @@ public class Repository
 
     public virtual ICollection<RepositoryCollaborator> Collaborators { get; set; } = new List<RepositoryCollaborator>();
 
-    // Returns the full repository name (prefix/name for user repos, just name for official)
-    public string GetFullName() => IsOfficial ? Name : $"{Owner?.Email?.Split('@')[0] ?? "user"}/{Name}";
+    public virtual ICollection<OrganizationTeamRepository> TeamRepositories { get; set; } = new List<OrganizationTeamRepository>();
+
+    // Returns the full repository name (prefix/name for user and org repos, just name for official)
+    public string GetFullName() => IsOfficial ? Name : $"{Organization?.Name ?? Owner?.Username ?? "user"}/{Name}";
 
     public static async Task<Repository?> GetByIdAsync(AppDbContext dbContext, int id, CancellationToken cancellationToken = default)
     {
