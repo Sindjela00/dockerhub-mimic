@@ -1,6 +1,7 @@
 import { Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 
 import { Repository } from "@/services/repositories/repositories.api";
+import { formatDate } from "@/utils/formatDate";
 import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 
 interface RepoCardProps {
@@ -8,14 +9,6 @@ interface RepoCardProps {
   onClick?: (repo: Repository) => void;
   onEdit?: (repo: Repository) => void;
   onDelete?: (repo: Repository) => void;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 export default function RepoCard({

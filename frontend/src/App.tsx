@@ -7,6 +7,8 @@ import LandingPage from "./pages/LandingPage/LandingPage";
 import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage/LoginPage";
 import { Navigate } from "react-router-dom";
+import OrganizationDetailPage from "./pages/OrganizationPage/OrganizationPage";
+import OrganizationsPage from "./pages/OrganizationsPage/OrganizationsPage";
 import RegisterPage from "./pages/RegisterPage/RegisterPage";
 import RepositoriesPage from "./pages/RepositoriesPage/RepositoriesPage";
 import RepositoryDetailPage from "./pages/RepositoryPage/RepositoryDetailPage";
@@ -88,6 +90,28 @@ export default function App() {
           <ProtectedRoute>
             <Layout pageTitle="Repository">
               <RepositoryDetailPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/organizations"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Organizations">
+              <OrganizationsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/organizations/:name"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Organization">
+              <OrganizationDetailPage />
             </Layout>
           </ProtectedRoute>
         }
