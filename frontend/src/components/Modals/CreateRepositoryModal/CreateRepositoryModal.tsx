@@ -1,48 +1,53 @@
-import type { FormErrors, FormState, Owner } from "./types/types";
+import type { FormErrors, FormState } from "./types/types";
 
 import Button from "@/components/Button/Button";
 import InputField from "@/components/InputField/InputField";
 import Modal from "@/components/Modals/Modal";
-import { OwnerSelect } from "./components/OwnerSelect/OwnerSelect";
 import type { RepoVisibility } from "@/pages/RepositoriesPage/types/types";
 import { VisibilityToggle } from "./components/VisibilityToggle/VisibilityToggle";
+import { useAuth } from "@/context/AppContext";
 import { useCreateRepository } from "@/services/repositories/useCreateRepository/useCreateRepository";
+import { useOrganizationRepositories } from "@/services/organizations/useOrganizationRepositories/useOrganizationRepositories";
 import { useState } from "react";
+
+interface OrgOwner {
+  name: string;
+  displayName: string;
+}
 
 interface CreateRepositoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: () => void;
-  username?: string;
+  username: string;
+  owner?: OrgOwner;
 }
 
-const MOCK_ORGS: Owner[] = [
-  { value: "acme-corp", label: "Acme Corp", type: "org" },
-  { value: "dev-team", label: "Dev Team", type: "org" },
-];
-
-const INITIAL_FORM = (username: string): FormState => ({
-  owner: username,
+const INITIAL_FORM = (): FormState => ({
   name: "",
   description: "",
   visibility: "public",
+  owner: "",
 });
 
 export default function CreateRepositoryModal({
   isOpen,
   onClose,
   onCreate,
-  username = "",
+  username,
+  owner = { name: "", displayName: "" },
 }: CreateRepositoryModalProps) {
-  const [form, setForm] = useState<FormState>(INITIAL_FORM(username));
+  const [form, setForm] = useState<FormState>(INITIAL_FORM());
   const [errors, setErrors] = useState<FormErrors>({});
+  const { token } = useAuth();
 
-  const { loading, error: apiError, handleCreate } = useCreateRepository();
+  const personalRepo = useCreateRepository();
+  const orgRepo = useOrganizationRepositories(token, owner.name);
 
-  const owners: Owner[] = [
-    { value: username, label: username, type: "user" },
-    ...MOCK_ORGS,
-  ];
+  const loading = username ? personalRepo.loading : orgRepo.creating;
+  const apiError = username ? personalRepo.error : orgRepo.createError;
+
+  const ownerLabel = username ? username : owner.displayName;
 
   const validate = (): boolean => {
     const next: FormErrors = {};
@@ -58,44 +63,86 @@ export default function CreateRepositoryModal({
     e.preventDefault();
     if (!validate()) return;
 
-    const repo = await handleCreate({
+    const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
       visibility: form.visibility as RepoVisibility,
-    });
+    };
+
+    const repo = username
+      ? await personalRepo.handleCreate(payload)
+      : await orgRepo.handleCreate(payload);
 
     if (repo) {
-      setForm(INITIAL_FORM(username));
-      setErrors({});
+      resetAndClose();
       onCreate();
-      onClose();
     }
   };
 
-  const handleClose = () => {
-    setForm(INITIAL_FORM(username));
+  const resetAndClose = () => {
+    setForm(INITIAL_FORM());
     setErrors({});
     onClose();
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Create new repository">
+    <Modal
+      isOpen={isOpen}
+      onClose={resetAndClose}
+      title="Create new repository"
+    >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        {/* Owner */}
-        <OwnerSelect
-          value={form.owner}
-          owners={owners}
-          onChange={(v) => setForm((f) => ({ ...f, owner: v }))}
-        />
+        <div className="group relative">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-elevated border border-border">
+            <div className="w-5 h-5 rounded-full bg-brand/10 flex items-center justify-center">
+              {username ? (
+                <svg
+                  className="w-3 h-3 text-brand"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-3 h-3 text-brand"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  />
+                </svg>
+              )}
+            </div>
+            <div className="text-sm">
+              <span className="text-text-muted">Creating for </span>
+              <span className="text-text-primary">{ownerLabel}</span>
+              {!username && owner.name && owner.name !== owner.displayName && (
+                <span className="text-text-muted ml-1">({owner.name})</span>
+              )}
+            </div>
+          </div>
+        </div>
 
-        {/* Name */}
+        {/* Repository Name */}
         <InputField
           label="Repository name"
           value={form.name}
           onChange={(v) => setForm((f) => ({ ...f, name: v.toLowerCase() }))}
-          placeholder="image"
+          placeholder="my-image"
           error={errors.name}
-          prefix={`${form.owner}/`}
+          prefix={`${ownerLabel}/`}
         />
 
         {/* Description */}
@@ -125,7 +172,6 @@ export default function CreateRepositoryModal({
           onChange={(v) => setForm((f) => ({ ...f, visibility: v }))}
         />
 
-        {/* API error */}
         {apiError && <p className="text-xs text-danger">{apiError}</p>}
 
         {/* Actions */}
@@ -134,7 +180,7 @@ export default function CreateRepositoryModal({
             variant="ghost"
             size="sm"
             type="button"
-            onClick={handleClose}
+            onClick={resetAndClose}
             disabled={loading}
           >
             Cancel

@@ -29,7 +29,8 @@ export default function InputField({
   endIcon,
   className,
 }: InputFieldProps) {
-  const inputId = id ?? label.toLowerCase().replace(/\s+/g, "-");
+  const inputId =
+    id ?? (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
   const borderClass = error
     ? "border-danger focus-within:border-danger"
@@ -46,7 +47,7 @@ export default function InputField({
 
       <div
         className={[
-          "flex items-center rounded-md bg-bg-elevated border overflow-hidden",
+          "flex items-center rounded-lg bg-bg-elevated border overflow-hidden",
           "transition-colors",
           borderClass,
         ].join(" ")}
@@ -74,7 +75,7 @@ export default function InputField({
             onChangeRaw?.(e);
           }}
           placeholder={placeholder}
-          className="flex-1 min-w-0 px-3 py-2 text-sm bg-transparent
+          className="flex-1 min-w-0 px-3 py-[9px] text-sm bg-transparent
                      text-text-primary placeholder:text-text-muted
                      focus:outline-none"
         />

@@ -48,7 +48,7 @@ export default function OrganizationCard({ org, onClick }: OrgCardProps) {
         </div>
 
         {/* Badge za tip - umesto visibility badge-a */}
-        <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-bg-elevated text-text-secondary border border-border whitespace-nowrap">
+        <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-brand/30 text-text-primary border border-brand whitespace-nowrap">
           <Users size={10} />
           Org
         </span>

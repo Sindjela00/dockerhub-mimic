@@ -107,7 +107,7 @@ export default function App() {
       />
 
       <Route
-        path="/organizations/:name"
+        path="/organizations/:orgName"
         element={
           <ProtectedRoute>
             <Layout pageTitle="Organization">
