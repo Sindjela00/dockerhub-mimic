@@ -1,7 +1,6 @@
 import {
   CreateRepositoryPayload,
   CreateRepositoryResponse,
-  RepositoriesResponse,
   Repository,
 } from "../repositories/repositories.api";
 
@@ -57,6 +56,12 @@ export interface CreateOrgRepositoryPayload {
   visibility: RepoVisibility;
 }
 
+export interface UpdateOrganizationPayload {
+  displayName: string;
+  description: string;
+  avatarUrl?: string | null;
+}
+
 export async function fetchOrganizations({
   page = 1,
   pageSize = 12,
@@ -72,19 +77,16 @@ export async function fetchOrganizations({
     params.set("search", search.trim());
   }
 
-  const res = await fetch(`${BASE_URL}/organizations?${params.toString()}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  const response = await api.get<OrganizationsResponse>(
+    `${BASE_URL}/organizations?${params.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+  );
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.message ?? `HTTP ${res.status}`);
-  }
-
-  return res.json();
+  return response.data;
 }
 
 export async function createOrganization(
@@ -101,73 +103,77 @@ export async function createOrganization(
   >,
   token: string,
 ): Promise<CreateOrganizationResponse> {
-  const res = await fetch(`${BASE_URL}/organizations`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  const response = await api.post<CreateOrganizationResponse>(
+    `${BASE_URL}/organizations`,
+    payload,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-    body: JSON.stringify(payload),
-  });
+  );
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.message ?? `HTTP ${res.status}`);
-  }
-
-  return res.json();
+  return response.data;
 }
 
 export async function fetchOrganization(
   name: string,
   token: string,
 ): Promise<Organization> {
-  const res = await fetch(`${BASE_URL}/organizations/${name}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  const response = await api.get<Organization>(
+    `${BASE_URL}/organizations/${name}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+  );
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.message ?? `HTTP ${res.status}`);
-  }
-
-  return res.json();
+  return response.data;
 }
 
-// organizations.api.ts
+export async function updateOrganization(
+  name: string,
+  payload: UpdateOrganizationPayload,
+  token: string,
+): Promise<Organization> {
+  const response = await api.patch<Organization>(
+    `${BASE_URL}/organizations/${name}`,
+    payload,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return response.data;
+}
+
 export async function fetchOrganizationRepositories(
   orgName: string,
   token: string,
   search?: string,
 ): Promise<{ repositories: Repository[]; total: number }> {
-  let url = `/api/organizations/${orgName}/repositories`;
+  let url = `${BASE_URL}/organizations/${orgName}/repositories`;
   if (search && search.trim()) {
     url += `?search=${encodeURIComponent(search.trim())}`;
   }
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  const response = await api.get<{ repositories: Repository[]; total: number }>(
+    url,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+  );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch organization repositories");
-  }
-
-  const data = await response.json();
-  return {
-    repositories: data.repositories || [],
-    total: data.total || 0,
-  };
+  return response.data;
 }
 
 export const createOrgRepository = (
   orgName: string,
   payload: CreateRepositoryPayload,
 ): Promise<{ data: CreateRepositoryResponse }> =>
-  api.post(`/api/organizations/${orgName}/repositories`, payload);
+  api.post(`${BASE_URL}/organizations/${orgName}/repositories`, payload);
