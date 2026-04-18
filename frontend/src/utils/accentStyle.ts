@@ -46,3 +46,16 @@ const ACCENT_MAP: Record<string, { bg: string; text: string; border: string }> =
 export function getAccent(key: string) {
   return ACCENT_MAP[key] ?? ACCENT_MAP.brand;
 }
+
+export function getRoleAccent(role: string): "warning" | "info" | "brand" {
+  switch (role.toLowerCase()) {
+    case "owner":
+      return "warning";
+    case "admin":
+      return "info";
+    case "member":
+      return "brand";
+    default:
+      return "brand";
+  }
+}

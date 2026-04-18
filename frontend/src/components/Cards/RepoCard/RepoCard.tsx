@@ -3,6 +3,7 @@ import { Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 import { Repository } from "@/services/repositories/repositories.api";
 import { TagComponent } from "@/components/Tag/Tag";
 import { formatDate } from "@/utils/formatDate";
+import { useAuth } from "@/context/AppContext";
 import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 
 interface RepoCardProps {
@@ -18,6 +19,7 @@ export default function RepoCard({
   onEdit,
   onDelete,
 }: RepoCardProps) {
+  const { role } = useAuth();
   const { starred, count, loading, toggle } = useStarRepository(
     repo.id,
     repo.isStarredByCurrentUser ?? false,
@@ -46,7 +48,7 @@ export default function RepoCard({
             <p className="text-sm font-medium text-text-primary truncate">
               {repo.fullName}
             </p>
-            <p className="text-[11px] text-text-secondary">
+            <p className="text-[11px] text-text-muted">
               Updated {formatDate(repo.updatedAt)}
             </p>
           </div>
@@ -66,7 +68,6 @@ export default function RepoCard({
 
         {/* Actions */}
         <div className="flex items-center gap-1 ml-auto">
-          {/* ⭐ Star dugme */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -90,8 +91,8 @@ export default function RepoCard({
               e.stopPropagation();
               onEdit?.(repo);
             }}
-            className="p-1 rounded text-text-muted hover:text-brand
-                       hover:bg-bg-elevated transition-colors"
+            className={`p-1 rounded text-text-muted hover:text-brand
+                       hover:bg-bg-elevated transition-colors ${role === "Admin" ? "" : "hidden"}`}
             title="Edit"
           >
             <Edit2 size={13} />
@@ -101,8 +102,8 @@ export default function RepoCard({
               e.stopPropagation();
               onDelete?.(repo);
             }}
-            className="p-1 rounded text-text-muted hover:text-danger
-                       hover:bg-danger-muted transition-colors"
+            className={`p-1 rounded text-text-muted hover:text-danger
+                       hover:bg-danger-muted transition-colors ${role === "Admin" ? "" : "hidden"}`}
             title="Delete"
           >
             <Trash2 size={13} />
@@ -140,7 +141,7 @@ export default function RepoCard({
         ) : (
           <div className="mt-auto flex items-center gap-1.5 flex-wrap">
             <Tag size={11} className="text-text-secondary" />
-            <span className="text-[10px] text-text-secondary">
+            <span className="text-[10px] text-text-muted">
               There are no tags
             </span>
           </div>

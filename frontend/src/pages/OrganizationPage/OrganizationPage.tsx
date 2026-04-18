@@ -208,13 +208,22 @@ export default function OrganizationDetailPage() {
             onRepoCreated={handleRepoCreated}
             searchValue={reposSearchQuery}
             onSearchChange={handleSearchChange}
+            organization={organization}
           />
         )}
         {activeTab === "teams" && (
-          <TeamsTab orgName={organization.name} token={token || ""} />
+          <TeamsTab
+            orgName={organization.name}
+            token={token || ""}
+            organization={organization}
+          />
         )}
         {activeTab === "members" && (
-          <MembersTab orgName={organization.name} token={token || ""} />
+          <MembersTab
+            orgName={organization.name}
+            token={token || ""}
+            organization={organization}
+          />
         )}
       </div>
 

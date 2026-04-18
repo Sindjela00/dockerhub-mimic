@@ -78,7 +78,7 @@ export default function CreateTeamModal({
         <div className="flex justify-end gap-2 pt-1">
           <Button
             variant="ghost"
-            size="md"
+            size="sm"
             onClick={handleClose}
             disabled={loading}
           >
@@ -86,7 +86,7 @@ export default function CreateTeamModal({
           </Button>
           <Button
             variant="primary"
-            size="md"
+            size="sm"
             onClick={handleSubmit}
             disabled={loading}
           >

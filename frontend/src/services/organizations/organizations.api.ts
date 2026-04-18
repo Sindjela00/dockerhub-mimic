@@ -47,7 +47,7 @@ export interface CreateOrganizationResponse {
   createdAt?: string;
   memberCount?: number;
   repositoryCount?: number;
-  currentUserRole?: string;
+  currentUserRole?: "member" | "admin" | "owner";
 }
 
 export interface CreateOrgRepositoryPayload {
@@ -109,6 +109,108 @@ export interface UpdateTeamPayload {
   name: string;
   description: string;
 }
+
+export interface TeamRepository {
+  repositoryId: number;
+  repositoryName: string;
+  fullName: string;
+  permission: string;
+}
+
+export interface TeamRepositoriesResponse {
+  teamName: string;
+  organizationName: string;
+  repositories: TeamRepository[];
+  total: number;
+}
+
+export interface AddTeamRepositoryPayload {
+  repositoryId: number;
+  permission: string;
+}
+
+export interface AddTeamRepositoryResponse {
+  message: string;
+  teamRepository: TeamRepository;
+}
+
+export interface TeamMember {
+  userId: number;
+  username: string;
+  email: string;
+  addedAt: string;
+}
+
+export interface TeamMembersResponse {
+  teamName: string;
+  organizationName: string;
+  members: TeamMember[];
+  total: number;
+}
+
+export async function addTeamMember(
+  orgName: string,
+  teamName: string,
+  userId: number,
+  token: string,
+): Promise<void> {
+  await api.post(
+    `${BASE_URL}/organizations/${orgName}/teams/${teamName}/members`,
+    { userId },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
+export async function fetchTeamMembers(
+  orgName: string,
+  teamName: string,
+  token: string,
+): Promise<TeamMembersResponse> {
+  const response = await api.get<TeamMembersResponse>(
+    `${BASE_URL}/organizations/${orgName}/teams/${teamName}/members`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function removeTeamRepository(
+  orgName: string,
+  teamName: string,
+  repositoryId: number,
+  token: string,
+): Promise<void> {
+  await api.delete(
+    `${BASE_URL}/organizations/${orgName}/teams/${teamName}/repositories/${repositoryId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
+export async function fetchTeamRepositories(
+  orgName: string,
+  teamName: string,
+  token: string,
+): Promise<TeamRepositoriesResponse> {
+  const response = await api.get<TeamRepositoriesResponse>(
+    `${BASE_URL}/organizations/${orgName}/teams/${teamName}/repositories`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function addTeamRepository(
+  orgName: string,
+  teamName: string,
+  payload: AddTeamRepositoryPayload,
+  token: string,
+): Promise<AddTeamRepositoryResponse> {
+  const response = await api.post<AddTeamRepositoryResponse>(
+    `${BASE_URL}/organizations/${orgName}/teams/${teamName}/repositories`,
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
 export async function deleteTeam(
   orgName: string,
   teamName: string,

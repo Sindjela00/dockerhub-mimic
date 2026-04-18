@@ -9,7 +9,7 @@ interface InviteMemberModalProps {
   onSave: (data: { identifier: string; role: string }) => Promise<void>;
 }
 
-const ROLES = ["owner", "admin", "member"];
+const ROLES = ["admin", "member"];
 
 export default function InviteMemberModal({
   isOpen,
@@ -86,7 +86,7 @@ export default function InviteMemberModal({
         <div className="flex justify-end gap-2 pt-1">
           <Button
             variant="ghost"
-            size="md"
+            size="sm"
             onClick={handleClose}
             disabled={loading}
           >
@@ -94,7 +94,7 @@ export default function InviteMemberModal({
           </Button>
           <Button
             variant="primary"
-            size="md"
+            size="sm"
             onClick={handleSubmit}
             disabled={loading}
           >

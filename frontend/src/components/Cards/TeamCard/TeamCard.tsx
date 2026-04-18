@@ -47,7 +47,7 @@ export function TeamCard({
         />
         <div className="flex-1 min-w-0">
           <p className="text-sm text-text-primary font-mono truncate">{name}</p>
-          <p className="text-xs text-text-muted mt-0.5 line-clamp-2">
+          <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
             {description}
           </p>
         </div>

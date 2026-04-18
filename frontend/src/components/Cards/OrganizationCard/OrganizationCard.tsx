@@ -42,7 +42,7 @@ export default function OrganizationCard({ org, onClick }: OrgCardProps) {
             <p className="text-sm font-medium text-text-primary truncate transition-colors">
               {org.displayName}
             </p>
-            <p className="text-[11px] text-text-secondary truncate mt-0.5">
+            <p className="text-[11px] text-text-muted truncate mt-0.5">
               {org.name}
             </p>
           </div>

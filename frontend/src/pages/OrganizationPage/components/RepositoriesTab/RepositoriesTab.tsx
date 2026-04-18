@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import Button from "@/components/Button/Button";
 import CreateRepositoryModal from "@/components/Modals/CreateRepositoryModal/CreateRepositoryModal";
 import InputField from "@/components/InputField/InputField";
+import { Organization } from "@/services/organizations/organizations.api";
 import RepoCard from "@/components/Cards/RepoCard/RepoCard";
 import { Repository } from "@/services/repositories/repositories.api";
 
@@ -22,6 +23,7 @@ interface RepositoriesTabProps {
   onRepoCreated?: () => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  organization: Organization;
 }
 
 export function RepositoriesTab({
@@ -34,6 +36,7 @@ export function RepositoriesTab({
   onRepoCreated,
   searchValue,
   onSearchChange,
+  organization,
 }: RepositoriesTabProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -59,14 +62,23 @@ export function RepositoriesTab({
           />
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => setIsCreateModalOpen(true)}
+        <div
+          className={
+            organization.currentUserRole === "owner" ||
+            organization.currentUserRole === "admin"
+              ? "block"
+              : "hidden"
+          }
         >
-          <Plus size={14} />
-          New repository
-        </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus size={14} />
+            New repository
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

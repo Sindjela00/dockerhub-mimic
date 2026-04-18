@@ -1,13 +1,17 @@
+import {
+  Organization,
+  OrganizationMember,
+} from "@/services/organizations/organizations.api";
 import { Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/Avatar/Avatar";
 import Button from "@/components/Button/Button";
-import InputField from "@/components/InputField/InputField";
 import InviteMemberModal from "@/components/Modals/InviteMembersModal/InviteMembersModal";
-import { OrganizationMember } from "@/services/organizations/organizations.api";
 import Table from "@/components/Table/Table";
 import { TagComponent } from "@/components/Tag/Tag";
+import { getInitials } from "@/utils/getInitials";
+import { getRoleAccent } from "@/utils/accentStyle";
 import { useOrganizationMembers } from "@/services/organizations/useOrganizationMembers/useOrganizationMembers";
 
 interface Column<T> {
@@ -20,60 +24,13 @@ interface Column<T> {
   render: (item: T) => React.ReactNode;
 }
 
-const ACCENT_MAP: Record<string, { bg: string; text: string; border: string }> =
-  {
-    brand: {
-      bg: "bg-brand-muted",
-      text: "text-brand",
-      border: "border-brand/20",
-    },
-    info: {
-      bg: "bg-info-muted",
-      text: "text-info",
-      border: "border-info/20",
-    },
-    warning: {
-      bg: "bg-warning-muted",
-      text: "text-warning",
-      border: "border-warning/20",
-    },
-    success: {
-      bg: "bg-success-muted",
-      text: "text-success",
-      border: "border-success/20",
-    },
-  };
-
-function getRoleAccent(role: string): "warning" | "info" | "brand" {
-  switch (role.toLowerCase()) {
-    case "owner":
-      return "warning";
-    case "admin":
-      return "info";
-    case "member":
-      return "brand";
-    default:
-      return "brand";
-  }
-}
-
-function getInitials(username: string): string {
-  if (!username) return "?";
-  return username.slice(0, 2).toUpperCase();
-}
-
-function getAccentByUsername(username: string): string {
-  const accents = ["brand", "info", "warning", "success"];
-  const index = username.charCodeAt(0) % accents.length;
-  return accents[index];
-}
-
 interface MembersTabProps {
   orgName: string;
   token: string;
+  organization: Organization;
 }
 
-function MembersTab({ orgName, token }: MembersTabProps) {
+function MembersTab({ orgName, token, organization }: MembersTabProps) {
   const [sortKey, setSortKey] = useState<string>("username");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -85,7 +42,6 @@ function MembersTab({ orgName, token }: MembersTabProps) {
     error,
     fetchMembers,
     inviteMember,
-    searchQuery,
     setSearchQuery,
   } = useOrganizationMembers(token, orgName);
 
@@ -98,15 +54,6 @@ function MembersTab({ orgName, token }: MembersTabProps) {
       initialFetchDone.current = true;
     }
   }, [fetchMembers]);
-
-  const handleSearchChange = useCallback(
-    (value: string) => {
-      setSearchQuery(value);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => fetchMembers(value), 300);
-    },
-    [fetchMembers, setSearchQuery],
-  );
 
   const handleSort = (key: string, direction: "asc" | "desc") => {
     setSortKey(key);
@@ -205,27 +152,26 @@ function MembersTab({ orgName, token }: MembersTabProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2 justify-between flex-wrap">
-        <div className="flex-1 min-w-[200px] max-w-sm">
-          <InputField
-            value={searchQuery}
-            onChange={handleSearchChange}
-            placeholder="Find a member..."
-            startIcon={<Search size={13} />}
-            className="w-full"
-          />
-        </div>
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => setIsInviteModalOpen(true)}
+        <p className="text-xs text-text-muted">
+          {members.length} of {total} members
+        </p>
+        <div
+          className={
+            organization.currentUserRole === "owner" ||
+            organization.currentUserRole === "admin"
+              ? "block"
+              : "hidden"
+          }
         >
-          <Plus size={15} /> Invite member
-        </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setIsInviteModalOpen(true)}
+          >
+            <Plus size={15} /> Invite member
+          </Button>
+        </div>
       </div>
-
-      <p className="text-xs text-text-muted">
-        {members.length} of {total} members
-      </p>
 
       {loading && (
         <div className="text-sm text-text-secondary py-8 text-center">

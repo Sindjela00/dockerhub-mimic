@@ -12,6 +12,7 @@ export const QUICK_LINKS = [
     icon: <BookMarked size={16} />,
     label: "My repositories",
     description: "View and manage all your public and private images.",
+    link: "/repositories",
   },
   {
     icon: <Download size={16} />,
