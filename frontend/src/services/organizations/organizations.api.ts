@@ -148,6 +148,15 @@ export interface TeamMembersResponse {
   total: number;
 }
 
+export async function deleteOrganization(
+  name: string,
+  token: string,
+): Promise<void> {
+  await api.delete(`${BASE_URL}/organizations/${name}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function addTeamMember(
   orgName: string,
   teamName: string,

@@ -1,8 +1,9 @@
-import { Building2, Calendar, Pencil } from "lucide-react";
+import { Building2, Calendar, Pencil, Trash2 } from "lucide-react";
 import Tabs, { TabItem } from "@/components/Tabs/Tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/Button/Button";
+import DeleteConfirmModal from "@/components/Modals/DeleteConfirmModal/DeleteConfirmModal";
 import EditOrganizationModal from "@/components/Modals/EditOrganizationModal/EditOrganizationModal";
 import ErrorPage from "../ErrorPage/ErrorPage";
 import MembersTab from "./components/MembersTab/MembersTab";
@@ -20,13 +21,19 @@ type Tab = "repositories" | "teams" | "members";
 export default function OrganizationDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("repositories");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { orgName } = useParams<{ orgName: string }>();
   const { token } = useAuth();
 
-  const { organization, loading, error, refetch } = useOrganization(
-    token || "",
-    orgName || "",
-  );
+  const {
+    organization,
+    loading,
+    error,
+    refetch,
+    remove: deleteOrganization,
+    deleteLoading,
+    deleteError,
+  } = useOrganization(token || "", orgName || "");
 
   const {
     repositories,
@@ -170,13 +177,24 @@ export default function OrganizationDetailPage() {
 
           {(organization.currentUserRole === "owner" ||
             organization.currentUserRole === "admin") && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditModalOpen(true)}
-            >
-              <Pencil size={13} /> Edit organization
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditModalOpen(true)}
+              >
+                <Pencil size={13} /> Edit organization
+              </Button>
+              {organization.currentUserRole === "owner" && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                >
+                  <Trash2 size={13} /> Delete
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
@@ -236,6 +254,24 @@ export default function OrganizationDetailPage() {
           avatarUrl: organization.avatarUrl || "",
         }}
         onSave={handleEditOrganization}
+      />
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onDelete={deleteOrganization}
+        title="Delete organization"
+        entityName={organization.name}
+        description={
+          <>
+            Deleting{" "}
+            <span className="text-text-primary font-medium">
+              {organization.name}
+            </span>{" "}
+            will permanently remove all repositories, teams, and members.
+          </>
+        }
+        loading={deleteLoading}
+        error={deleteError}
       />
     </div>
   );
