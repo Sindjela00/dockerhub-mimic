@@ -1,14 +1,14 @@
-import { Building2, Calendar } from "lucide-react";
+import { Building2, Calendar, Pencil } from "lucide-react";
 import Tabs, { TabItem } from "@/components/Tabs/Tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/Button/Button";
 import EditOrganizationModal from "@/components/Modals/EditOrganizationModal/EditOrganizationModal";
 import ErrorPage from "../ErrorPage/ErrorPage";
-import MembersTab from "./components/MemberTab/MemberTab";
+import MembersTab from "./components/MembersTab/MembersTab";
 import { RepositoriesTab } from "./components/RepositoriesTab/RepositoriesTab";
 import StatCard from "@/components/Cards/StatCard/StatCard";
-import { Tag } from "@/components/Tag/Tag";
+import { TagComponent } from "@/components/Tag/Tag";
 import { TeamsTab } from "./components/TeamTab/TeamTab";
 import { useAuth } from "../../context/AppContext";
 import { useOrganization } from "@/services/organizations/useOrganization/useOrganization";
@@ -68,9 +68,6 @@ export default function OrganizationDetailPage() {
     description: string;
     avatarUrl: string;
   }) => {
-    // TODO: Implement API call to update organization
-    console.log("Saving organization data:", data);
-    // After successful save, refetch organization data
     await refetch();
   };
 
@@ -102,11 +99,10 @@ export default function OrganizationDetailPage() {
 
   const repositoriesCount = organization.repositoryCount;
   const membersCount = organization.memberCount;
-  const teamsCount = 0;
 
   const tabs: TabItem<Tab>[] = [
     { value: "repositories", label: "Repositories", badge: repositoriesCount },
-    { value: "teams", label: "Teams", badge: teamsCount },
+    { value: "teams", label: "Teams" },
     { value: "members", label: "Members", badge: membersCount },
   ];
 
@@ -122,11 +118,11 @@ export default function OrganizationDetailPage() {
   const getMemberRoleTag = () => {
     switch (organization.currentUserRole) {
       case "owner":
-        return <Tag accentClass="success">Owner</Tag>;
+        return <TagComponent accentClass="success">Owner</TagComponent>;
       case "admin":
-        return <Tag accentClass="info">Admin</Tag>;
+        return <TagComponent accentClass="info">Admin</TagComponent>;
       case "member":
-        return <Tag accentClass="default">Member</Tag>;
+        return <TagComponent accentClass="ghost">Member</TagComponent>;
       default:
         return null;
     }
@@ -175,16 +171,16 @@ export default function OrganizationDetailPage() {
           {(organization.currentUserRole === "owner" ||
             organization.currentUserRole === "admin") && (
             <Button
-              variant="primary"
-              size="md"
+              variant="ghost"
+              size="sm"
               onClick={() => setIsEditModalOpen(true)}
             >
-              Edit organization
+              <Pencil size={13} /> Edit organization
             </Button>
           )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <StatCard
             label="Members"
             value={organization?.memberCount.toString()}
@@ -193,7 +189,6 @@ export default function OrganizationDetailPage() {
             label="Repositories"
             value={organization?.repositoryCount.toString()}
           />
-          <StatCard label="Teams" value={teamsCount.toString()} />
           <StatCard label="Role" value={organization?.currentUserRole} />
         </div>
       </div>
@@ -215,8 +210,12 @@ export default function OrganizationDetailPage() {
             onSearchChange={handleSearchChange}
           />
         )}
-        {activeTab === "teams" && <TeamsTab />}
-        {activeTab === "members" && <MembersTab />}
+        {activeTab === "teams" && (
+          <TeamsTab orgName={organization.name} token={token || ""} />
+        )}
+        {activeTab === "members" && (
+          <MembersTab orgName={organization.name} token={token || ""} />
+        )}
       </div>
 
       <EditOrganizationModal

@@ -1,3 +1,4 @@
+import { TagComponent } from "@/components/Tag/Tag";
 import { Users } from "lucide-react";
 
 interface Organization {
@@ -47,11 +48,10 @@ export default function OrganizationCard({ org, onClick }: OrgCardProps) {
           </div>
         </div>
 
-        {/* Badge za tip - umesto visibility badge-a */}
-        <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-brand/30 text-text-primary border border-brand whitespace-nowrap">
+        <TagComponent accentClass="brand">
           <Users size={10} />
           Org
-        </span>
+        </TagComponent>
       </div>
 
       {/* Description */}

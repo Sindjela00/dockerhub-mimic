@@ -1,6 +1,7 @@
 import { Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 
 import { Repository } from "@/services/repositories/repositories.api";
+import { TagComponent } from "@/components/Tag/Tag";
 import { formatDate } from "@/utils/formatDate";
 import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 
@@ -26,13 +27,13 @@ export default function RepoCard({
   return (
     <button
       onClick={() => onClick?.(repo)}
-      className="w-full text-left group flex flex-col gap-3 p-5
+      className="w-full text-left group flex flex-col gap-2 p-4
                  bg-bg-surface border border-border rounded-xl
                  hover:border-border-strong hover:bg-bg-elevated
                  transition-colors duration-150"
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 overflow-hidden">
           <div
             className="w-8 h-8 min-w-[32px] rounded-md bg-bg-elevated
@@ -52,13 +53,8 @@ export default function RepoCard({
         </div>
 
         {/* Visibility badge */}
-        <span
-          className={[
-            "flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap",
-            repo.visibility === "public"
-              ? "bg-success-muted text-success"
-              : "bg-bg-elevated text-text-secondary border border-border",
-          ].join(" ")}
+        <TagComponent
+          accentClass={repo.visibility === "public" ? "success" : "ghost"}
         >
           {repo.visibility === "public" ? (
             <Globe size={10} />
@@ -66,7 +62,7 @@ export default function RepoCard({
             <Lock size={10} />
           )}
           {repo.visibility}
-        </span>
+        </TagComponent>
 
         {/* Actions */}
         <div className="flex items-center gap-1 ml-auto">
@@ -158,13 +154,7 @@ export default function RepoCard({
           {count}
         </span>
         {repo.isOfficial && (
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full
-                           bg-brand-muted text-brand border border-brand/20
-                           font-medium"
-          >
-            Official
-          </span>
+          <TagComponent accentClass="brand">Official</TagComponent>
         )}
       </div>
     </button>

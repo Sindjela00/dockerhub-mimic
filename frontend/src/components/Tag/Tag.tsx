@@ -1,17 +1,16 @@
-// Tag.tsx
+import { AccentClass, getAccent } from "@/utils/accentStyle";
 
 import type { ReactNode } from "react";
-import { getAccent } from "@/utils/accentStyle";
 
 interface TagProps {
   children: ReactNode;
-  accentClass: string;
+  accentClass: AccentClass;
   size?: "sm" | "md";
   clickable?: boolean;
   onClick?: () => void;
 }
 
-export function Tag({
+export function TagComponent({
   children,
   accentClass,
   size = "md",

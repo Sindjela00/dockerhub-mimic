@@ -2,6 +2,7 @@
 
 import { BookOpen, Users } from "lucide-react";
 
+import { Avatar } from "@/components/Avatar/Avatar";
 import { getAccent } from "@/utils/accentStyle";
 
 interface TeamCardProps {
@@ -39,12 +40,11 @@ export function TeamCard({
       />
 
       <div className="flex items-start gap-3">
-        <div
-          className={`w-9 h-9 min-w-[36px] rounded-lg flex items-center justify-center
-            ${accent.bg} border ${accent.border}`}
-        >
-          <Users size={15} className={accent.text} />
-        </div>
+        <Avatar
+          initials={<Users size={15} className={accent.text} />}
+          size="md"
+          rounded="rounded-md"
+        />
         <div className="flex-1 min-w-0">
           <p className="text-sm text-text-primary font-mono truncate">{name}</p>
           <p className="text-xs text-text-muted mt-0.5 line-clamp-2">

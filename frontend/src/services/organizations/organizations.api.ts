@@ -62,6 +62,141 @@ export interface UpdateOrganizationPayload {
   avatarUrl?: string | null;
 }
 
+export interface Team {
+  id: number;
+  name: string;
+  description: string;
+  organizationName: string;
+  memberCount: number;
+  repositoryCount: number;
+  createdAt: string;
+  updatedAt: string;
+  access?: string;
+  accentClass?: string;
+}
+
+export interface TeamsResponse {
+  organizationName: string;
+  teams: Team[];
+  total: number;
+}
+
+export interface CreateTeamPayload {
+  name: string;
+  description: string;
+}
+
+export interface OrganizationMember {
+  userId: number;
+  username: string;
+  email: string;
+  role: string;
+  addedAt: string;
+}
+
+export interface MembersResponse {
+  organizationName: string;
+  members: OrganizationMember[];
+  total: number;
+}
+
+export interface InviteMemberPayload {
+  identifier: string;
+  role: string;
+}
+
+export interface UpdateTeamPayload {
+  name: string;
+  description: string;
+}
+export async function deleteTeam(
+  orgName: string,
+  teamName: string,
+  token: string,
+): Promise<void> {
+  await api.delete(`${BASE_URL}/organizations/${orgName}/teams/${teamName}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function updateTeam(
+  orgName: string,
+  teamName: string,
+  payload: UpdateTeamPayload,
+  token: string,
+): Promise<Team> {
+  const response = await api.put<Team>(
+    `${BASE_URL}/organizations/${orgName}/teams/${teamName}`,
+    payload,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return response.data;
+}
+
+export async function fetchTeam(
+  orgName: string,
+  teamName: string,
+  token: string,
+): Promise<Team> {
+  const response = await api.get<Team>(
+    `${BASE_URL}/organizations/${orgName}/teams/${teamName}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return response.data;
+}
+
+export async function fetchOrganizationMembers(
+  orgName: string,
+  token: string,
+  search?: string,
+): Promise<MembersResponse> {
+  let url = `${BASE_URL}/organizations/${orgName}/members`;
+  if (search?.trim()) {
+    url += `?search=${encodeURIComponent(search.trim())}`;
+  }
+
+  const response = await api.get<MembersResponse>(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return response.data;
+}
+
+export async function inviteOrganizationMember(
+  orgName: string,
+  payload: InviteMemberPayload,
+  token: string,
+): Promise<OrganizationMember> {
+  const response = await api.post<OrganizationMember>(
+    `${BASE_URL}/organizations/${orgName}/members`,
+    payload,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+
+  return response.data;
+}
+
+export async function createOrganizationTeam(
+  orgName: string,
+  payload: CreateTeamPayload,
+  token: string,
+): Promise<Team> {
+  const response = await api.post<Team>(
+    `${BASE_URL}/organizations/${orgName}/teams`,
+    payload,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  return response.data;
+}
+
 export async function fetchOrganizations({
   page = 1,
   pageSize = 12,
@@ -177,3 +312,20 @@ export const createOrgRepository = (
   payload: CreateRepositoryPayload,
 ): Promise<{ data: CreateRepositoryResponse }> =>
   api.post(`${BASE_URL}/organizations/${orgName}/repositories`, payload);
+
+export async function fetchOrganizationTeams(
+  orgName: string,
+  token: string,
+  search?: string,
+): Promise<TeamsResponse> {
+  let url = `${BASE_URL}/organizations/${orgName}/teams`;
+  if (search?.trim()) {
+    url += `?search=${encodeURIComponent(search.trim())}`;
+  }
+
+  const response = await api.get<TeamsResponse>(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return response.data;
+}

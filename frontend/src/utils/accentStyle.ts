@@ -1,3 +1,14 @@
+export const ACCENT_CLASSES = [
+  "brand",
+  "info",
+  "success",
+  "warning",
+  "danger",
+  "ghost",
+] as const;
+
+export type AccentClass = (typeof ACCENT_CLASSES)[number];
+
 const ACCENT_MAP: Record<string, { bg: string; text: string; border: string }> =
   {
     brand: {
@@ -24,6 +35,11 @@ const ACCENT_MAP: Record<string, { bg: string; text: string; border: string }> =
       bg: "bg-danger-muted",
       text: "text-danger",
       border: "border-danger/20",
+    },
+    ghost: {
+      bg: "bg-transparent",
+      text: "text-text-muted",
+      border: "border-border",
     },
   };
 

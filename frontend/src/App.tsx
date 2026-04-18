@@ -12,6 +12,7 @@ import OrganizationsPage from "./pages/OrganizationsPage/OrganizationsPage";
 import RegisterPage from "./pages/RegisterPage/RegisterPage";
 import RepositoriesPage from "./pages/RepositoriesPage/RepositoriesPage";
 import RepositoryDetailPage from "./pages/RepositoryPage/RepositoryDetailPage";
+import TeamDetailPage from "./pages/TeamDetailPage/TeamDetailPage";
 import { useAuth } from "./context/AppContext";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -112,6 +113,17 @@ export default function App() {
           <ProtectedRoute>
             <Layout pageTitle="Organization">
               <OrganizationDetailPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/organizations/:orgName/teams/:teamName"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Team">
+              <TeamDetailPage />
             </Layout>
           </ProtectedRoute>
         }
