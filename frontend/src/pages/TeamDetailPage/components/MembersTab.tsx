@@ -70,16 +70,16 @@ export function MembersTab({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-bg-elevated border-b border-border">
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-text-primary">
                   Member
                 </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted hidden sm:table-cell">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-text-primary hidden sm:table-cell">
                   Email
                 </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted hidden md:table-cell">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-text-primary hidden md:table-cell">
                   Username
                 </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted hidden md:table-cell">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-text-primary hidden md:table-cell">
                   Joined
                 </th>
               </tr>
