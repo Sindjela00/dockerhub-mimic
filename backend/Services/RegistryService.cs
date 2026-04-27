@@ -250,10 +250,10 @@ public class RegistryService : IRegistryService
 
         var slashIndex = normalized.IndexOf('/');
         string repoName;
-        string? ownerUsername = null;
+        string? namespaceSegment = null;
         if (slashIndex > 0 && slashIndex < normalized.Length - 1)
         {
-            ownerUsername = normalized[..slashIndex];
+            namespaceSegment = normalized[..slashIndex];
             repoName = normalized[(slashIndex + 1)..];
         }
         else
@@ -261,7 +261,8 @@ public class RegistryService : IRegistryService
             repoName = normalized;
         }
 
-        var query = _dbContext.Repositories
+        // Base query with all necessary includes for permission evaluation
+        var baseQuery = _dbContext.Repositories
             .Include(r => r.Owner)
             .Include(r => r.Collaborators)
             .Include(r => r.Organization)
@@ -271,26 +272,33 @@ public class RegistryService : IRegistryService
             .ThenInclude(t => t!.TeamMembers)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(ownerUsername))
+        Repository? repository;
+        if (!string.IsNullOrWhiteSpace(namespaceSegment))
         {
-            query = query.Where(r =>
-                r.Name == repoName
-                && ((r.Organization != null && r.Organization.Name == ownerUsername)
-                    || (r.OrganizationId == null && r.Owner != null && r.Owner.Username == ownerUsername)));
+            // Resolve namespace to org ID first to avoid navigation-property access in WHERE
+            var orgId = await _dbContext.Organizations
+                .Where(o => o.Name == namespaceSegment)
+                .Select(o => (int?)o.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            repository = orgId.HasValue
+                ? await baseQuery.FirstOrDefaultAsync(r => r.Name == repoName && r.OrganizationId == orgId.Value, cancellationToken)
+                : await baseQuery.FirstOrDefaultAsync(r => r.Name == repoName && r.OrganizationId == null && r.Owner != null && r.Owner.Username == namespaceSegment, cancellationToken);
         }
         else
         {
-            query = query.Where(r => r.IsOfficial && r.Name == repoName);
+            repository = await baseQuery.FirstOrDefaultAsync(r => r.IsOfficial && r.Name == repoName, cancellationToken);
         }
 
-        var repository = await query.FirstOrDefaultAsync(cancellationToken);
         if (repository is null) return Array.Empty<string>();
 
         var isAdmin = string.Equals(user.Role, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
         var isOwner = repository.OwnerId == user.Id;
         var collaborator = repository.Collaborators.FirstOrDefault(c => c.UserId == user.Id);
         var collaboratorRole = Normalize(collaborator?.Role ?? string.Empty);
-        var canPushAsCollaborator = repository.Visibility == "public"
+        // Collaborators only apply to personal (non-org) repos; org repos use team-based permissions
+        var canPushAsCollaborator = repository.OrganizationId == null
+            && repository.Visibility == "public"
             && (collaboratorRole == "write" || collaboratorRole == "admin");
 
         var organizationMembership = repository.Organization?.Members.FirstOrDefault(m => m.UserId == user.Id);

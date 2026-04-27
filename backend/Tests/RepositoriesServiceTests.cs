@@ -583,6 +583,110 @@ public sealed class RepositoriesServiceTests
         Assert.AreEqual(0, await dbContext.RepositoryTags.CountAsync());
     }
 
+    [TestMethod]
+    public async Task GetRepositoryAsync_ForOrgRepo_IncludesOrganizationInfo()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+
+        var org = new Organization
+        {
+            Name = "acme",
+            DisplayName = "Acme Corp",
+            Description = "Acme org",
+            OwnerId = owner.Id,
+            AvatarUrl = "https://example.com/acme.png",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        dbContext.Organizations.Add(org);
+        await dbContext.SaveChangesAsync();
+
+        var repo = new Repository
+        {
+            Name = "api",
+            Description = "API service",
+            Visibility = "public",
+            OwnerId = owner.Id,
+            OrganizationId = org.Id,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        dbContext.Repositories.Add(repo);
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryAsync(repo.Id, null, null, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.IsNotNull(result.Data.Organization);
+        Assert.AreEqual(org.Id, result.Data.Organization.Id);
+        Assert.AreEqual("acme", result.Data.Organization.Name);
+        Assert.AreEqual("Acme Corp", result.Data.Organization.DisplayName);
+        Assert.AreEqual("https://example.com/acme.png", result.Data.Organization.AvatarUrl);
+        Assert.AreEqual("acme/api", result.Data.FullName);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryAsync_ForUserRepo_OmitsOrganizationInfo()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var repo = await AddRepositoryAsync(dbContext, owner, "userrepo", "public", pullCount: 0);
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryAsync(repo.Id, null, null, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.IsNull(result.Data.Organization);
+    }
+
+    [TestMethod]
+    public async Task ExploreRepositoriesAsync_ForOrgRepo_IncludesOrganizationInfo()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+
+        var org = new Organization
+        {
+            Name = "widgets",
+            DisplayName = "Widgets Inc",
+            Description = "Widget org",
+            OwnerId = owner.Id,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        dbContext.Organizations.Add(org);
+        await dbContext.SaveChangesAsync();
+
+        dbContext.Repositories.Add(new Repository
+        {
+            Name = "sdk",
+            Description = "SDK",
+            Visibility = "public",
+            OwnerId = owner.Id,
+            OrganizationId = org.Id,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.ExploreRepositoriesAsync(
+            search: "sdk", owner: null, visibility: null, minStars: null,
+            sortBy: null, sortDir: null, mine: false, starred: false,
+            page: 1, pageSize: 20, currentUsername: null, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(1, result.Data!.Total);
+        var repo = result.Data.Repositories[0];
+        Assert.IsNotNull(repo.Organization);
+        Assert.AreEqual("widgets", repo.Organization.Name);
+        Assert.AreEqual("Widgets Inc", repo.Organization.DisplayName);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

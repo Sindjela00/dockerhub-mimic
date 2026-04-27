@@ -10,6 +10,14 @@ namespace backend.Services;
 public sealed record RepositoriesResult<T>(bool Succeeded, T? Data, string? ErrorMessage);
 
 // --- DTOs (moved from controller) ---
+public sealed record RepositoryOrganizationInfo
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? AvatarUrl { get; set; }
+}
+
 public sealed record RepositoryResponse
 {
     public int Id { get; set; }
@@ -25,6 +33,7 @@ public sealed record RepositoryResponse
     public int PullCount { get; set; }
     public List<string> Tags { get; set; } = new();
     public bool? IsStarredByCurrentUser { get; set; }
+    public RepositoryOrganizationInfo? Organization { get; set; }
 }
 
 public sealed record RepositoryListResponse
@@ -650,7 +659,14 @@ public class RepositoriesService : IRepositoriesService
             StarCount = repo.StarCount,
             PullCount = repo.PullCount,
             Tags = repo.Tags.Select(t => t.Name).ToList(),
-            IsStarredByCurrentUser = isStarredByCurrentUser
+            IsStarredByCurrentUser = isStarredByCurrentUser,
+            Organization = repo.Organization is not null ? new RepositoryOrganizationInfo
+            {
+                Id = repo.Organization.Id,
+                Name = repo.Organization.Name,
+                DisplayName = string.IsNullOrWhiteSpace(repo.Organization.DisplayName) ? null : repo.Organization.DisplayName,
+                AvatarUrl = repo.Organization.AvatarUrl
+            } : null
         };
     }
 

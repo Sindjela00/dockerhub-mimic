@@ -578,7 +578,14 @@ public class OrganizationsService : IOrganizationsService
             StarCount = repository.StarCount,
             PullCount = repository.PullCount,
             Tags = repository.Tags.Select(t => t.Name).ToList(),
-            IsStarredByCurrentUser = isStarredByCurrentUser
+            IsStarredByCurrentUser = isStarredByCurrentUser,
+            Organization = repository.Organization is not null ? new RepositoryOrganizationInfo
+            {
+                Id = repository.Organization.Id,
+                Name = repository.Organization.Name,
+                DisplayName = string.IsNullOrWhiteSpace(repository.Organization.DisplayName) ? null : repository.Organization.DisplayName,
+                AvatarUrl = repository.Organization.AvatarUrl
+            } : null
         };
     }
 
