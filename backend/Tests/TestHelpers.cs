@@ -109,6 +109,34 @@ internal static class TestHelpers
         return tag;
     }
 
+    public static async Task<Repository> AddOrgRepositoryAsync(
+        AppDbContext dbContext,
+        Organization org,
+        User owner,
+        string name,
+        string visibility)
+    {
+        var repository = new Repository
+        {
+            Name = name,
+            Description = $"Description for {name}",
+            Visibility = visibility,
+            OwnerId = owner.Id,
+            Owner = owner,
+            OrganizationId = org.Id,
+            Organization = org,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+            UpdatedAt = DateTime.UtcNow,
+            PullCount = 0,
+            StarCount = 0,
+            IsOfficial = false
+        };
+
+        dbContext.Repositories.Add(repository);
+        await dbContext.SaveChangesAsync();
+        return repository;
+    }
+
     public static T GetProperty<T>(object source, string propertyName)
     {
         var property = source.GetType().GetProperty(propertyName);
