@@ -1,6 +1,7 @@
 using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace backend.Services;
 
@@ -96,6 +97,18 @@ public sealed record OrganizationTeamRepositoryListResponse
     public int Total { get; set; }
 }
 
+public sealed record OrganizationInviteResponse
+{
+    public int Id { get; set; }
+    public string OrganizationName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string InvitedByUsername { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 public interface IOrganizationsService
 {
     Task<OrganizationsResult<OrganizationListResponse>> ExploreOrganizationsAsync(string? search, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken);
@@ -120,15 +133,26 @@ public interface IOrganizationsService
     Task<OrganizationsResult<OrganizationTeamRepositoryListResponse>> GetOrganizationTeamRepositoriesAsync(string orgName, string teamName, string? currentUsername, string? userRole, CancellationToken cancellationToken);
     Task<OrganizationsResult<OrganizationTeamRepositoryResponse>> SetOrganizationTeamRepositoryAsync(string orgName, string teamName, int repositoryId, string permission, string? currentUsername, string? userRole, CancellationToken cancellationToken);
     Task<OrganizationsResult<string>> RemoveOrganizationTeamRepositoryAsync(string orgName, string teamName, int repositoryId, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+    // Invites
+    Task<OrganizationsResult<OrganizationInviteResponse>> SendOrganizationInviteAsync(string orgName, string email, string? role, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+    Task<OrganizationsResult<List<OrganizationInviteResponse>>> GetOrganizationInvitesAsync(string orgName, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+    Task<OrganizationsResult<string>> CancelOrganizationInviteAsync(string orgName, int inviteId, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+    Task<OrganizationsResult<OrganizationMemberResponse>> AcceptOrganizationInviteAsync(string token, string? currentUsername, CancellationToken cancellationToken);
 }
 
 public class OrganizationsService : IOrganizationsService
 {
     private readonly AppDbContext _dbContext;
+    private readonly IEmailService? _emailService;
+    private readonly IConfiguration? _configuration;
 
-    public OrganizationsService(AppDbContext dbContext)
+    public OrganizationsService(AppDbContext dbContext) : this(dbContext, null, null) { }
+
+    public OrganizationsService(AppDbContext dbContext, IEmailService? emailService, IConfiguration? configuration)
     {
         _dbContext = dbContext;
+        _emailService = emailService;
+        _configuration = configuration;
     }
 
     public async Task<OrganizationsResult<OrganizationListResponse>> ExploreOrganizationsAsync(string? search, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
@@ -921,6 +945,177 @@ public class OrganizationsService : IOrganizationsService
         await _dbContext.SaveChangesAsync(cancellationToken);
         return new OrganizationsResult<string>(true, "Repository removed from team successfully.", null);
     }
+
+    // ---- Invites ----
+
+    public async Task<OrganizationsResult<OrganizationInviteResponse>> SendOrganizationInviteAsync(
+        string orgName, string email, string? role, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+    {
+        var organization = await _dbContext.Organizations
+            .Include(o => o.Members)
+            .FirstOrDefaultAsync(o => o.Name == Normalize(orgName), cancellationToken);
+        if (organization is null)
+            return new OrganizationsResult<OrganizationInviteResponse>(false, null, "Organization not found.");
+
+        var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
+        if (!await CanManageOrganizationAsync(organization, currentUser, userRole, cancellationToken))
+            return new OrganizationsResult<OrganizationInviteResponse>(false, null, "Forbidden");
+
+        var normalizedRole = string.IsNullOrWhiteSpace(role) ? OrganizationMember.RoleMember : Normalize(role);
+        if (!IsValidMemberRole(normalizedRole))
+            return new OrganizationsResult<OrganizationInviteResponse>(false, null, "Invalid role.");
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        // Cancel any existing pending invite for this email in this org
+        var existing = await _dbContext.OrganizationInvites
+            .FirstOrDefaultAsync(i => i.OrganizationId == organization.Id
+                && i.Email == normalizedEmail
+                && i.Status == OrganizationInvite.StatusPending, cancellationToken);
+        if (existing is not null)
+            existing.Status = OrganizationInvite.StatusCancelled;
+
+        var token = Guid.NewGuid().ToString("N");
+        var now = DateTime.UtcNow;
+        var invite = new OrganizationInvite
+        {
+            OrganizationId = organization.Id,
+            InvitedByUserId = currentUser!.Id,
+            Email = normalizedEmail,
+            Token = token,
+            Role = normalizedRole,
+            Status = OrganizationInvite.StatusPending,
+            ExpiresAt = now.AddDays(7),
+            CreatedAt = now
+        };
+        _dbContext.OrganizationInvites.Add(invite);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (_emailService is not null)
+        {
+            var baseUrl = _configuration?.GetValue<string>("App:BaseUrl") ?? "http://localhost:3000";
+            var acceptUrl = $"{baseUrl}/invites/accept?token={token}";
+            var subject = $"You've been invited to join {organization.DisplayName} on DockerHub Mimic";
+            var htmlBody = $"""
+                <p>You have been invited to join <strong>{organization.DisplayName}</strong> as <strong>{normalizedRole}</strong>.</p>
+                <p><a href="{acceptUrl}">Click here to accept the invitation</a></p>
+                <p>This invite expires on {invite.ExpiresAt:MMMM dd, yyyy}.</p>
+                <p>If you did not expect this invitation, you can ignore this email.</p>
+                """;
+            await _emailService.SendAsync(normalizedEmail, subject, htmlBody, cancellationToken);
+        }
+
+        return new OrganizationsResult<OrganizationInviteResponse>(true, MapInvite(invite, organization, currentUser), null);
+    }
+
+    public async Task<OrganizationsResult<List<OrganizationInviteResponse>>> GetOrganizationInvitesAsync(
+        string orgName, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+    {
+        var organization = await _dbContext.Organizations
+            .Include(o => o.Members)
+            .FirstOrDefaultAsync(o => o.Name == Normalize(orgName), cancellationToken);
+        if (organization is null)
+            return new OrganizationsResult<List<OrganizationInviteResponse>>(false, null, "Organization not found.");
+
+        var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
+        if (!await CanManageOrganizationAsync(organization, currentUser, userRole, cancellationToken))
+            return new OrganizationsResult<List<OrganizationInviteResponse>>(false, null, "Forbidden");
+
+        var invites = await _dbContext.OrganizationInvites
+            .Include(i => i.InvitedBy)
+            .Where(i => i.OrganizationId == organization.Id && i.Status == OrganizationInvite.StatusPending)
+            .OrderByDescending(i => i.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var response = invites.Select(i => MapInvite(i, organization, i.InvitedBy)).ToList();
+        return new OrganizationsResult<List<OrganizationInviteResponse>>(true, response, null);
+    }
+
+    public async Task<OrganizationsResult<string>> CancelOrganizationInviteAsync(
+        string orgName, int inviteId, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+    {
+        var organization = await _dbContext.Organizations
+            .Include(o => o.Members)
+            .FirstOrDefaultAsync(o => o.Name == Normalize(orgName), cancellationToken);
+        if (organization is null)
+            return new OrganizationsResult<string>(false, null, "Organization not found.");
+
+        var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
+        if (!await CanManageOrganizationAsync(organization, currentUser, userRole, cancellationToken))
+            return new OrganizationsResult<string>(false, null, "Forbidden");
+
+        var invite = await _dbContext.OrganizationInvites
+            .FirstOrDefaultAsync(i => i.Id == inviteId && i.OrganizationId == organization.Id, cancellationToken);
+        if (invite is null)
+            return new OrganizationsResult<string>(false, null, "Invite not found.");
+
+        if (invite.Status != OrganizationInvite.StatusPending)
+            return new OrganizationsResult<string>(false, null, "Invite is not pending.");
+
+        invite.Status = OrganizationInvite.StatusCancelled;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return new OrganizationsResult<string>(true, "cancelled", null);
+    }
+
+    public async Task<OrganizationsResult<OrganizationMemberResponse>> AcceptOrganizationInviteAsync(
+        string token, string? currentUsername, CancellationToken cancellationToken)
+    {
+        var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
+        if (currentUser is null)
+            return new OrganizationsResult<OrganizationMemberResponse>(false, null, "Forbidden");
+
+        var invite = await _dbContext.OrganizationInvites
+            .Include(i => i.Organization)
+            .FirstOrDefaultAsync(i => i.Token == token, cancellationToken);
+
+        if (invite is null || invite.Status != OrganizationInvite.StatusPending)
+            return new OrganizationsResult<OrganizationMemberResponse>(false, null, "Invite not found or already used.");
+
+        if (invite.ExpiresAt < DateTime.UtcNow)
+        {
+            invite.Status = OrganizationInvite.StatusCancelled;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return new OrganizationsResult<OrganizationMemberResponse>(false, null, "Invite has expired.");
+        }
+
+        var alreadyMember = await _dbContext.OrganizationMembers
+            .AnyAsync(m => m.OrganizationId == invite.OrganizationId && m.UserId == currentUser.Id, cancellationToken);
+        if (alreadyMember)
+            return new OrganizationsResult<OrganizationMemberResponse>(false, null, "Already a member of this organization.");
+
+        var member = new OrganizationMember
+        {
+            OrganizationId = invite.OrganizationId,
+            UserId = currentUser.Id,
+            Role = invite.Role,
+            AddedAt = DateTime.UtcNow
+        };
+        _dbContext.OrganizationMembers.Add(member);
+        invite.Status = OrganizationInvite.StatusAccepted;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new OrganizationsResult<OrganizationMemberResponse>(true, new OrganizationMemberResponse
+        {
+            UserId = currentUser.Id,
+            Username = currentUser.Username,
+            Email = currentUser.Email,
+            Role = invite.Role,
+            AddedAt = member.AddedAt
+        }, null);
+    }
+
+    private static OrganizationInviteResponse MapInvite(OrganizationInvite invite, Organization organization, User? invitedBy)
+        => new()
+        {
+            Id = invite.Id,
+            OrganizationName = organization.Name,
+            Email = invite.Email,
+            Role = invite.Role,
+            Status = invite.Status,
+            InvitedByUsername = invitedBy?.Username ?? string.Empty,
+            ExpiresAt = invite.ExpiresAt,
+            CreatedAt = invite.CreatedAt
+        };
 
     // ---- Private helpers ----
 

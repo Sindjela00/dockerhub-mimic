@@ -188,6 +188,111 @@ public sealed class RepositoriesControllerTests
         Assert.IsInstanceOfType<NoContentResult>(result);
     }
 
+    // ---- GetRepositoryTeams ----
+
+    [TestMethod]
+    public async Task GetRepositoryTeams_WhenSucceeds_ReturnsOk()
+    {
+        var data = new RepositoryTeamAccessListResponse { RepositoryId = 1, Total = 2 };
+        var service = new StubRepositoriesService { TeamAccessResult = new RepositoriesResult<RepositoryTeamAccessListResponse>(true, data, null) };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.GetRepositoryTeams(1, CancellationToken.None);
+
+        Assert.IsInstanceOfType<OkObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeams_WhenNotFound_ReturnsNotFound()
+    {
+        var service = new StubRepositoriesService { TeamAccessResult = new RepositoriesResult<RepositoryTeamAccessListResponse>(false, null, "Repository not found.") };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.GetRepositoryTeams(99, CancellationToken.None);
+
+        Assert.IsInstanceOfType<NotFoundObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeams_WhenForbidden_ReturnsForbid()
+    {
+        var service = new StubRepositoriesService { TeamAccessResult = new RepositoriesResult<RepositoryTeamAccessListResponse>(false, null, "Forbidden") };
+        var controller = CreateController(service, "outsider", User.RoleUser);
+
+        var result = await controller.GetRepositoryTeams(1, CancellationToken.None);
+
+        Assert.IsInstanceOfType<ForbidResult>(result);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeams_WhenNotOrgRepo_ReturnsBadRequest()
+    {
+        var service = new StubRepositoriesService { TeamAccessResult = new RepositoriesResult<RepositoryTeamAccessListResponse>(false, null, "Repository does not belong to an organization.") };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.GetRepositoryTeams(1, CancellationToken.None);
+
+        Assert.IsInstanceOfType<BadRequestObjectResult>(result);
+    }
+
+    // ---- SetRepositoryTeamPermission ----
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermission_WhenSucceeds_ReturnsOk()
+    {
+        var data = new RepositoryTeamAccessResponse { TeamId = 1, TeamName = "devs", Permission = "read+write" };
+        var service = new StubRepositoriesService { SetTeamPermissionResult = new RepositoriesResult<RepositoryTeamAccessResponse>(true, data, null) };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.SetRepositoryTeamPermission(1, new RepositoriesController.SetRepositoryTeamPermissionRequest(1, "read+write"), CancellationToken.None);
+
+        Assert.IsInstanceOfType<OkObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermission_WhenForbidden_ReturnsForbid()
+    {
+        var service = new StubRepositoriesService { SetTeamPermissionResult = new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Forbidden") };
+        var controller = CreateController(service, "outsider", User.RoleUser);
+
+        var result = await controller.SetRepositoryTeamPermission(1, new RepositoriesController.SetRepositoryTeamPermissionRequest(1, "read-only"), CancellationToken.None);
+
+        Assert.IsInstanceOfType<ForbidResult>(result);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermission_WhenRepoNotFound_ReturnsNotFound()
+    {
+        var service = new StubRepositoriesService { SetTeamPermissionResult = new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Repository not found.") };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.SetRepositoryTeamPermission(99, new RepositoriesController.SetRepositoryTeamPermissionRequest(1, "read-only"), CancellationToken.None);
+
+        Assert.IsInstanceOfType<NotFoundObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermission_WhenTeamNotFound_ReturnsNotFound()
+    {
+        var service = new StubRepositoriesService { SetTeamPermissionResult = new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Team not found in this organization.") };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.SetRepositoryTeamPermission(1, new RepositoriesController.SetRepositoryTeamPermissionRequest(99, "read-only"), CancellationToken.None);
+
+        Assert.IsInstanceOfType<NotFoundObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermission_WhenInvalidPermission_ReturnsBadRequest()
+    {
+        var service = new StubRepositoriesService { SetTeamPermissionResult = new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Permission must be 'read-only', 'read+write', or 'admin'.") };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.SetRepositoryTeamPermission(1, new RepositoriesController.SetRepositoryTeamPermissionRequest(1, "bad"), CancellationToken.None);
+
+        Assert.IsInstanceOfType<BadRequestObjectResult>(result);
+    }
+
     private static RepositoriesController CreateController(StubRepositoriesService service, string? username = null, string? role = null)
     {
         var controller = new RepositoriesController(service)
@@ -224,6 +329,9 @@ public sealed class RepositoriesControllerTests
         public RepositoriesResult<string> DeleteTagResult { get; set; } = new(true, "deleted", null);
         public RepositoriesResult<RepositoryResponse> StarResult { get; set; } = new(true, new RepositoryResponse(), null);
         public RepositoriesResult<RepositoryResponse> UnstarResult { get; set; } = new(true, new RepositoryResponse(), null);
+        public RepositoriesResult<RepositoryTeamAccessListResponse> TeamAccessResult { get; set; } = new(true, new RepositoryTeamAccessListResponse(), null);
+        public RepositoriesResult<RepositoryTeamAccessResponse> SetTeamPermissionResult { get; set; } = new(true, new RepositoryTeamAccessResponse(), null);
+        public RepositoriesResult<string> RemoveTeamResult { get; set; } = new(true, "removed", null);
         public string? LastCurrentUsername { get; private set; }
         public string? LastUserRole { get; private set; }
 
@@ -305,6 +413,27 @@ public sealed class RepositoriesControllerTests
         {
             LastCurrentUsername = currentUsername;
             return Task.FromResult(UnstarResult);
+        }
+
+        public Task<RepositoriesResult<RepositoryTeamAccessListResponse>> GetRepositoryTeamsAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+        {
+            LastCurrentUsername = currentUsername;
+            LastUserRole = userRole;
+            return Task.FromResult(TeamAccessResult);
+        }
+
+        public Task<RepositoriesResult<RepositoryTeamAccessResponse>> SetRepositoryTeamPermissionAsync(int id, int teamId, string permission, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+        {
+            LastCurrentUsername = currentUsername;
+            LastUserRole = userRole;
+            return Task.FromResult(SetTeamPermissionResult);
+        }
+
+        public Task<RepositoriesResult<string>> RemoveRepositoryTeamAsync(int id, int teamId, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+        {
+            LastCurrentUsername = currentUsername;
+            LastUserRole = userRole;
+            return Task.FromResult(RemoveTeamResult);
         }
     }
 }

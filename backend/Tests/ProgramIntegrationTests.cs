@@ -131,5 +131,14 @@ public sealed class ProgramIntegrationTests
 
         public Task<RepositoriesResult<RepositoryResponse>> UnstarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<RepositoryResponse>(true, new RepositoryResponse { Id = id, Name = "repo", StarCount = 0 }, null));
+
+        public Task<RepositoriesResult<RepositoryTeamAccessListResponse>> GetRepositoryTeamsAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<RepositoryTeamAccessListResponse>(true, new RepositoryTeamAccessListResponse { RepositoryId = id }, null));
+
+        public Task<RepositoriesResult<RepositoryTeamAccessResponse>> SetRepositoryTeamPermissionAsync(int id, int teamId, string permission, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<RepositoryTeamAccessResponse>(true, new RepositoryTeamAccessResponse { TeamId = teamId }, null));
+
+        public Task<RepositoriesResult<string>> RemoveRepositoryTeamAsync(int id, int teamId, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<string>(true, "removed", null));
     }
 }
