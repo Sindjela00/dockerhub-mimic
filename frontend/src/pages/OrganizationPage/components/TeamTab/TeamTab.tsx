@@ -1,8 +1,11 @@
+import {
+  Organization,
+  deleteTeam,
+} from "@/services/organizations/organizations.api";
 import { useEffect, useRef, useState } from "react";
 
 import Button from "@/components/Button/Button";
 import CreateTeamModal from "@/components/Modals/CreateTeamModal/CreateTeamModal";
-import { Organization } from "@/services/organizations/organizations.api";
 import { Plus } from "lucide-react";
 import { TeamRow } from "@/components/Cards/TeamComplexCard/TeamRow";
 import { useOrganizationTeams } from "@/services/organizations/useOrganizationsTeams/useOrganizationsTeams";
@@ -27,6 +30,15 @@ export function TeamsTab({ orgName, token, organization }: TeamsTabProps) {
       initialFetchDone.current = true;
     }
   }, [fetchTeams]);
+
+  const handleDeleteTeam = async (teamName: string) => {
+    try {
+      await deleteTeam(orgName, teamName, token);
+      fetchTeams("");
+    } catch {
+      // error
+    }
+  };
 
   const isPrivileged =
     organization.currentUserRole === "owner" ||
@@ -70,7 +82,12 @@ export function TeamsTab({ orgName, token, organization }: TeamsTabProps) {
             </div>
           ) : (
             teams.map((team) => (
-              <TeamRow key={team.id} team={team} orgName={orgName} />
+              <TeamRow
+                key={team.id}
+                team={team}
+                orgName={orgName}
+                onDelete={isPrivileged ? handleDeleteTeam : undefined}
+              />
             ))
           )}
         </div>
