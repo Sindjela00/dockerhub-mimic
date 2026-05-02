@@ -194,6 +194,15 @@ export async function fetchTeamMembers(
   return response.data;
 }
 
+export const removeOrganizationMember = (
+  orgName: string,
+  userId: number,
+  token: string,
+): Promise<{ data: { message: string } }> =>
+  api.delete(`/api/organizations/${orgName}/members/${userId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
 export async function removeRepositoryFromTeam(
   orgName: string,
   teamName: string,
@@ -295,7 +304,7 @@ export async function inviteOrganizationMember(
   token: string,
 ): Promise<OrganizationMember> {
   const response = await api.post<OrganizationMember>(
-    `${BASE_URL}/organizations/${orgName}/members`,
+    `${BASE_URL}/organizations/${orgName}/invites`,
     payload,
     {
       headers: { Authorization: `Bearer ${token}` },

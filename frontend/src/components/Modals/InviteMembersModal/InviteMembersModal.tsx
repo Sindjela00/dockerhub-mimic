@@ -6,7 +6,7 @@ import { useState } from "react";
 interface InviteMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { identifier: string; role: string }) => Promise<void>;
+  onSave: (data: { email: string; role: string }) => Promise<void>;
 }
 
 const ROLES = ["admin", "member"];
@@ -20,23 +20,25 @@ export default function InviteMemberModal({
   const [role, setRole] = useState("member");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
 
   const handleClose = () => {
     setUsername("");
     setRole("member");
     setError(null);
     onClose();
+    setEmail("");
   };
 
   const handleSubmit = async () => {
-    if (!username.trim()) {
-      setError("Username is required.");
+    if (!email.trim()) {
+      setError("Email is required.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await onSave({ identifier: username.trim(), role });
+      await onSave({ email: email.trim(), role });
       handleClose();
     } catch {
       setError("Failed to invite member. Please try again.");
@@ -50,12 +52,12 @@ export default function InviteMemberModal({
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-text-secondary">
-            Username <span className="text-error">*</span>
+            Email <span className="text-error">*</span>
           </label>
           <InputField
-            value={username}
-            onChange={setUsername}
-            placeholder="e.g. johndoe"
+            value={email}
+            onChange={setEmail}
+            placeholder="e.g. john@example.com"
           />
         </div>
 
@@ -81,7 +83,7 @@ export default function InviteMemberModal({
           </div>
         </div>
 
-        {error && <p className="text-xs text-error">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-1">
           <Button

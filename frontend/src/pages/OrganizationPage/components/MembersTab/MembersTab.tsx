@@ -1,12 +1,14 @@
 import {
   Organization,
   OrganizationMember,
+  removeOrganizationMember,
 } from "@/services/organizations/organizations.api";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/Avatar/Avatar";
 import Button from "@/components/Button/Button";
+import DeleteConfirmModal from "@/components/Modals/DeleteConfirmModal/DeleteConfirmModal";
 import InviteMemberModal from "@/components/Modals/InviteMembersModal/InviteMembersModal";
 import Table from "@/components/Table/Table";
 import { TagComponent } from "@/components/Tag/Tag";
@@ -34,6 +36,31 @@ function MembersTab({ orgName, token, organization }: MembersTabProps) {
   const [sortKey, setSortKey] = useState<string>("username");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+
+  const [confirmMember, setConfirmMember] = useState<OrganizationMember | null>(
+    null,
+  );
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const isPrivileged =
+    organization.currentUserRole === "owner" ||
+    organization.currentUserRole === "admin";
+
+  const handleRemoveMember = async () => {
+    if (!confirmMember) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await removeOrganizationMember(orgName, confirmMember.userId, token);
+      setConfirmMember(null);
+      fetchMembers("");
+    } catch {
+      setDeleteError("Failed to remove member.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const {
     members,
@@ -147,6 +174,24 @@ function MembersTab({ orgName, token, organization }: MembersTabProps) {
         </span>
       ),
     },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      sortable: false,
+      render: (member) =>
+        isPrivileged ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmMember(member);
+            }}
+            className="text-text-muted hover:text-danger transition-colors p-0.5"
+          >
+            <Trash2 size={14} />
+          </button>
+        ) : null,
+    },
   ];
 
   return (
@@ -204,6 +249,28 @@ function MembersTab({ orgName, token, organization }: MembersTabProps) {
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
         onSave={inviteMember}
+      />
+
+      <DeleteConfirmModal
+        isOpen={!!confirmMember}
+        onClose={() => {
+          setConfirmMember(null);
+          setDeleteError(null);
+        }}
+        onDelete={handleRemoveMember}
+        title="Remove Member"
+        entityName={confirmMember?.username ?? ""}
+        description={
+          <>
+            Removing{" "}
+            <span className="text-text-primary font-medium">
+              {confirmMember?.username}
+            </span>{" "}
+            will revoke their access to this organization.
+          </>
+        }
+        loading={deleting}
+        error={deleteError}
       />
     </div>
   );
