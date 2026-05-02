@@ -101,7 +101,7 @@ export interface MembersResponse {
 }
 
 export interface InviteMemberPayload {
-  identifier: string;
+  email: string;
   role: string;
 }
 
