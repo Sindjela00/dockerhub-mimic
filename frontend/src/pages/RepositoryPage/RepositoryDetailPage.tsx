@@ -30,6 +30,7 @@ import TagsTab from "./components/TabsContent/TabsContent";
 import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 import ErrorPage from "../ErrorPage/ErrorPage";
 import { useAuth } from "@/context/AppContext";
+import TeamsTab from "./components/TeamsTab/TeamsTab";
 
 export default function RepositoryDetailPage() {
   const navigate = useNavigate();
@@ -92,6 +93,8 @@ export default function RepositoryDetailPage() {
   }
 
   const cmd = `docker pull ${repo.fullName}:latest`;
+
+  const orgName = repo.organization?.name ?? null;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(cmd);
@@ -250,13 +253,16 @@ export default function RepositoryDetailPage() {
           />
         )}
 
-        {/* {activeTab === "teams" && repo.organization && (
-          <TeamsTab
-            orgName={repo.organization.name}
-            repoName={repo.name}
-            token={token}
-          />
-        )} */}
+        {activeTab === "teams" &&
+          (orgName ? (
+            <TeamsTab orgName={orgName} repoId={repo?.id} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-secondary">
+              <p className="text-sm">
+                This repository is not part of an organization.
+              </p>
+            </div>
+          ))}
       </div>
 
       <EditRepositoryModal

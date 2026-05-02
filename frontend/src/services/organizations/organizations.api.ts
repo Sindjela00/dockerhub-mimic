@@ -194,7 +194,7 @@ export async function fetchTeamMembers(
   return response.data;
 }
 
-export async function removeTeamRepository(
+export async function removeRepositoryFromTeam(
   orgName: string,
   teamName: string,
   repositoryId: number,

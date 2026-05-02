@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import AddTeamRepositoryModal from "@/components/Modals/AddTeamRepositoryModal/AddTeamRepositoryModal";
 import Button from "@/components/Button/Button";
 import DeleteConfirmModal from "@/components/Modals/DeleteConfirmModal/DeleteConfirmModal";
-import { Repository } from "@/services/repositories/repositories.api";
 import { TagComponent } from "@/components/Tag/Tag";
 import { TeamRepository } from "@/services/organizations/organizations.api";
 import { useNavigate } from "react-router-dom";

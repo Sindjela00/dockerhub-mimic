@@ -8,7 +8,7 @@ import { useCallback, useState } from "react";
 
 import { Repository } from "@/services/repositories/repositories.api";
 import { fetchOrganizationRepositories } from "@/services/organizations/organizations.api";
-import { removeTeamRepository } from "@/services/organizations/organizations.api";
+import { removeRepositoryFromTeam } from "@/services/organizations/organizations.api";
 
 export function useTeamRepositories(
   token: string,
@@ -50,7 +50,7 @@ export function useTeamRepositories(
 
   const removeRepository = useCallback(
     async (repositoryId: number) => {
-      await removeTeamRepository(orgName, teamName, repositoryId, token);
+      await removeRepositoryFromTeam(orgName, teamName, repositoryId, token);
       await fetchRepos();
     },
     [orgName, teamName, token, fetchRepos],
