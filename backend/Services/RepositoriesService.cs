@@ -87,6 +87,23 @@ public sealed record RepositoryCollaboratorListResponse
     public int Total { get; set; }
 }
 
+public sealed record RepositoryTeamAccessResponse
+{
+    public int TeamId { get; set; }
+    public string TeamName { get; set; } = string.Empty;
+    public string OrganizationName { get; set; } = string.Empty;
+    public string Permission { get; set; } = string.Empty;
+    public int MemberCount { get; set; }
+}
+
+public sealed record RepositoryTeamAccessListResponse
+{
+    public int RepositoryId { get; set; }
+    public string RepositoryFullName { get; set; } = string.Empty;
+    public List<RepositoryTeamAccessResponse> Teams { get; set; } = new();
+    public int Total { get; set; }
+}
+
 // --- Interface ---
 public interface IRepositoriesService
 {
@@ -121,6 +138,12 @@ public interface IRepositoriesService
     Task<RepositoriesResult<RepositoryResponse>> StarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryResponse>> UnstarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken);
+
+    Task<RepositoriesResult<RepositoryTeamAccessListResponse>> GetRepositoryTeamsAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+
+    Task<RepositoriesResult<RepositoryTeamAccessResponse>> SetRepositoryTeamPermissionAsync(int id, int teamId, string permission, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+
+    Task<RepositoriesResult<string>> RemoveRepositoryTeamAsync(int id, int teamId, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 }
 
 // --- Implementation ---
@@ -561,6 +584,139 @@ public class RepositoriesService : IRepositoriesService
         return new RepositoriesResult<string>(true, "Collaborator removed successfully.", null);
     }
 
+    public async Task<RepositoriesResult<RepositoryTeamAccessListResponse>> GetRepositoryTeamsAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+    {
+        var repo = await _dbContext.Repositories
+            .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is null)
+            return new RepositoriesResult<RepositoryTeamAccessListResponse>(false, null, "Repository not found.");
+
+        if (repo.OrganizationId is null)
+            return new RepositoriesResult<RepositoryTeamAccessListResponse>(false, null, "Repository does not belong to an organization.");
+
+        // Viewing team access is restricted to org members and system admins
+        var normalized = Normalize(currentUsername ?? string.Empty);
+        var isSystemAdmin = string.Equals(userRole, UserModelRoleAdmin, StringComparison.OrdinalIgnoreCase);
+        var isMember = !string.IsNullOrWhiteSpace(normalized)
+            && repo.Organization!.Members.Any(m => Normalize(m.User?.Username ?? string.Empty) == normalized);
+        if (!isMember && !isSystemAdmin)
+            return new RepositoriesResult<RepositoryTeamAccessListResponse>(false, null, "Forbidden");
+
+        var teamAccess = await _dbContext.OrganizationTeamRepositories
+            .Include(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .Where(tr => tr.RepositoryId == id)
+            .OrderBy(tr => tr.Team!.Name)
+            .ToListAsync(cancellationToken);
+
+        var orgName = repo.Organization!.Name;
+        var fullName = repo.IsOfficial ? repo.Name : $"{orgName}/{repo.Name}";
+
+        var teams = teamAccess.Select(tr => new RepositoryTeamAccessResponse
+        {
+            TeamId = tr.TeamId,
+            TeamName = tr.Team?.Name ?? string.Empty,
+            OrganizationName = orgName,
+            Permission = tr.Permission,
+            MemberCount = tr.Team?.TeamMembers.Count ?? 0
+        }).ToList();
+
+        return new RepositoriesResult<RepositoryTeamAccessListResponse>(true, new RepositoryTeamAccessListResponse
+        {
+            RepositoryId = repo.Id,
+            RepositoryFullName = fullName,
+            Teams = teams,
+            Total = teams.Count
+        }, null);
+    }
+
+    public async Task<RepositoriesResult<RepositoryTeamAccessResponse>> SetRepositoryTeamPermissionAsync(int id, int teamId, string permission, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+    {
+        var repo = await _dbContext.Repositories
+            .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is null)
+            return new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Repository not found.");
+
+        if (repo.OrganizationId is null)
+            return new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Repository does not belong to an organization.");
+
+        if (!CanManageRepository(repo, currentUsername, userRole))
+            return new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Forbidden");
+
+        var normalizedPermission = Normalize(permission);
+        if (!IsValidTeamPermission(normalizedPermission))
+            return new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Permission must be 'read-only', 'read+write', or 'admin'.");
+
+        var team = await _dbContext.OrganizationTeams
+            .Include(t => t.TeamMembers)
+            .FirstOrDefaultAsync(t => t.Id == teamId && t.OrganizationId == repo.OrganizationId, cancellationToken);
+        if (team is null)
+            return new RepositoriesResult<RepositoryTeamAccessResponse>(false, null, "Team not found in this organization.");
+
+        var existing = await _dbContext.OrganizationTeamRepositories
+            .FirstOrDefaultAsync(tr => tr.TeamId == teamId && tr.RepositoryId == id, cancellationToken);
+
+        if (existing is null)
+        {
+            existing = new OrganizationTeamRepository { TeamId = teamId, RepositoryId = id, Permission = normalizedPermission };
+            _dbContext.OrganizationTeamRepositories.Add(existing);
+        }
+        else
+        {
+            existing.Permission = normalizedPermission;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new RepositoriesResult<RepositoryTeamAccessResponse>(true, new RepositoryTeamAccessResponse
+        {
+            TeamId = team.Id,
+            TeamName = team.Name,
+            OrganizationName = repo.Organization!.Name,
+            Permission = existing.Permission,
+            MemberCount = team.TeamMembers.Count
+        }, null);
+    }
+
+    public async Task<RepositoriesResult<string>> RemoveRepositoryTeamAsync(int id, int teamId, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+    {
+        var repo = await _dbContext.Repositories
+            .Include(r => r.Owner)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .ThenInclude(m => m.User)
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repo is null)
+            return new RepositoriesResult<string>(false, null, "Repository not found.");
+
+        if (repo.OrganizationId is null)
+            return new RepositoriesResult<string>(false, null, "Repository does not belong to an organization.");
+
+        if (!CanManageRepository(repo, currentUsername, userRole))
+            return new RepositoriesResult<string>(false, null, "Forbidden");
+
+        var entry = await _dbContext.OrganizationTeamRepositories
+            .FirstOrDefaultAsync(tr => tr.TeamId == teamId && tr.RepositoryId == id, cancellationToken);
+        if (entry is null)
+            return new RepositoriesResult<string>(false, null, "Team not assigned to this repository.");
+
+        _dbContext.OrganizationTeamRepositories.Remove(entry);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new RepositoriesResult<string>(true, "Team removed from repository.", null);
+    }
+
     // --- Helpers ---
     private bool CanManageRepository(Repository repo, string? currentUsername, string? userRole)
     {
@@ -819,4 +975,8 @@ public class RepositoriesService : IRepositoriesService
 
     private static bool IsValidVisibility(string visibility) => visibility == "public" || visibility == "private";
     private static bool IsValidCollaboratorRole(string role) => role == "read" || role == "write" || role == "admin";
+    private static bool IsValidTeamPermission(string permission) =>
+        permission == OrganizationTeamRepository.PermissionReadOnly
+        || permission == OrganizationTeamRepository.PermissionReadWrite
+        || permission == OrganizationTeamRepository.PermissionAdmin;
 }

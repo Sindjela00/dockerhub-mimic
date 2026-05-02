@@ -151,6 +151,75 @@ public class OrganizationsController : ControllerBase
         return NoContent();
     }
 
+    // ---- Invite endpoints ----
+
+    [HttpPost("invites/accept")]
+    [Authorize]
+    public async Task<IActionResult> AcceptOrganizationInvite([FromBody] AcceptOrganizationInviteRequest request, CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var result = await _organizationsService.AcceptOrganizationInviteAsync(request.Token, currentUsername, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Forbidden" => Forbid(),
+                "Invite not found or already used." or "Invite has expired." => NotFound(new { message = result.ErrorMessage }),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(new { message = "Joined organization successfully.", member = result.Data });
+    }
+
+    [HttpPost("{name}/invites")]
+    [Authorize]
+    public async Task<IActionResult> SendOrganizationInvite(string name, [FromBody] SendOrganizationInviteRequest request, CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
+        var result = await _organizationsService.SendOrganizationInviteAsync(name, request.Email, request.Role, currentUsername, userRole, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Organization not found." => NotFound(new { message = result.ErrorMessage }),
+                "Forbidden" => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(new { message = "Invitation sent.", invite = result.Data });
+    }
+
+    [HttpGet("{name}/invites")]
+    [Authorize]
+    public async Task<IActionResult> GetOrganizationInvites(string name, CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
+        var result = await _organizationsService.GetOrganizationInvitesAsync(name, currentUsername, userRole, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Organization not found." => NotFound(new { message = result.ErrorMessage }),
+                "Forbidden" => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(result.Data);
+    }
+
+    [HttpDelete("{name}/invites/{inviteId:int}")]
+    [Authorize]
+    public async Task<IActionResult> CancelOrganizationInvite(string name, int inviteId, CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
+        var result = await _organizationsService.CancelOrganizationInviteAsync(name, inviteId, currentUsername, userRole, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Organization not found." or "Invite not found." => NotFound(new { message = result.ErrorMessage }),
+                "Forbidden" => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return NoContent();
+    }
+
     [HttpGet("{name}/repositories")]
     public async Task<IActionResult> GetOrganizationRepositories(
         string name,
@@ -436,4 +505,11 @@ public class OrganizationsController : ControllerBase
     public sealed record SetOrganizationTeamRepositoryRequest(
         [param: Required] int RepositoryId,
         [param: Required] string Permission);
+
+    public sealed record SendOrganizationInviteRequest(
+        [param: Required, EmailAddress, MaxLength(256)] string Email,
+        [param: MaxLength(32)] string? Role);
+
+    public sealed record AcceptOrganizationInviteRequest(
+        [param: Required] string Token);
 }

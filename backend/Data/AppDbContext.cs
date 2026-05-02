@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<OrganizationTeam> OrganizationTeams => Set<OrganizationTeam>();
     public DbSet<OrganizationTeamMember> OrganizationTeamMembers => Set<OrganizationTeamMember>();
     public DbSet<OrganizationTeamRepository> OrganizationTeamRepositories => Set<OrganizationTeamRepository>();
+    public DbSet<OrganizationInvite> OrganizationInvites => Set<OrganizationInvite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -174,6 +175,22 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<RepositoryCollaborator>()
             .HasIndex(c => new { c.RepositoryId, c.UserId })
+            .IsUnique();
+
+        modelBuilder.Entity<OrganizationInvite>()
+            .HasOne(i => i.Organization)
+            .WithMany()
+            .HasForeignKey(i => i.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationInvite>()
+            .HasOne(i => i.InvitedBy)
+            .WithMany()
+            .HasForeignKey(i => i.InvitedByUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrganizationInvite>()
+            .HasIndex(i => i.Token)
             .IsUnique();
     }
 }

@@ -757,6 +757,107 @@ public sealed class OrganizationsControllerTests
 
     // ---- Helpers ----
 
+    // ---- Invite endpoints ----
+
+    [TestMethod]
+    public async Task SendOrganizationInvite_WhenSucceeds_ReturnsOk()
+    {
+        var service = new StubOrganizationsService { SendInviteResult = new OrganizationsResult<OrganizationInviteResponse>(true, new OrganizationInviteResponse { Email = "dev@example.com" }, null) };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.SendOrganizationInvite("acme", new OrganizationsController.SendOrganizationInviteRequest("dev@example.com", "member"), CancellationToken.None);
+
+        Assert.IsInstanceOfType<OkObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task SendOrganizationInvite_WhenForbidden_ReturnsForbid()
+    {
+        var service = new StubOrganizationsService { SendInviteResult = new OrganizationsResult<OrganizationInviteResponse>(false, null, "Forbidden") };
+        var controller = CreateController(service, "outsider", User.RoleUser);
+
+        var result = await controller.SendOrganizationInvite("acme", new OrganizationsController.SendOrganizationInviteRequest("dev@example.com", null), CancellationToken.None);
+
+        Assert.IsInstanceOfType<ForbidResult>(result);
+    }
+
+    [TestMethod]
+    public async Task SendOrganizationInvite_WhenOrgNotFound_ReturnsNotFound()
+    {
+        var service = new StubOrganizationsService { SendInviteResult = new OrganizationsResult<OrganizationInviteResponse>(false, null, "Organization not found.") };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.SendOrganizationInvite("unknown", new OrganizationsController.SendOrganizationInviteRequest("dev@example.com", null), CancellationToken.None);
+
+        Assert.IsInstanceOfType<NotFoundObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task GetOrganizationInvites_WhenSucceeds_ReturnsOk()
+    {
+        var service = new StubOrganizationsService { GetInvitesResult = new OrganizationsResult<List<OrganizationInviteResponse>>(true, new List<OrganizationInviteResponse>(), null) };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.GetOrganizationInvites("acme", CancellationToken.None);
+
+        Assert.IsInstanceOfType<OkObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task GetOrganizationInvites_WhenForbidden_ReturnsForbid()
+    {
+        var service = new StubOrganizationsService { GetInvitesResult = new OrganizationsResult<List<OrganizationInviteResponse>>(false, null, "Forbidden") };
+        var controller = CreateController(service, "outsider", User.RoleUser);
+
+        var result = await controller.GetOrganizationInvites("acme", CancellationToken.None);
+
+        Assert.IsInstanceOfType<ForbidResult>(result);
+    }
+
+    [TestMethod]
+    public async Task CancelOrganizationInvite_WhenSucceeds_ReturnsNoContent()
+    {
+        var service = new StubOrganizationsService { CancelInviteResult = new OrganizationsResult<string>(true, "cancelled", null) };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.CancelOrganizationInvite("acme", 1, CancellationToken.None);
+
+        Assert.IsInstanceOfType<NoContentResult>(result);
+    }
+
+    [TestMethod]
+    public async Task CancelOrganizationInvite_WhenNotFound_ReturnsNotFound()
+    {
+        var service = new StubOrganizationsService { CancelInviteResult = new OrganizationsResult<string>(false, null, "Invite not found.") };
+        var controller = CreateController(service, "owner", User.RoleUser);
+
+        var result = await controller.CancelOrganizationInvite("acme", 999, CancellationToken.None);
+
+        Assert.IsInstanceOfType<NotFoundObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task AcceptOrganizationInvite_WhenSucceeds_ReturnsOk()
+    {
+        var service = new StubOrganizationsService { AcceptInviteResult = new OrganizationsResult<OrganizationMemberResponse>(true, new OrganizationMemberResponse { Username = "dev" }, null) };
+        var controller = CreateController(service, "dev", User.RoleUser);
+
+        var result = await controller.AcceptOrganizationInvite(new OrganizationsController.AcceptOrganizationInviteRequest("validtoken"), CancellationToken.None);
+
+        Assert.IsInstanceOfType<OkObjectResult>(result);
+    }
+
+    [TestMethod]
+    public async Task AcceptOrganizationInvite_WhenInviteNotFound_ReturnsNotFound()
+    {
+        var service = new StubOrganizationsService { AcceptInviteResult = new OrganizationsResult<OrganizationMemberResponse>(false, null, "Invite not found or already used.") };
+        var controller = CreateController(service, "dev", User.RoleUser);
+
+        var result = await controller.AcceptOrganizationInvite(new OrganizationsController.AcceptOrganizationInviteRequest("badtoken"), CancellationToken.None);
+
+        Assert.IsInstanceOfType<NotFoundObjectResult>(result);
+    }
+
     private static OrganizationsController CreateController(StubOrganizationsService service, string? username = null, string? role = null)
     {
         var controller = new OrganizationsController(service)
@@ -801,6 +902,10 @@ public sealed class OrganizationsControllerTests
         public OrganizationsResult<OrganizationTeamRepositoryListResponse> GetTeamReposResult { get; set; } = new(true, new OrganizationTeamRepositoryListResponse(), null);
         public OrganizationsResult<OrganizationTeamRepositoryResponse> SetTeamRepoResult { get; set; } = new(true, new OrganizationTeamRepositoryResponse(), null);
         public OrganizationsResult<string> RemoveTeamRepoResult { get; set; } = new(true, "removed", null);
+        public OrganizationsResult<OrganizationInviteResponse> SendInviteResult { get; set; } = new(true, new OrganizationInviteResponse(), null);
+        public OrganizationsResult<List<OrganizationInviteResponse>> GetInvitesResult { get; set; } = new(true, new List<OrganizationInviteResponse>(), null);
+        public OrganizationsResult<string> CancelInviteResult { get; set; } = new(true, "cancelled", null);
+        public OrganizationsResult<OrganizationMemberResponse> AcceptInviteResult { get; set; } = new(true, new OrganizationMemberResponse(), null);
 
         public Task<OrganizationsResult<OrganizationListResponse>> ExploreOrganizationsAsync(string? search, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
             => Task.FromResult(ExploreResult);
@@ -864,5 +969,17 @@ public sealed class OrganizationsControllerTests
 
         public Task<OrganizationsResult<string>> RemoveOrganizationTeamRepositoryAsync(string orgName, string teamName, int repositoryId, string? currentUsername, string? userRole, CancellationToken cancellationToken)
             => Task.FromResult(RemoveTeamRepoResult);
+
+        public Task<OrganizationsResult<OrganizationInviteResponse>> SendOrganizationInviteAsync(string orgName, string email, string? role, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(SendInviteResult);
+
+        public Task<OrganizationsResult<List<OrganizationInviteResponse>>> GetOrganizationInvitesAsync(string orgName, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(GetInvitesResult);
+
+        public Task<OrganizationsResult<string>> CancelOrganizationInviteAsync(string orgName, int inviteId, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(CancelInviteResult);
+
+        public Task<OrganizationsResult<OrganizationMemberResponse>> AcceptOrganizationInviteAsync(string token, string? currentUsername, CancellationToken cancellationToken)
+            => Task.FromResult(AcceptInviteResult);
     }
 }

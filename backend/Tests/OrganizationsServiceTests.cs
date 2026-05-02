@@ -1255,6 +1255,185 @@ public sealed class OrganizationsServiceTests
         Assert.AreEqual("new desc", result.Data.Description);
     }
 
+    // ---- Invite service tests ----
+
+    [TestMethod]
+    public async Task SendOrganizationInviteAsync_OrgAdmin_CreatesInvite()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.SendOrganizationInviteAsync("acme", "dev@example.com", "member", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual("dev@example.com", result.Data.Email);
+        Assert.AreEqual("member", result.Data.Role);
+        Assert.AreEqual(OrganizationInvite.StatusPending, result.Data.Status);
+        Assert.AreEqual(1, await dbContext.OrganizationInvites.CountAsync());
+    }
+
+    [TestMethod]
+    public async Task SendOrganizationInviteAsync_ReplacesExistingPendingInvite()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext);
+        await service.SendOrganizationInviteAsync("acme", "dev@example.com", "member", owner.Username, User.RoleUser, CancellationToken.None);
+        var result = await service.SendOrganizationInviteAsync("acme", "dev@example.com", "admin", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual("admin", result.Data!.Role);
+        // Old invite cancelled, new one pending
+        Assert.AreEqual(1, await dbContext.OrganizationInvites.CountAsync(i => i.Status == OrganizationInvite.StatusPending));
+        Assert.AreEqual(1, await dbContext.OrganizationInvites.CountAsync(i => i.Status == OrganizationInvite.StatusCancelled));
+    }
+
+    [TestMethod]
+    public async Task SendOrganizationInviteAsync_Outsider_ReturnsForbidden()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var outsider = await TestHelpers.AddUserAsync(dbContext, "outsider", "outsider@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.SendOrganizationInviteAsync("acme", "dev@example.com", null, outsider.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Forbidden", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task SendOrganizationInviteAsync_OrgNotFound_ReturnsError()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.SendOrganizationInviteAsync("nonexistent", "dev@example.com", null, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Organization not found.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task SendOrganizationInviteAsync_InvalidRole_ReturnsError()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.SendOrganizationInviteAsync("acme", "dev@example.com", "superadmin", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Invalid role.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task GetOrganizationInvitesAsync_ReturnsOnlyPendingInvites()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        dbContext.OrganizationInvites.Add(new OrganizationInvite { OrganizationId = org.Id, InvitedByUserId = owner.Id, Email = "a@x.com", Token = Guid.NewGuid().ToString("N"), Role = OrganizationMember.RoleMember, Status = OrganizationInvite.StatusPending, ExpiresAt = DateTime.UtcNow.AddDays(7), CreatedAt = DateTime.UtcNow });
+        dbContext.OrganizationInvites.Add(new OrganizationInvite { OrganizationId = org.Id, InvitedByUserId = owner.Id, Email = "b@x.com", Token = Guid.NewGuid().ToString("N"), Role = OrganizationMember.RoleMember, Status = OrganizationInvite.StatusAccepted, ExpiresAt = DateTime.UtcNow.AddDays(7), CreatedAt = DateTime.UtcNow });
+        await dbContext.SaveChangesAsync();
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.GetOrganizationInvitesAsync("acme", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(1, result.Data!.Count);
+        Assert.AreEqual("a@x.com", result.Data[0].Email);
+    }
+
+    [TestMethod]
+    public async Task CancelOrganizationInviteAsync_Owner_CancelsInvite()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var invite = new OrganizationInvite { OrganizationId = org.Id, InvitedByUserId = owner.Id, Email = "dev@x.com", Token = Guid.NewGuid().ToString("N"), Role = OrganizationMember.RoleMember, Status = OrganizationInvite.StatusPending, ExpiresAt = DateTime.UtcNow.AddDays(7), CreatedAt = DateTime.UtcNow };
+        dbContext.OrganizationInvites.Add(invite);
+        await dbContext.SaveChangesAsync();
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.CancelOrganizationInviteAsync("acme", invite.Id, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        var stored = await dbContext.OrganizationInvites.SingleAsync();
+        Assert.AreEqual(OrganizationInvite.StatusCancelled, stored.Status);
+    }
+
+    [TestMethod]
+    public async Task AcceptOrganizationInviteAsync_ValidToken_JoinsOrg()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var joiner = await TestHelpers.AddUserAsync(dbContext, "joiner", "joiner@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var token = Guid.NewGuid().ToString("N");
+        dbContext.OrganizationInvites.Add(new OrganizationInvite { OrganizationId = org.Id, InvitedByUserId = owner.Id, Email = "joiner@example.com", Token = token, Role = OrganizationMember.RoleMember, Status = OrganizationInvite.StatusPending, ExpiresAt = DateTime.UtcNow.AddDays(7), CreatedAt = DateTime.UtcNow });
+        await dbContext.SaveChangesAsync();
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.AcceptOrganizationInviteAsync(token, joiner.Username, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(joiner.Username, result.Data!.Username);
+        Assert.AreEqual(OrganizationMember.RoleMember, result.Data.Role);
+        Assert.IsTrue(await dbContext.OrganizationMembers.AnyAsync(m => m.UserId == joiner.Id && m.OrganizationId == org.Id));
+        var invite = await dbContext.OrganizationInvites.SingleAsync();
+        Assert.AreEqual(OrganizationInvite.StatusAccepted, invite.Status);
+    }
+
+    [TestMethod]
+    public async Task AcceptOrganizationInviteAsync_ExpiredToken_ReturnsError()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var joiner = await TestHelpers.AddUserAsync(dbContext, "joiner", "joiner@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var token = Guid.NewGuid().ToString("N");
+        dbContext.OrganizationInvites.Add(new OrganizationInvite { OrganizationId = org.Id, InvitedByUserId = owner.Id, Email = "joiner@example.com", Token = token, Role = OrganizationMember.RoleMember, Status = OrganizationInvite.StatusPending, ExpiresAt = DateTime.UtcNow.AddDays(-1), CreatedAt = DateTime.UtcNow.AddDays(-8) });
+        await dbContext.SaveChangesAsync();
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.AcceptOrganizationInviteAsync(token, joiner.Username, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Invite has expired.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task AcceptOrganizationInviteAsync_AlreadyMember_ReturnsError()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var token = Guid.NewGuid().ToString("N");
+        dbContext.OrganizationInvites.Add(new OrganizationInvite { OrganizationId = org.Id, InvitedByUserId = owner.Id, Email = "owner@example.com", Token = token, Role = OrganizationMember.RoleMember, Status = OrganizationInvite.StatusPending, ExpiresAt = DateTime.UtcNow.AddDays(7), CreatedAt = DateTime.UtcNow });
+        await dbContext.SaveChangesAsync();
+
+        var service = new OrganizationsService(dbContext);
+        // owner is already a member — try to accept their own invite
+        var result = await service.AcceptOrganizationInviteAsync(token, owner.Username, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Already a member of this organization.", result.ErrorMessage);
+    }
+
     private static async Task<Organization> AddOrganizationAsync(AppDbContext dbContext, User owner, string name)
     {
         var organization = new Organization

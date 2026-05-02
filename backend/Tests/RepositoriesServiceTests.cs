@@ -687,6 +687,330 @@ public sealed class RepositoriesServiceTests
         Assert.AreEqual("Widgets Inc", repo.Organization.DisplayName);
     }
 
+    // ---- GetRepositoryTeamsAsync ----
+
+    [TestMethod]
+    public async Task GetRepositoryTeamsAsync_OrgMember_ReturnsTeamList()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var team = await AddTeam(dbContext, org, "devs");
+        dbContext.OrganizationTeamRepositories.Add(new OrganizationTeamRepository
+        {
+            TeamId = team.Id,
+            RepositoryId = repo.Id,
+            Permission = OrganizationTeamRepository.PermissionReadWrite
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryTeamsAsync(repo.Id, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual(1, result.Data.Total);
+        Assert.AreEqual("devs", result.Data.Teams[0].TeamName);
+        Assert.AreEqual(OrganizationTeamRepository.PermissionReadWrite, result.Data.Teams[0].Permission);
+        Assert.AreEqual("acme", result.Data.Teams[0].OrganizationName);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeamsAsync_NoTeams_ReturnsEmptyList()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var (_, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryTeamsAsync(repo.Id, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(0, result.Data!.Total);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeamsAsync_NonOrgMember_ReturnsForbidden()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var outsider = await AddUserAsync(dbContext, "outsider", "outsider@example.com");
+        var (_, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryTeamsAsync(repo.Id, outsider.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Forbidden", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeamsAsync_PersonalRepo_ReturnsError()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var repo = await AddRepositoryAsync(dbContext, owner, "personal", "public", pullCount: 0);
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryTeamsAsync(repo.Id, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Repository does not belong to an organization.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeamsAsync_RepoNotFound_ReturnsError()
+    {
+        using var dbContext = CreateDbContext();
+        var service = new RepositoriesService(dbContext);
+
+        var result = await service.GetRepositoryTeamsAsync(9999, null, null, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Repository not found.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeamsAsync_SystemAdmin_CanViewWithoutMembership()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var admin = await AddUserAsync(dbContext, "admin", "admin@example.com", User.RoleAdministrator);
+        var (_, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "private");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryTeamsAsync(repo.Id, admin.Username, User.RoleAdministrator, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+    }
+
+    // ---- SetRepositoryTeamPermissionAsync ----
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermissionAsync_OrgAdmin_AssignsPermission()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var team = await AddTeam(dbContext, org, "devs");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.SetRepositoryTeamPermissionAsync(repo.Id, team.Id, "read+write", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual("devs", result.Data.TeamName);
+        Assert.AreEqual("read+write", result.Data.Permission);
+
+        var stored = await dbContext.OrganizationTeamRepositories.SingleAsync();
+        Assert.AreEqual(OrganizationTeamRepository.PermissionReadWrite, stored.Permission);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermissionAsync_UpdatesExistingPermission()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var team = await AddTeam(dbContext, org, "devs");
+
+        dbContext.OrganizationTeamRepositories.Add(new OrganizationTeamRepository
+        {
+            TeamId = team.Id,
+            RepositoryId = repo.Id,
+            Permission = OrganizationTeamRepository.PermissionReadOnly
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.SetRepositoryTeamPermissionAsync(repo.Id, team.Id, "admin", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual("admin", result.Data!.Permission);
+
+        var stored = await dbContext.OrganizationTeamRepositories.SingleAsync();
+        Assert.AreEqual(OrganizationTeamRepository.PermissionAdmin, stored.Permission);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermissionAsync_InvalidPermission_ReturnsError()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var team = await AddTeam(dbContext, org, "devs");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.SetRepositoryTeamPermissionAsync(repo.Id, team.Id, "wrong", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Permission must be 'read-only', 'read+write', or 'admin'.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermissionAsync_TeamFromDifferentOrg_ReturnsNotFound()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var (_, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var (otherOrg, _) = await SetupOrgRepo(dbContext, owner, "other", "svc", "public");
+        var foreignTeam = await AddTeam(dbContext, otherOrg, "foreignteam");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.SetRepositoryTeamPermissionAsync(repo.Id, foreignTeam.Id, "read-only", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Team not found in this organization.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermissionAsync_Outsider_ReturnsForbidden()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var outsider = await AddUserAsync(dbContext, "outsider", "outsider@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var team = await AddTeam(dbContext, org, "devs");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.SetRepositoryTeamPermissionAsync(repo.Id, team.Id, "read-only", outsider.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Forbidden", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task SetRepositoryTeamPermissionAsync_PersonalRepo_ReturnsError()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var repo = await AddRepositoryAsync(dbContext, owner, "personal", "public", pullCount: 0);
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.SetRepositoryTeamPermissionAsync(repo.Id, 1, "read-only", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Repository does not belong to an organization.", result.ErrorMessage);
+    }
+
+    // ---- RemoveRepositoryTeamAsync ----
+
+    [TestMethod]
+    public async Task RemoveRepositoryTeamAsync_Owner_RemovesAccess()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var team = await AddTeam(dbContext, org, "devs");
+
+        dbContext.OrganizationTeamRepositories.Add(new OrganizationTeamRepository
+        {
+            TeamId = team.Id,
+            RepositoryId = repo.Id,
+            Permission = OrganizationTeamRepository.PermissionReadWrite
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.RemoveRepositoryTeamAsync(repo.Id, team.Id, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(0, await dbContext.OrganizationTeamRepositories.CountAsync());
+    }
+
+    [TestMethod]
+    public async Task RemoveRepositoryTeamAsync_TeamNotAssigned_ReturnsError()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var team = await AddTeam(dbContext, org, "devs");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.RemoveRepositoryTeamAsync(repo.Id, team.Id, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Team not assigned to this repository.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task RemoveRepositoryTeamAsync_Outsider_ReturnsForbidden()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var outsider = await AddUserAsync(dbContext, "outsider", "outsider@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        var team = await AddTeam(dbContext, org, "devs");
+
+        dbContext.OrganizationTeamRepositories.Add(new OrganizationTeamRepository
+        {
+            TeamId = team.Id,
+            RepositoryId = repo.Id,
+            Permission = OrganizationTeamRepository.PermissionReadOnly
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.RemoveRepositoryTeamAsync(repo.Id, team.Id, outsider.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Forbidden", result.ErrorMessage);
+    }
+
+    // ---- Test helpers ----
+
+    private static async Task<(Organization Org, Repository Repo)> SetupOrgRepo(
+        AppDbContext dbContext, User owner, string orgName, string repoName, string visibility)
+    {
+        var org = new Organization
+        {
+            Name = orgName,
+            DisplayName = orgName,
+            Description = $"{orgName} org",
+            OwnerId = owner.Id,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        dbContext.Organizations.Add(org);
+        await dbContext.SaveChangesAsync();
+
+        dbContext.OrganizationMembers.Add(new OrganizationMember
+        {
+            OrganizationId = org.Id,
+            UserId = owner.Id,
+            Role = OrganizationMember.RoleOwner,
+            AddedAt = DateTime.UtcNow
+        });
+
+        var repo = new Repository
+        {
+            Name = repoName,
+            Description = $"Desc for {repoName}",
+            Visibility = visibility,
+            OwnerId = owner.Id,
+            OrganizationId = org.Id,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        dbContext.Repositories.Add(repo);
+        await dbContext.SaveChangesAsync();
+        return (org, repo);
+    }
+
+    private static async Task<OrganizationTeam> AddTeam(AppDbContext dbContext, Organization org, string name)
+    {
+        var team = new OrganizationTeam
+        {
+            OrganizationId = org.Id,
+            Name = name,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        dbContext.OrganizationTeams.Add(team);
+        await dbContext.SaveChangesAsync();
+        return team;
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

@@ -220,6 +220,44 @@ public class RepositoriesController : ControllerBase
         return Ok(new { message = "Repository unstarred successfully.", repository = result.Data });
     }
 
+    [HttpGet("{id:int}/teams")]
+    [Authorize]
+    public async Task<IActionResult> GetRepositoryTeams(int id, CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
+        var result = await _repositoriesService.GetRepositoryTeamsAsync(id, currentUsername, userRole, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Repository not found." => NotFound(new { message = result.ErrorMessage }),
+                "Forbidden" => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(result.Data);
+    }
+
+    [HttpPost("{id:int}/teams")]
+    [Authorize]
+    public async Task<IActionResult> SetRepositoryTeamPermission(
+        int id,
+        [FromBody] SetRepositoryTeamPermissionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
+        var result = await _repositoriesService.SetRepositoryTeamPermissionAsync(id, request.TeamId, request.Permission, currentUsername, userRole, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Repository not found." => NotFound(new { message = result.ErrorMessage }),
+                "Team not found in this organization." => NotFound(new { message = result.ErrorMessage }),
+                "Forbidden" => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(new { message = "Team permission updated.", teamAccess = result.Data });
+    }
+
     private string? GetCurrentUsername()
     {
         return User.FindFirst(ClaimTypes.Name)?.Value ?? User.FindFirst(JwtRegisteredClaimNames.Name)?.Value;
@@ -243,4 +281,8 @@ public class RepositoriesController : ControllerBase
     public sealed record AddRepositoryCollaboratorRequest(
         [param: Required] string Identifier,
         string? Role);
+
+    public sealed record SetRepositoryTeamPermissionRequest(
+        [param: Required] int TeamId,
+        [param: Required] string Permission);
 }
