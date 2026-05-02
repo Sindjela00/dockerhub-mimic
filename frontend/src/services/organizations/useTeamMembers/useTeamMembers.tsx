@@ -2,6 +2,7 @@ import {
   TeamMember,
   addTeamMember,
   fetchTeamMembers,
+  removeTeamMember,
 } from "@/services/organizations/organizations.api";
 import { useCallback, useState } from "react";
 
@@ -38,5 +39,22 @@ export function useTeamMembers(
     [orgName, teamName, token, fetchMembers],
   );
 
-  return { members, total, loading, error, fetchMembers, addMember };
+  const removeMember = useCallback(
+    async (userId: number) => {
+      await removeTeamMember(orgName, teamName, userId, token);
+      setMembers((prev) => prev.filter((m) => m.userId !== userId));
+      setTotal((prev) => prev - 1);
+    },
+    [orgName, teamName, token],
+  );
+
+  return {
+    members,
+    total,
+    loading,
+    error,
+    fetchMembers,
+    addMember,
+    removeMember,
+  };
 }

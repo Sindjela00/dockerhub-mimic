@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import AddTeamRepositoryModal from "@/components/Modals/AddTeamRepositoryModal/AddTeamRepositoryModal";
 import Button from "@/components/Button/Button";
 import DeleteConfirmModal from "@/components/Modals/DeleteConfirmModal/DeleteConfirmModal";
+import { Repository } from "@/services/repositories/repositories.api";
 import { TagComponent } from "@/components/Tag/Tag";
 import { TeamRepository } from "@/services/organizations/organizations.api";
+import { useNavigate } from "react-router-dom";
 import { useOrganizationRepositories } from "@/services/organizations/useOrganizationRepositories/useOrganizationRepositories";
 import { useTeamRepositories } from "@/services/organizations/useTeamRepositories/useTeamRepositories";
 
@@ -18,10 +20,14 @@ export function RepositoriesTab({
   teamName: string;
   token: string;
 }) {
+  const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [repoToDelete, setRepoToDelete] = useState<TeamRepository | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleRepoClick = (repoId: string) =>
+    navigate(`/repositories/${repoId}`);
 
   const {
     repositories,
@@ -100,7 +106,8 @@ export function RepositoriesTab({
                 key={repo.repositoryId}
                 className="bg-bg-surface border border-border rounded-xl p-4
                            hover:border-brand/40 hover:bg-bg-elevated
-                           transition-colors flex flex-col gap-2"
+                           transition-colors flex flex-col gap-2 cursor-pointer"
+                onClick={() => handleRepoClick(String(repo.repositoryId))}
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-sm font-semibold text-brand font-mono">

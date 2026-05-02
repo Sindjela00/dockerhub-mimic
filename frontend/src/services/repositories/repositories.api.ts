@@ -14,6 +14,14 @@ export interface Repository {
   starCount: number;
   tags: string[];
   isStarredByCurrentUser?: boolean;
+  organization?: RepositoryOrganization | null;
+}
+
+export interface RepositoryOrganization {
+  displayName: string;
+  name: string;
+  id: number;
+  avatarUrl?: string | null;
 }
 
 export interface GetRepositoriesParams {

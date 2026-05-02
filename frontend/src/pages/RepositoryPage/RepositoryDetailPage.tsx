@@ -249,6 +249,14 @@ export default function RepositoryDetailPage() {
             {...sharedTagsTabProps}
           />
         )}
+
+        {/* {activeTab === "teams" && repo.organization && (
+          <TeamsTab
+            orgName={repo.organization.name}
+            repoName={repo.name}
+            token={token}
+          />
+        )} */}
       </div>
 
       <EditRepositoryModal

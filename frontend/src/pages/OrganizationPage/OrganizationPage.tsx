@@ -1,6 +1,7 @@
 import { Building2, Calendar, Pencil, Trash2 } from "lucide-react";
 import Tabs, { TabItem } from "@/components/Tabs/Tabs";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import Button from "@/components/Button/Button";
 import DeleteConfirmModal from "@/components/Modals/DeleteConfirmModal/DeleteConfirmModal";
@@ -8,17 +9,18 @@ import EditOrganizationModal from "@/components/Modals/EditOrganizationModal/Edi
 import ErrorPage from "../ErrorPage/ErrorPage";
 import MembersTab from "./components/MembersTab/MembersTab";
 import { RepositoriesTab } from "./components/RepositoriesTab/RepositoriesTab";
+import { Repository } from "@/services/repositories/repositories.api";
 import StatCard from "@/components/Cards/StatCard/StatCard";
 import { TagComponent } from "@/components/Tag/Tag";
 import { TeamsTab } from "./components/TeamTab/TeamTab";
 import { useAuth } from "../../context/AppContext";
 import { useOrganization } from "@/services/organizations/useOrganization/useOrganization";
 import { useOrganizationRepositories } from "@/services/organizations/useOrganizationRepositories/useOrganizationRepositories";
-import { useParams } from "react-router-dom";
 
 type Tab = "repositories" | "teams" | "members";
 
 export default function OrganizationDetailPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("repositories");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -52,6 +54,9 @@ export default function OrganizationDetailPage() {
       initialFetchDone.current = true;
     }
   }, [organization]);
+
+  const handleRepoClick = (repo: Repository) =>
+    navigate(`/repositories/${repo.id}`);
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -227,6 +232,7 @@ export default function OrganizationDetailPage() {
             searchValue={reposSearchQuery}
             onSearchChange={handleSearchChange}
             organization={organization}
+            onRepoClick={handleRepoClick}
           />
         )}
         {activeTab === "teams" && (
