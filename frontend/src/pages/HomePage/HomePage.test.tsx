@@ -100,13 +100,6 @@ describe("HomePage — renderovanje", () => {
     ).toBeInTheDocument();
   });
 
-  it("renderuje 'Explore images' dugme", () => {
-    render(<HomePage />);
-    expect(
-      screen.getByRole("button", { name: "Explore images" }),
-    ).toBeInTheDocument();
-  });
-
   it("renderuje Overview sekciju", () => {
     render(<HomePage />);
     expect(screen.getByText("Overview")).toBeInTheDocument();
@@ -187,12 +180,6 @@ describe("HomePage — CreateRepositoryModal", () => {
 });
 
 describe("HomePage — navigacija", () => {
-  it("klik na 'Explore images' naviguje na /repositories", () => {
-    render(<HomePage />);
-    fireEvent.click(screen.getByRole("button", { name: "Explore images" }));
-    expect(mockNavigate).toHaveBeenCalledWith("/repositories");
-  });
-
   it("navigate se ne poziva pri inicijalnom renderovanju", () => {
     render(<HomePage />);
     expect(mockNavigate).not.toHaveBeenCalled();

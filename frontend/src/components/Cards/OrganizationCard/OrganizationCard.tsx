@@ -1,5 +1,6 @@
 import { TagComponent } from "@/components/Tag/Tag";
 import { Users } from "lucide-react";
+import { getInitials } from "@/utils/getInitials";
 
 interface Organization {
   name: string;
@@ -10,14 +11,6 @@ interface Organization {
 interface OrgCardProps {
   org: Organization;
   onClick?: () => void;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(/[\s_\-]+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
 }
 
 export default function OrganizationCard({ org, onClick }: OrgCardProps) {
@@ -54,7 +47,6 @@ export default function OrganizationCard({ org, onClick }: OrgCardProps) {
         </TagComponent>
       </div>
 
-      {/* Description */}
       <div className="flex-1">
         {org.description ? (
           <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">

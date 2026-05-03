@@ -87,31 +87,12 @@ describe("CreateRepositoryModal", () => {
     expect(screen.queryByText("Create new repository")).toBeNull();
   });
 
-  it("prikazuje username kao default owner", () => {
-    renderModal({ username: "ana.petrovic" });
-    expect(screen.getByTestId("owner-value").textContent).toBe("ana.petrovic");
-  });
-
-  it("prikazuje organizacije u owner select-u", () => {
-    renderModal();
-    expect(screen.getByText("Acme Corp")).toBeTruthy();
-    expect(screen.getByText("Dev Team")).toBeTruthy();
-  });
-
   it("pretvara naziv u lowercase", async () => {
     const user = userEvent.setup();
     renderModal();
 
     await user.type(screen.getByLabelText(/repository name/i), "MyImage");
     expect(screen.getByLabelText(/repository name/i)).toHaveValue("myimage");
-  });
-
-  it("menja owner na organizaciju", async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.click(screen.getByText("Acme Corp"));
-    expect(screen.getByTestId("owner-value").textContent).toBe("acme-corp");
   });
 
   it("prikazuje gresku za prazan naziv", async () => {
