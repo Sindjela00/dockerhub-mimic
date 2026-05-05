@@ -146,7 +146,7 @@ export default function TeamDetailPage() {
       {/* Tabs */}
       <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      <div className="mt-4">
+      <div>
         {activeTab === "members" && (
           <MembersTab
             orgName={orgName}

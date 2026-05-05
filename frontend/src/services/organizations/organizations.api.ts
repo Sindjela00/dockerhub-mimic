@@ -148,6 +148,47 @@ export interface TeamMembersResponse {
   total: number;
 }
 
+export interface OrganizationInvite {
+  id: number;
+  organizationName: string;
+  email: string;
+  role: string;
+  status: "pending" | "accepted" | "declined" | "expired";
+  invitedByUsername: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export async function acceptOrganizationInvite(
+  inviteToken: string,
+): Promise<any> {
+  const response = await api.post(`/api/organizations/invites/accept`, {
+    token: inviteToken,
+  });
+  return response.data;
+}
+
+export async function fetchMembersInvites(
+  orgName: string,
+  token: string,
+): Promise<OrganizationInvite[]> {
+  const response = await api.get<OrganizationInvite[]>(
+    `${BASE_URL}/organizations/${orgName}/invites`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return response.data;
+}
+
+export async function cancelMemberInvite(
+  inviteId: number,
+  orgName: string,
+  token: string,
+): Promise<void> {
+  await api.delete(`${BASE_URL}/organizations/${orgName}/invites/${inviteId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function removeTeamMember(
   orgName: string,
   teamName: string,

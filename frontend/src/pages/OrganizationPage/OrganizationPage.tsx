@@ -217,38 +217,40 @@ export default function OrganizationDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+      <div>
+        <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      <div className="mt-4">
-        {activeTab === "repositories" && (
-          <RepositoriesTab
-            repos={repositories}
-            loading={reposLoading}
-            owner={{
-              name: organization.name,
-              displayName: organization.displayName || organization.name,
-            }}
-            onRepoCreated={handleRepoCreated}
-            searchValue={reposSearchQuery}
-            onSearchChange={handleSearchChange}
-            organization={organization}
-            onRepoClick={handleRepoClick}
-          />
-        )}
-        {activeTab === "teams" && (
-          <TeamsTab
-            orgName={organization.name}
-            token={token || ""}
-            organization={organization}
-          />
-        )}
-        {activeTab === "members" && (
-          <MembersTab
-            orgName={organization.name}
-            token={token || ""}
-            organization={organization}
-          />
-        )}
+        <div className="mt-4">
+          {activeTab === "repositories" && (
+            <RepositoriesTab
+              repos={repositories}
+              loading={reposLoading}
+              owner={{
+                name: organization.name,
+                displayName: organization.displayName || organization.name,
+              }}
+              onRepoCreated={handleRepoCreated}
+              searchValue={reposSearchQuery}
+              onSearchChange={handleSearchChange}
+              organization={organization}
+              onRepoClick={handleRepoClick}
+            />
+          )}
+          {activeTab === "teams" && (
+            <TeamsTab
+              orgName={organization.name}
+              token={token || ""}
+              organization={organization}
+            />
+          )}
+          {activeTab === "members" && (
+            <MembersTab
+              orgName={organization.name}
+              token={token || ""}
+              organization={organization}
+            />
+          )}
+        </div>
       </div>
 
       <EditOrganizationModal

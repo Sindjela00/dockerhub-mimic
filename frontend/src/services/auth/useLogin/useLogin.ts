@@ -1,7 +1,7 @@
 import { LoginPayload, login } from "../auth.api";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAppContext } from "../../../context/AppContext";
-import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 interface UseLoginReturn {
@@ -12,6 +12,7 @@ interface UseLoginReturn {
 
 export function useLogin(): UseLoginReturn {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setAuth } = useAppContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -23,7 +24,13 @@ export function useLogin(): UseLoginReturn {
     try {
       const { data } = await login(payload);
       setAuth(data.token, data.role, payload.identifier);
-      navigate("/");
+      if (data.token) {
+        const returnTo = searchParams.get("returnTo");
+        console.log("Login successful, navigating to:", returnTo ?? "/");
+        navigate(returnTo ? decodeURIComponent(returnTo) : "/", {
+          replace: true,
+        });
+      }
     } catch (err: any) {
       const message =
         err.response?.data?.message ?? "Login failed. Please try again.";

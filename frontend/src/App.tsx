@@ -1,5 +1,6 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useSearchParams } from "react-router-dom";
 
+import AcceptInvitePage from "./pages/AcceptInvitePage/AcceptInvitePage";
 import ChangePasswordPage from "./pages/ChangePasswordPage/ChangePasswordPage";
 import ForgotPasswordPage from "./pages/ChangePasswordPage/ChangePasswordPage";
 import HomePage from "./pages/HomePage/HomePage";
@@ -22,12 +23,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useAuth();
-  return !isLoggedIn ? <>{children}</> : <Navigate to="/" replace />;
+  const [searchParams] = useSearchParams();
+
+  if (!isLoggedIn) return <>{children}</>;
+
+  const returnTo = searchParams.get("returnTo");
+  return (
+    <Navigate to={returnTo ? decodeURIComponent(returnTo) : "/"} replace />
+  );
 }
 
 export default function App() {
   return (
     <Routes>
+      <Route path="/invites/accept" element={<AcceptInvitePage />} />
+
       <Route
         path="/landing"
         element={
