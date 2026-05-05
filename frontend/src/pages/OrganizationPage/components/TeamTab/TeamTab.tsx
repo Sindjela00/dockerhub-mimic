@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import Button from "@/components/Button/Button";
 import CreateTeamModal from "@/components/Modals/CreateTeamModal/CreateTeamModal";
 import { Plus } from "lucide-react";
-import { TeamRow } from "@/components/Cards/TeamComplexCard/TeamRow";
+import { TeamRow } from "@/components/Cards/TeamComplexCard/TeamRow/TeamRow";
 import { useOrganizationTeams } from "@/services/organizations/useOrganizationsTeams/useOrganizationsTeams";
 
 interface TeamsTabProps {
