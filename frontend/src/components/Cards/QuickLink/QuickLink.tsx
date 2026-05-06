@@ -1,9 +1,11 @@
 import { ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface QuickLinkProps {
   icon: React.ReactNode;
   label: string;
   description: string;
+  link?: string;
   onClick?: () => void;
 }
 
@@ -11,11 +13,19 @@ export default function QuickLink({
   icon,
   label,
   description,
+  link,
   onClick,
 }: QuickLinkProps) {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    onClick?.();
+    if (link) navigate(link);
+  };
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       className="group flex items-start gap-4 p-4 rounded-lg text-left w-full
                  border border-border bg-bg-surface
                  hover:border-border-strong hover:bg-bg-elevated

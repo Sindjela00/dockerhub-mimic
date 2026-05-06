@@ -1,5 +1,6 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useSearchParams } from "react-router-dom";
 
+import AcceptInvitePage from "./pages/AcceptInvitePage/AcceptInvitePage";
 import ChangePasswordPage from "./pages/ChangePasswordPage/ChangePasswordPage";
 import ForgotPasswordPage from "./pages/ChangePasswordPage/ChangePasswordPage";
 import HomePage from "./pages/HomePage/HomePage";
@@ -7,9 +8,12 @@ import LandingPage from "./pages/LandingPage/LandingPage";
 import Layout from "./components/Layout";
 import LoginPage from "./pages/LoginPage/LoginPage";
 import { Navigate } from "react-router-dom";
+import OrganizationDetailPage from "./pages/OrganizationPage/OrganizationPage";
+import OrganizationsPage from "./pages/OrganizationsPage/OrganizationsPage";
 import RegisterPage from "./pages/RegisterPage/RegisterPage";
 import RepositoriesPage from "./pages/RepositoriesPage/RepositoriesPage";
 import RepositoryDetailPage from "./pages/RepositoryPage/RepositoryDetailPage";
+import TeamDetailPage from "./pages/TeamDetailPage/TeamDetailPage";
 import { useAuth } from "./context/AppContext";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -19,12 +23,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useAuth();
-  return !isLoggedIn ? <>{children}</> : <Navigate to="/" replace />;
+  const [searchParams] = useSearchParams();
+
+  if (!isLoggedIn) return <>{children}</>;
+
+  const returnTo = searchParams.get("returnTo");
+  return (
+    <Navigate to={returnTo ? decodeURIComponent(returnTo) : "/"} replace />
+  );
 }
 
 export default function App() {
   return (
     <Routes>
+      <Route path="/invites/accept" element={<AcceptInvitePage />} />
+
       <Route
         path="/landing"
         element={
@@ -88,6 +101,39 @@ export default function App() {
           <ProtectedRoute>
             <Layout pageTitle="Repository">
               <RepositoryDetailPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/organizations"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Organizations">
+              <OrganizationsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/organizations/:orgName"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Organization">
+              <OrganizationDetailPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/organizations/:orgName/teams/:teamName"
+        element={
+          <ProtectedRoute>
+            <Layout pageTitle="Team">
+              <TeamDetailPage />
             </Layout>
           </ProtectedRoute>
         }

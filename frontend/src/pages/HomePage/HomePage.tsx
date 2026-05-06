@@ -55,13 +55,6 @@ export default function HomePage() {
             >
               Create repository
             </Button>
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => navigate("/repositories")}
-            >
-              Explore images
-            </Button>
           </div>
         </div>
       </div>

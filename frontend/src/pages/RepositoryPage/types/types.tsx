@@ -16,9 +16,10 @@ export interface RepositoryDetail extends Repository {
   readme?: string;
 }
 
-export type Tab = "overview" | "tags";
+export type Tab = "overview" | "tags" | "teams";
 
 export const TABS: TabItem<Tab>[] = [
   { value: "overview", label: "Overview" },
   { value: "tags", label: "Tags" },
+  { value: "teams", label: "Teams" },
 ];

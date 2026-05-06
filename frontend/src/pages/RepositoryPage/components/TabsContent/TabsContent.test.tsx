@@ -33,7 +33,6 @@ vi.mock("@/components/Pagination/Pagination", () => ({
   ),
 }));
 
-// --- Mock utils ---
 vi.mock("@/utils/formatDate", () => ({
   formatDate: (d: any) => d,
 }));

@@ -14,6 +14,14 @@ export interface Repository {
   starCount: number;
   tags: string[];
   isStarredByCurrentUser?: boolean;
+  organization?: RepositoryOrganization | null;
+}
+
+export interface RepositoryOrganization {
+  displayName: string;
+  name: string;
+  id: number;
+  avatarUrl?: string | null;
 }
 
 export interface GetRepositoriesParams {
@@ -82,6 +90,44 @@ export interface GetTagsParams {
   sortBy?: TagSortBy;
   sortDir?: TagSortDir;
 }
+
+export interface RepositoryTeam {
+  id: number;
+  teamId: number;
+  teamName: string;
+  description?: string | null;
+  permission: string;
+  memberCount: number;
+  organizationName: string;
+}
+
+export interface RepositoryTeamsResponse {
+  repositoryId: number;
+  teams: RepositoryTeam[];
+  total: number;
+}
+
+export interface UpdateRepositoryTeamPermissionPayload {
+  permission: string;
+}
+
+export const updateRepositoryTeamPermission = (
+  repositoryId: number,
+  teamId: number,
+  payload: UpdateRepositoryTeamPermissionPayload,
+): Promise<{ data: { message: string } }> =>
+  api.post(`/api/repositories/${repositoryId}/teams`, {
+    teamId,
+    permission: payload.permission,
+  });
+
+export const getRepositoryTeams = (
+  repositoryId: number,
+  token: string,
+): Promise<{ data: RepositoryTeamsResponse }> =>
+  api.get(`/api/repositories/${repositoryId}/teams`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
 export const getMyRepositories = (
   params: GetRepositoriesParams = {},

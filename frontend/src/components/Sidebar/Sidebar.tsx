@@ -1,12 +1,11 @@
 import { ChevronLeft, ChevronRight, LogOut, Menu } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import Button from "../Button/Button";
 import Logo from "../Logo/Logo";
 import { NAV_SECTIONS } from "./types/sidebarConfig";
 import { Plan } from "./types/types";
-import { getMyRepositories } from "@/services/repositories/repositories.api";
 import { useAppContext } from "../../context/AppContext";
+import { useState } from "react";
 
 export interface SidebarProps {
   activePath?: string;
@@ -21,7 +20,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { repoCount, setRepoCount, clearAuth } = useAppContext();
+  const { clearAuth } = useAppContext();
 
   const handleNavigate = (path: string) => {
     onNavigate?.(path);
@@ -32,14 +31,6 @@ export default function Sidebar({
     clearAuth();
     onNavigate?.("/landing");
   };
-
-  useEffect(() => {
-    // to do: change after integrating home page with backend
-    if (repoCount !== undefined) return;
-    getMyRepositories({ pageSize: 1, mine: true })
-      .then(({ data }) => setRepoCount(data.total))
-      .catch(() => {});
-  }, []);
 
   return (
     <>
@@ -140,18 +131,6 @@ export default function Sidebar({
                     >
                       {item.label}
                     </span>
-
-                    {item.badge !== undefined && (
-                      <span
-                        className="ml-auto text-[10px] px-1.5 py-0.5
-                                   rounded-full
-                                   bg-brand-muted text-brand
-                                   transition-opacity duration-150"
-                        style={{ opacity: collapsed ? 0 : 1 }}
-                      >
-                        {item.path === "/repositories" ? repoCount : item.badge}
-                      </span>
-                    )}
                   </Button>
                 );
               })}
