@@ -8,19 +8,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import TagsTab from "./TabsContent";
 
-vi.mock("@/components/Table/Table", () => ({
-  default: ({ data }: any) => (
-    <div>
-      {data.map((d: any) => (
-        <div key={d.name}>
-          <input type="checkbox" aria-label={`Select ${d.name}`} />
-          {d.name}
-        </div>
-      ))}
-    </div>
-  ),
-}));
-
 vi.mock("@/components/Button/Button", () => ({
   default: ({ children, ...props }: any) => (
     <button {...props}>{children}</button>
@@ -59,8 +46,8 @@ describe("TagsTab", () => {
     {
       name: "tag2",
       digest: "def",
-      os: "linux",
-      architecture: "amd64",
+      os: null,
+      architecture: null,
       size: "15MB",
       lastPushedAt: "2023-03-02",
       compressedSizeBytes: 0,
@@ -93,11 +80,13 @@ describe("TagsTab", () => {
     vi.clearAllMocks();
   });
 
-  it("renders all tags", () => {
+  it("renders all tags with digest, os/arch and size columns", () => {
     render(<TagsTab {...defaultProps} />);
     MOCK_TAGS.forEach((tag) => {
       expect(screen.getByText(tag.name)).toBeInTheDocument();
     });
+    expect(screen.getByText("linux / amd64")).toBeInTheDocument();
+    expect(screen.getByText("- / -")).toBeInTheDocument();
   });
 
   it("updates local search and calls onSearch after debounce", async () => {
@@ -126,5 +115,84 @@ describe("TagsTab", () => {
     fireEvent.click(nextPageBtn);
 
     expect(defaultProps.onPage).toHaveBeenCalledWith(2);
+  });
+
+  it("does not render pagination when there are no tags", () => {
+    render(<TagsTab {...defaultProps} tags={[]} total={0} />);
+    expect(screen.queryByText("Next page")).not.toBeInTheDocument();
+  });
+
+  it("shows a search-specific empty message when there are no tags and a search is active", () => {
+    render(<TagsTab {...defaultProps} tags={[]} total={0} search="foo" />);
+    expect(screen.getByText('No tags match "foo"')).toBeInTheDocument();
+  });
+
+  describe("selection", () => {
+    it("selects a single tag and shows the bulk-delete button", () => {
+      render(<TagsTab {...defaultProps} />);
+      fireEvent.click(screen.getByLabelText("Select tag1"));
+
+      expect(screen.getByText("Delete 1 tag")).toBeInTheDocument();
+    });
+
+    it("selects all tags via the header checkbox and pluralizes the label", () => {
+      render(<TagsTab {...defaultProps} />);
+      fireEvent.click(screen.getByLabelText("Select all tags"));
+
+      expect(screen.getByText("Delete 2 tags")).toBeInTheDocument();
+    });
+
+    it("deselects all tags when header checkbox is toggled again", () => {
+      render(<TagsTab {...defaultProps} />);
+      const selectAll = screen.getByLabelText("Select all tags");
+      fireEvent.click(selectAll);
+      fireEvent.click(selectAll);
+
+      expect(screen.queryByText(/Delete \d/)).not.toBeInTheDocument();
+    });
+
+    it("deselects a single tag when its checkbox is toggled again", () => {
+      render(<TagsTab {...defaultProps} />);
+      const checkbox = screen.getByLabelText("Select tag1");
+      fireEvent.click(checkbox);
+      fireEvent.click(checkbox);
+
+      expect(screen.queryByText(/Delete \d/)).not.toBeInTheDocument();
+    });
+
+    it("calls onDeleteTags with selected names and clears selection on bulk delete", async () => {
+      render(<TagsTab {...defaultProps} />);
+      fireEvent.click(screen.getByLabelText("Select tag1"));
+      fireEvent.click(screen.getByText(/Delete 1 tag/));
+
+      await waitFor(() =>
+        expect(defaultProps.onDeleteTags).toHaveBeenCalledWith(["tag1"]),
+      );
+
+      await waitFor(() =>
+        expect(screen.queryByText(/Delete \d/)).not.toBeInTheDocument(),
+      );
+    });
+
+    it("shows Deleting... and disables the button while bulk delete is in flight", async () => {
+      let resolve!: () => void;
+      const onDeleteTags = vi.fn(
+        () =>
+          new Promise<void>((r) => {
+            resolve = r;
+          }),
+      );
+      render(<TagsTab {...defaultProps} onDeleteTags={onDeleteTags} />);
+
+      fireEvent.click(screen.getByLabelText("Select tag1"));
+      fireEvent.click(screen.getByText(/Delete 1 tag/));
+
+      expect(screen.getByText("Deleting...")).toBeInTheDocument();
+
+      resolve();
+      await waitFor(() =>
+        expect(screen.queryByText("Deleting...")).not.toBeInTheDocument(),
+      );
+    });
   });
 });

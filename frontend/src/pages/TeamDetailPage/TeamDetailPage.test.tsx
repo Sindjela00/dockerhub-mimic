@@ -3,11 +3,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 import TeamDetailPage from "./TeamDetailPage";
 
+const useParamsMock = vi.fn(() => ({
+  orgName: "org",
+  teamName: "team",
+}));
+
 vi.mock("react-router-dom", () => ({
-  useParams: () => ({
-    orgName: "org",
-    teamName: "team",
-  }),
+  useParams: () => useParamsMock(),
 }));
 
 vi.mock("../ErrorPage/ErrorPage", () => ({
@@ -70,29 +72,126 @@ vi.mock("@/components/Modals/DeleteConfirmModal/DeleteConfirmModal", () => ({
 const updateTeamMock = vi.fn();
 const deleteTeamMock = vi.fn();
 
+const defaultTeam = {
+  name: "Team A",
+  organizationName: "Org A",
+  description: "Test team",
+  createdAt: "2024-01-01",
+  updatedAt: "2024-01-02",
+  memberCount: 3,
+  repositoryCount: 5,
+};
+
+const useTeamMock = vi.fn(() => ({
+  team: defaultTeam,
+  loading: false,
+  error: null,
+  updateTeam: updateTeamMock,
+  deleteTeam: deleteTeamMock,
+  deleteLoading: false,
+  deleteError: null,
+}));
+
 vi.mock("@/services/organizations/useTeam/UseTeam", () => ({
-  useTeam: () => ({
-    team: {
-      name: "Team A",
-      organizationName: "Org A",
-      description: "Test team",
-      createdAt: "2024-01-01",
-      updatedAt: "2024-01-02",
-      memberCount: 3,
-      repositoryCount: 5,
-    },
-    loading: false,
-    error: null,
-    updateTeam: updateTeamMock,
-    deleteTeam: deleteTeamMock,
-    deleteLoading: false,
-    deleteError: null,
-  }),
+  useTeam: () => useTeamMock(),
 }));
 
 describe("TeamDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useParamsMock.mockReturnValue({ orgName: "org", teamName: "team" });
+    useTeamMock.mockReturnValue({
+      team: defaultTeam,
+      loading: false,
+      error: null,
+      updateTeam: updateTeamMock,
+      deleteTeam: deleteTeamMock,
+      deleteLoading: false,
+      deleteError: null,
+    });
+  });
+
+  it("shows a message when orgName or teamName is missing", () => {
+    useParamsMock.mockReturnValue({ orgName: undefined, teamName: undefined });
+
+    render(<TeamDetailPage />);
+
+    expect(
+      screen.getByText("Missing organization or team name"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a loading state while the team is being fetched", () => {
+    useTeamMock.mockReturnValue({
+      team: null,
+      loading: true,
+      error: null,
+      updateTeam: updateTeamMock,
+      deleteTeam: deleteTeamMock,
+      deleteLoading: false,
+      deleteError: null,
+    });
+
+    render(<TeamDetailPage />);
+
+    expect(screen.getByText("Loading team...")).toBeInTheDocument();
+  });
+
+  it("renders the error page when loading the team fails", () => {
+    useTeamMock.mockReturnValue({
+      team: null,
+      loading: false,
+      error: "Failed to load team",
+      updateTeam: updateTeamMock,
+      deleteTeam: deleteTeamMock,
+      deleteLoading: false,
+      deleteError: null,
+    });
+
+    render(<TeamDetailPage />);
+
+    expect(screen.getByTestId("error-page")).toBeInTheDocument();
+  });
+
+  it("renders nothing when there is no team and no error", () => {
+    useTeamMock.mockReturnValue({
+      team: null,
+      loading: false,
+      error: null,
+      updateTeam: updateTeamMock,
+      deleteTeam: deleteTeamMock,
+      deleteLoading: false,
+      deleteError: null,
+    });
+
+    const { container } = render(<TeamDetailPage />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("falls back to 0 badges and '-' updated date when counts/date are missing", () => {
+    useTeamMock.mockReturnValue({
+      team: {
+        ...defaultTeam,
+        memberCount: undefined,
+        repositoryCount: undefined,
+        updatedAt: undefined,
+        description: "",
+      },
+      loading: false,
+      error: null,
+      updateTeam: updateTeamMock,
+      deleteTeam: deleteTeamMock,
+      deleteLoading: false,
+      deleteError: null,
+    });
+
+    render(<TeamDetailPage />);
+
+    expect(screen.getByText(/Members: 0/i)).toBeInTheDocument();
+    expect(screen.getByText(/Repositories: 0/i)).toBeInTheDocument();
+    expect(screen.getByText(/Updated: -/i)).toBeInTheDocument();
+    expect(screen.getByText("No description provided")).toBeInTheDocument();
   });
 
   it("renders team info", () => {

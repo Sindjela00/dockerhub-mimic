@@ -227,9 +227,9 @@ describe("DeleteConfirmModal", () => {
       typeConfirm("my-repo");
       fireEvent.click(screen.getByRole("button", { name: /delete my-repo/i }));
       await waitFor(() => {
-        expect(mockOnDelete).toHaveBeenCalled();
+        expect(screen.getByRole("textbox")).toHaveValue("");
       });
-      expect(screen.getByRole("textbox")).toHaveValue("");
+      expect(mockOnDelete).toHaveBeenCalled();
     });
   });
 
