@@ -390,6 +390,10 @@ public class RepositoriesService : IRepositoriesService
             .ThenInclude(o => o!.Members)
             .ThenInclude(m => m.User)
             .Include(r => r.Collaborators)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .ThenInclude(tm => tm.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -444,6 +448,10 @@ public class RepositoriesService : IRepositoriesService
             .Include(r => r.Organization)
             .ThenInclude(o => o!.Members)
             .ThenInclude(m => m.User)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .ThenInclude(tm => tm.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -543,6 +551,10 @@ public class RepositoriesService : IRepositoriesService
             .ThenInclude(o => o!.Members)
             .ThenInclude(m => m.User)
             .Include(r => r.Collaborators)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .ThenInclude(tm => tm.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -599,6 +611,10 @@ public class RepositoriesService : IRepositoriesService
             .Include(r => r.Organization)
             .ThenInclude(o => o!.Members)
             .ThenInclude(m => m.User)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .ThenInclude(tm => tm.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -629,6 +645,10 @@ public class RepositoriesService : IRepositoriesService
             .Include(r => r.Organization)
             .ThenInclude(o => o!.Members)
             .ThenInclude(m => m.User)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .ThenInclude(tm => tm.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -680,6 +700,10 @@ public class RepositoriesService : IRepositoriesService
             .Include(r => r.Organization)
             .ThenInclude(o => o!.Members)
             .ThenInclude(m => m.User)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .ThenInclude(tm => tm.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -733,6 +757,10 @@ public class RepositoriesService : IRepositoriesService
             .Include(r => r.Organization)
             .ThenInclude(o => o!.Members)
             .ThenInclude(m => m.User)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .ThenInclude(tm => tm.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
@@ -756,7 +784,22 @@ public class RepositoriesService : IRepositoriesService
     }
 
     // --- Helpers ---
+    private static readonly Dictionary<string, int> TeamPermissionRank = new()
+    {
+        [OrganizationTeamRepository.PermissionReadOnly] = 0,
+        [OrganizationTeamRepository.PermissionReadWrite] = 1,
+        [OrganizationTeamRepository.PermissionAdmin] = 2
+    };
+
+    // Full control as if the caller were the owner: settings, delete, collaborators, team-access grants.
     private bool CanManageRepository(Repository repo, string? currentUsername, string? userRole)
+        => HasRepositoryPermission(repo, currentUsername, userRole, OrganizationTeamRepository.PermissionAdmin);
+
+    // Push a new version / delete tags, per the "read+write" team permission.
+    private bool CanWriteRepository(Repository repo, string? currentUsername, string? userRole)
+        => HasRepositoryPermission(repo, currentUsername, userRole, OrganizationTeamRepository.PermissionReadWrite);
+
+    private bool HasRepositoryPermission(Repository repo, string? currentUsername, string? userRole, string minimumTeamPermission)
     {
         var normalized = Normalize(currentUsername ?? string.Empty);
         if (string.IsNullOrWhiteSpace(normalized)) return false;
@@ -769,7 +812,19 @@ public class RepositoriesService : IRepositoriesService
         {
             var membership = repo.Organization?.Members.FirstOrDefault(m => Normalize(m.User?.Username ?? string.Empty) == normalized);
             var role = Normalize(membership?.Role ?? string.Empty);
-            return role == OrganizationMember.RoleOwner || role == OrganizationMember.RoleAdmin;
+            if (role == OrganizationMember.RoleOwner || role == OrganizationMember.RoleAdmin)
+                return true;
+
+            // Fall back to the caller's per-repository team permission (read-only / read+write / admin).
+            var teamPermission = repo.TeamRepositories
+                .Where(tr => tr.Team is not null && tr.Team.TeamMembers.Any(tm => Normalize(tm.User?.Username ?? string.Empty) == normalized))
+                .Select(tr => Normalize(tr.Permission))
+                .FirstOrDefault();
+
+            return teamPermission is not null
+                && TeamPermissionRank.TryGetValue(teamPermission, out var actualRank)
+                && TeamPermissionRank.TryGetValue(minimumTeamPermission, out var requiredRank)
+                && actualRank >= requiredRank;
         }
 
         var ownerUsername = Normalize(repo.Owner?.Username ?? string.Empty);
@@ -904,12 +959,16 @@ public class RepositoriesService : IRepositoriesService
             .Include(r => r.Organization)
             .ThenInclude(o => o!.Members)
             .ThenInclude(m => m.User)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
+            .ThenInclude(tm => tm.User)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
         if (repo is null)
             return new RepositoriesResult<string>(false, null, "Repository not found.");
 
-        if (!CanManageRepository(repo, currentUsername, userRole))
+        if (!CanWriteRepository(repo, currentUsername, userRole))
             return new RepositoriesResult<string>(false, null, "Forbidden");
 
         var normalizedTagName = tagName.Trim().ToLowerInvariant();
