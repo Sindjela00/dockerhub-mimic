@@ -14,11 +14,9 @@ import { useTeamMembers } from "@/services/organizations/useTeamMembers/useTeamM
 export function MembersTab({
   orgName,
   teamName,
-  token,
 }: {
   orgName: string;
   teamName: string;
-  token: string;
 }) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -30,10 +28,10 @@ export function MembersTab({
     fetchMembers,
     addMember,
     removeMember,
-  } = useTeamMembers(token, orgName, teamName);
+  } = useTeamMembers(orgName, teamName);
 
   const { members: orgMembers, fetchMembers: fetchOrgMembers } =
-    useOrganizationMembers(token, orgName);
+    useOrganizationMembers(orgName);
 
   const initialFetchDone = useRef(false);
   useEffect(() => {

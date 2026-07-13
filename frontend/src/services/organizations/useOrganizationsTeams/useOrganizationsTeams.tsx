@@ -6,7 +6,7 @@ import {
 } from "@/services/organizations/organizations.api";
 import { useCallback, useState } from "react";
 
-export function useOrganizationTeams(token: string, orgName?: string) {
+export function useOrganizationTeams(orgName?: string) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export function useOrganizationTeams(token: string, orgName?: string) {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchOrganizationTeams(orgName, token, search);
+        const data = await fetchOrganizationTeams(orgName, search);
         setTeams(data.teams);
         setTotal(data.total);
       } catch {
@@ -28,16 +28,16 @@ export function useOrganizationTeams(token: string, orgName?: string) {
         setLoading(false);
       }
     },
-    [orgName, token],
+    [orgName],
   );
 
   const createTeam = useCallback(
     async (payload: CreateTeamPayload) => {
       if (!orgName) return;
-      await createOrganizationTeam(orgName, payload, token);
+      await createOrganizationTeam(orgName, payload);
       await fetchTeams(searchQuery);
     },
-    [orgName, token, fetchTeams, searchQuery],
+    [orgName, fetchTeams, searchQuery],
   );
 
   return {

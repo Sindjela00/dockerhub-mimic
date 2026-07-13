@@ -62,6 +62,59 @@ describe("useRepository", () => {
     expect(result.current.loading).toBe(false);
   });
 
+  it("falls back to a generic error message when the response has no message", async () => {
+    vi.spyOn(api, "getRepositoryById").mockRejectedValue(new Error("boom"));
+
+    const { result } = renderHook(() => useRepository(1));
+
+    await waitFor(() =>
+      expect(result.current.error).toBe("Failed to load repository."),
+    );
+  });
+
+  it("does not update state after unmount when the load resolves late", async () => {
+    let resolve!: (v: { data: api.Repository }) => void;
+    vi.spyOn(api, "getRepositoryById").mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+
+    const { result, unmount } = renderHook(() => useRepository(1));
+    unmount();
+
+    resolve({ data: createMockRepo() });
+
+    // Give the resolved microtask a chance to run; state must stay untouched.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.repo).toBeNull();
+    expect(result.current.loading).toBe(true);
+  });
+
+  it("does not update state after unmount when the load rejects late", async () => {
+    let reject!: (err: unknown) => void;
+    vi.spyOn(api, "getRepositoryById").mockReturnValue(
+      new Promise((_, r) => {
+        reject = r;
+      }),
+    );
+
+    const { result, unmount } = renderHook(() => useRepository(1));
+    unmount();
+
+    reject(new Error("late failure"));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.error).toBe("");
+    expect(result.current.loading).toBe(true);
+  });
+
   it("handles missing ID", () => {
     const { result } = renderHook(() => useRepository(undefined));
 

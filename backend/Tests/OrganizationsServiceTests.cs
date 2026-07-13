@@ -427,6 +427,21 @@ public sealed class OrganizationsServiceTests
         Assert.AreEqual(1, result.Data!.Total);
     }
 
+    [TestMethod]
+    public async Task GetOrganizationMembersAsync_AsSuperAdmin_ReturnsMembers()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var superAdmin = await TestHelpers.AddUserAsync(dbContext, "superadmin", "superadmin@example.com", User.RoleSuperAdmin);
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.GetOrganizationMembersAsync("acme", superAdmin.Username, User.RoleSuperAdmin, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(1, result.Data!.Total);
+    }
+
     // ---- UpdateOrganization ----
 
     [TestMethod]

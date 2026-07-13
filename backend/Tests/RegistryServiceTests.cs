@@ -5,7 +5,7 @@ using backend.Data;
 using backend.Models;
 using backend.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace backend.Tests;
 
@@ -78,10 +78,10 @@ public sealed class RegistryServiceTests
     public async Task GetRegistryTokenAsync_WithCachedCredentials_UsesAccountFallback()
     {
         using var dbContext = TestHelpers.CreateDbContext();
-        var cache = new MemoryCache(new MemoryCacheOptions());
+        var cache = TestHelpers.CreateCache();
         var user = await TestHelpers.AddUserAsync(dbContext, "demo", "demo@example.com");
         await TestHelpers.AddRepositoryAsync(dbContext, user, "sample", "public", pullCount: 0);
-        cache.Set("registry_creds_demo", ("demo", "Password1"));
+        await cache.SetStringAsync("registry_creds_demo", "Password1");
 
         var service = CreateService(dbContext, cache);
         var result = await service.GetRegistryTokenAsync(null, "demo", "dockerhub-mimic-registry", null, ["repository:demo/sample:pull"], CancellationToken.None);
@@ -148,6 +148,25 @@ public sealed class RegistryServiceTests
 
         var result = await service.GetRegistryTokenAsync(authHeader, "orgowner", "registry", null,
             ["repository:myorg/backend:push,pull"], CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        var actions = ParseGrantedActions(result.Token!);
+        CollectionAssert.AreEquivalent(new[] { "push", "pull" }, actions);
+    }
+
+    [TestMethod]
+    public async Task GetRegistryTokenAsync_SuperAdminOnSomeoneElsesPrivateRepo_GrantsPushAndPull()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var superAdmin = await TestHelpers.AddUserAsync(dbContext, "superadmin", "superadmin@example.com", User.RoleSuperAdmin);
+        await TestHelpers.AddRepositoryAsync(dbContext, owner, "sample", "private", pullCount: 0);
+
+        var service = CreateService(dbContext);
+        var authHeader = $"Basic {Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("superadmin:Password1"))}";
+
+        var result = await service.GetRegistryTokenAsync(authHeader, "superadmin", "registry", null,
+            ["repository:owner/sample:push,pull"], CancellationToken.None);
 
         Assert.IsTrue(result.Succeeded);
         var actions = ParseGrantedActions(result.Token!);
@@ -397,7 +416,7 @@ public sealed class RegistryServiceTests
         await dbContext.SaveChangesAsync();
     }
 
-    private static RegistryService CreateService(AppDbContext dbContext, MemoryCache? cache = null)
+    private static RegistryService CreateService(AppDbContext dbContext, IDistributedCache? cache = null)
     {
         var privateKeyPath = Path.Combine(Path.GetTempPath(), $"registry-private-{Guid.NewGuid():N}.pem");
         using (var rsa = RSA.Create(2048))
@@ -410,6 +429,6 @@ public sealed class RegistryServiceTests
             new KeyValuePair<string, string?>("REGISTRY_JWT_EXPIRES_SECONDS", "3600")
         ]);
 
-        return new RegistryService(dbContext, cache ?? new MemoryCache(new MemoryCacheOptions()), configuration);
+        return new RegistryService(dbContext, cache ?? TestHelpers.CreateCache(), configuration);
     }
 }

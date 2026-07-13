@@ -11,7 +11,6 @@ import Button from "@/components/Button/Button";
 import { Loader2 } from "lucide-react";
 import Modal from "../Modal";
 import { RepositoryTeam } from "@/services/repositories/repositories.api";
-import { useAuth } from "@/context/AppContext";
 import { useTeamRepositories } from "@/services/organizations/useTeamRepositories/useTeamRepositories";
 
 interface AssignRepositoryModalProps {
@@ -29,8 +28,6 @@ export default function AssignRepositoryModal({
   repoId,
   assignedTeams,
 }: AssignRepositoryModalProps) {
-  const { token } = useAuth();
-
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [teamsError, setTeamsError] = useState<string | null>(null);
@@ -42,10 +39,10 @@ export default function AssignRepositoryModal({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !orgName || !token) return;
+    if (!isOpen || !orgName) return;
     setTeamsLoading(true);
     setTeamsError(null);
-    fetchOrganizationTeams(orgName, token)
+    fetchOrganizationTeams(orgName)
       .then((res) => {
         console.log("Fetched teams:", res.teams, assignedTeams);
         const filteredTeams = res.teams.filter(
@@ -58,13 +55,9 @@ export default function AssignRepositoryModal({
       })
       .catch((e) => setTeamsError(e?.message ?? "Failed to load teams"))
       .finally(() => setTeamsLoading(false));
-  }, [isOpen, orgName, token]);
+  }, [isOpen, orgName]);
 
-  const { addRepository } = useTeamRepositories(
-    token || "",
-    orgName,
-    selectedTeamName,
-  );
+  const { addRepository } = useTeamRepositories(orgName, selectedTeamName);
 
   const handleSubmit = async () => {
     if (!selectedTeamName) return;

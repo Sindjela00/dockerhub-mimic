@@ -18,7 +18,7 @@ interface OrganizationsState {
 
 const DEFAULT_PAGE_SIZE = 12;
 
-export function useOrganizations(token: string) {
+export function useOrganizations() {
   const [state, setState] = useState<OrganizationsState>({
     orgs: [],
     total: 0,
@@ -33,7 +33,7 @@ export function useOrganizations(token: string) {
     async (page = 1, search?: string, pageSize = DEFAULT_PAGE_SIZE) => {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
-        const res = await fetchOrganizations({ page, pageSize, search, token });
+        const res = await fetchOrganizations({ page, pageSize, search });
         setState((prev) => ({
           ...prev,
           orgs: res.organizations,
@@ -51,7 +51,7 @@ export function useOrganizations(token: string) {
         }));
       }
     },
-    [token],
+    [],
   );
 
   const addOrganization = useCallback(
@@ -70,7 +70,7 @@ export function useOrganizations(token: string) {
     ) => {
       setState((prev) => ({ ...prev, creating: true, error: null }));
       try {
-        const newOrg = await createOrganization(payload, token);
+        const newOrg = await createOrganization(payload);
 
         await fetch(state.page, undefined, state.pageSize);
 
@@ -87,7 +87,7 @@ export function useOrganizations(token: string) {
         return { success: false, error: errorMsg };
       }
     },
-    [token, fetch, state.page, state.pageSize],
+    [fetch, state.page, state.pageSize],
   );
 
   return {

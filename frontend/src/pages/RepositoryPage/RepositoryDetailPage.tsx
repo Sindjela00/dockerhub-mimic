@@ -30,6 +30,7 @@ import TagsTab from "./components/TabsContent/TabsContent";
 import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 import ErrorPage from "../ErrorPage/ErrorPage";
 import { useAuth } from "@/context/AppContext";
+import { isAdminRole } from "@/context/types/types";
 import TeamsTab from "./components/TeamsTab/TeamsTab";
 
 export default function RepositoryDetailPage() {
@@ -164,7 +165,7 @@ export default function RepositoryDetailPage() {
             onToggle={toggleStar}
           />
           <div
-            className={`${role === "Admin" ? "" : "hidden"} flex items-center gap-2`}
+            className={`${isAdminRole(role) ? "" : "hidden"} flex items-center gap-2`}
           >
             <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
               <Pencil size={13} /> Edit

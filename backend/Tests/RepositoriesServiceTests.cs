@@ -23,6 +23,7 @@ public sealed class RepositoriesServiceTests
             sortDir: null,
             mine: true,
             starred: false,
+            badges: null,
             page: 1,
             pageSize: 20,
             currentUsername: null,
@@ -54,6 +55,7 @@ public sealed class RepositoriesServiceTests
             sortDir: "asc",
             mine: false,
             starred: false,
+            badges: null,
             page: 1,
             pageSize: 20,
             currentUsername: "demo",
@@ -87,6 +89,7 @@ public sealed class RepositoriesServiceTests
             sortDir: "desc",
             mine: false,
             starred: false,
+            badges: null,
             page: 1,
             pageSize: 20,
             currentUsername: null,
@@ -100,6 +103,49 @@ public sealed class RepositoriesServiceTests
     }
 
     [TestMethod]
+    public async Task ExploreRepositoriesAsync_WithBadgesFilter_ReturnsOnlyMatchingBadges()
+    {
+        using var dbContext = CreateDbContext();
+        var verifiedOwner = await AddUserAsync(dbContext, "verified-owner", "verified@example.com");
+        verifiedOwner.VerifiedPublisher = true;
+        var sponsoredOwner = await AddUserAsync(dbContext, "sponsored-owner", "sponsored@example.com");
+        sponsoredOwner.SponsoredOSS = true;
+        var plainOwner = await AddUserAsync(dbContext, "plain-owner", "plain@example.com");
+        await dbContext.SaveChangesAsync();
+
+        await AddRepositoryAsync(dbContext, verifiedOwner, "verified-repo", "public", pullCount: 0);
+        await AddRepositoryAsync(dbContext, sponsoredOwner, "sponsored-repo", "public", pullCount: 0);
+        await AddRepositoryAsync(dbContext, plainOwner, "official-repo", "public", pullCount: 0, isOfficial: true);
+        await AddRepositoryAsync(dbContext, plainOwner, "plain-repo", "public", pullCount: 0);
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.ExploreRepositoriesAsync(
+            search: null,
+            owner: null,
+            visibility: null,
+            minStars: null,
+            sortBy: "name",
+            sortDir: "asc",
+            mine: false,
+            starred: false,
+            badges: "verified,official",
+            page: 1,
+            pageSize: 20,
+            currentUsername: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        var names = result.Data.Repositories.Select(r => r.Name).OrderBy(n => n).ToList();
+        CollectionAssert.AreEqual(new[] { "official-repo", "verified-repo" }, names);
+
+        var verifiedRepo = result.Data.Repositories.Single(r => r.Name == "verified-repo");
+        Assert.IsTrue(verifiedRepo.IsVerifiedPublisher);
+        Assert.IsFalse(verifiedRepo.IsSponsoredOss);
+    }
+
+    [TestMethod]
     public async Task CreateRepositoryAsync_WithValidInput_CreatesRepository()
     {
         using var dbContext = CreateDbContext();
@@ -110,7 +156,9 @@ public sealed class RepositoriesServiceTests
             name: "sample-repo",
             description: "Created from test",
             visibility: "public",
+            isOfficial: false,
             username: "demo",
+            userRole: User.RoleUser,
             cancellationToken: CancellationToken.None);
 
         Assert.IsTrue(result.Succeeded);
@@ -120,6 +168,71 @@ public sealed class RepositoriesServiceTests
         var storedRepository = await dbContext.Repositories.SingleAsync();
         Assert.AreEqual("sample-repo", storedRepository.Name);
         Assert.AreEqual("public", storedRepository.Visibility);
+    }
+
+    [TestMethod]
+    public async Task CreateRepositoryAsync_AsAdminWithIsOfficial_CreatesOfficialRepositoryWithoutPrefix()
+    {
+        using var dbContext = CreateDbContext();
+        await AddUserAsync(dbContext, "admin1", "admin1@example.com", User.RoleAdministrator);
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.CreateRepositoryAsync(
+            name: "nginx",
+            description: "Official nginx",
+            visibility: "private",
+            isOfficial: true,
+            username: "admin1",
+            userRole: User.RoleAdministrator,
+            cancellationToken: CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.IsTrue(result.Data.IsOfficial);
+        Assert.AreEqual("nginx", result.Data.FullName);
+        Assert.AreEqual("public", result.Data.Visibility);
+    }
+
+    [TestMethod]
+    public async Task CreateRepositoryAsync_AsRegularUserWithIsOfficial_ReturnsFailure()
+    {
+        using var dbContext = CreateDbContext();
+        await AddUserAsync(dbContext, "demo", "demo@example.com");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.CreateRepositoryAsync(
+            name: "nginx",
+            description: null,
+            visibility: "public",
+            isOfficial: true,
+            username: "demo",
+            userRole: User.RoleUser,
+            cancellationToken: CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.ErrorMessage, "administrators");
+    }
+
+    [TestMethod]
+    public async Task CreateRepositoryAsync_WithDuplicateOfficialName_ReturnsFailure()
+    {
+        using var dbContext = CreateDbContext();
+        var admin = await AddUserAsync(dbContext, "admin1", "admin1@example.com", User.RoleAdministrator);
+        await AddRepositoryAsync(dbContext, admin, "nginx", "public", pullCount: 0, isOfficial: true);
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.CreateRepositoryAsync(
+            name: "nginx",
+            description: null,
+            visibility: "public",
+            isOfficial: true,
+            username: "admin1",
+            userRole: User.RoleAdministrator,
+            cancellationToken: CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.ErrorMessage, "already exists");
     }
 
     [TestMethod]
@@ -190,6 +303,7 @@ public sealed class RepositoriesServiceTests
             sortDir: "asc",
             mine: false,
             starred: false,
+            badges: null,
             page: 1,
             pageSize: 20,
             currentUsername: "fan",
@@ -497,6 +611,7 @@ public sealed class RepositoriesServiceTests
             sortDir: "asc",
             mine: false,
             starred: true,
+            badges: null,
             page: 1,
             pageSize: 20,
             currentUsername: "fan",
@@ -676,7 +791,7 @@ public sealed class RepositoriesServiceTests
         var service = new RepositoriesService(dbContext);
         var result = await service.ExploreRepositoriesAsync(
             search: "sdk", owner: null, visibility: null, minStars: null,
-            sortBy: null, sortDir: null, mine: false, starred: false,
+            sortBy: null, sortDir: null, mine: false, starred: false, badges: null,
             page: 1, pageSize: 20, currentUsername: null, CancellationToken.None);
 
         Assert.IsTrue(result.Succeeded);
@@ -780,6 +895,20 @@ public sealed class RepositoriesServiceTests
 
         var service = new RepositoriesService(dbContext);
         var result = await service.GetRepositoryTeamsAsync(repo.Id, admin.Username, User.RoleAdministrator, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+    }
+
+    [TestMethod]
+    public async Task GetRepositoryTeamsAsync_SuperAdmin_CanViewWithoutMembership()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var superAdmin = await AddUserAsync(dbContext, "superadmin", "superadmin@example.com", User.RoleSuperAdmin);
+        var (_, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "private");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetRepositoryTeamsAsync(repo.Id, superAdmin.Username, User.RoleSuperAdmin, CancellationToken.None);
 
         Assert.IsTrue(result.Succeeded);
     }
@@ -957,6 +1086,55 @@ public sealed class RepositoriesServiceTests
         Assert.AreEqual("Forbidden", result.ErrorMessage);
     }
 
+    [TestMethod]
+    public async Task GetDashboardStatsAsync_WithNoUser_ReturnsUnauthorized()
+    {
+        using var dbContext = CreateDbContext();
+        var service = new RepositoriesService(dbContext);
+
+        var result = await service.GetDashboardStatsAsync(null, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Unauthorized", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task GetDashboardStatsAsync_WithOwnedRepositoriesAndOrgMembership_AggregatesStats()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "demo", "demo@example.com");
+        await AddRepositoryAsync(dbContext, owner, "repo1", "public", pullCount: 10, starCount: 2);
+        await AddRepositoryAsync(dbContext, owner, "repo2", "public", pullCount: 5, starCount: 1);
+        await SetupOrgRepo(dbContext, owner, "acme", "org-repo", "public");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetDashboardStatsAsync("demo", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual(3, result.Data.RepositoryCount);
+        Assert.AreEqual(15, result.Data.TotalPulls);
+        Assert.AreEqual(3, result.Data.TotalStars);
+        Assert.AreEqual(1, result.Data.TeamsCount);
+    }
+
+    [TestMethod]
+    public async Task GetDashboardStatsAsync_WithNoRepositories_ReturnsZeroes()
+    {
+        using var dbContext = CreateDbContext();
+        await AddUserAsync(dbContext, "demo", "demo@example.com");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.GetDashboardStatsAsync("demo", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNotNull(result.Data);
+        Assert.AreEqual(0, result.Data.RepositoryCount);
+        Assert.AreEqual(0, result.Data.TotalPulls);
+        Assert.AreEqual(0, result.Data.TotalStars);
+        Assert.AreEqual(0, result.Data.TeamsCount);
+    }
+
     // ---- Test helpers ----
 
     private static async Task<(Organization Org, Repository Repo)> SetupOrgRepo(
@@ -1036,7 +1214,7 @@ public sealed class RepositoriesServiceTests
         return user;
     }
 
-    private static async Task<Repository> AddRepositoryAsync(AppDbContext dbContext, User owner, string name, string visibility, int pullCount, int starCount = 0)
+    private static async Task<Repository> AddRepositoryAsync(AppDbContext dbContext, User owner, string name, string visibility, int pullCount, int starCount = 0, bool isOfficial = false)
     {
         var repository = new Repository
         {
@@ -1049,7 +1227,7 @@ public sealed class RepositoriesServiceTests
             UpdatedAt = DateTime.UtcNow,
             PullCount = pullCount,
             StarCount = starCount,
-            IsOfficial = false
+            IsOfficial = isOfficial
         };
 
         dbContext.Repositories.Add(repository);

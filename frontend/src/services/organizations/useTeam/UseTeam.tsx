@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useNavigate } from "react-router-dom";
 
-export function useTeam(token: string, orgName: string, teamName: string) {
+export function useTeam(orgName: string, teamName: string) {
   const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,14 +22,14 @@ export function useTeam(token: string, orgName: string, teamName: string) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchTeam(orgName, teamName, token);
+      const data = await fetchTeam(orgName, teamName);
       setTeam(data);
     } catch {
       setError("Failed to load team");
     } finally {
       setLoading(false);
     }
-  }, [orgName, teamName, token]);
+  }, [orgName, teamName]);
 
   useEffect(() => {
     fetch();
@@ -39,7 +39,7 @@ export function useTeam(token: string, orgName: string, teamName: string) {
     setDeleteLoading(true);
     setDeleteError(null);
     try {
-      await deleteTeam(orgName, teamName, token);
+      await deleteTeam(orgName, teamName);
       navigate(`/organizations/${orgName}`, { replace: true });
     } catch {
       setDeleteError("Failed to delete team. Please try again.");
@@ -47,11 +47,11 @@ export function useTeam(token: string, orgName: string, teamName: string) {
     } finally {
       setDeleteLoading(false);
     }
-  }, [orgName, teamName, token, navigate]);
+  }, [orgName, teamName, navigate]);
 
   const update = useCallback(
     async (payload: UpdateTeamPayload) => {
-      const updated = await updateTeam(orgName, teamName, payload, token);
+      const updated = await updateTeam(orgName, teamName, payload);
       setTeam(updated);
       if (payload.name !== teamName) {
         navigate(`/organizations/${orgName}/teams/${payload.name}`, {
@@ -59,7 +59,7 @@ export function useTeam(token: string, orgName: string, teamName: string) {
         });
       }
     },
-    [orgName, teamName, token, navigate],
+    [orgName, teamName, navigate],
   );
 
   return {

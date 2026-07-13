@@ -332,7 +332,7 @@ public class OrganizationsService : IOrganizationsService
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
         var isMember = currentUser is not null && organization.Members.Any(m => m.UserId == currentUser.Id);
-        var isAdmin = string.Equals(userRole, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(userRole);
         if (!isMember && !isAdmin)
             return new OrganizationsResult<OrganizationMemberListResponse>(false, null, "Forbidden");
 
@@ -449,7 +449,7 @@ public class OrganizationsService : IOrganizationsService
             return new OrganizationsResult<RepositoryListResponse>(false, null, "Organization not found.");
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
-        var isAdmin = string.Equals(userRole, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(userRole);
         var isMember = currentUser is not null && organization.Members.Any(m => m.UserId == currentUser.Id);
 
         var query = _dbContext.Repositories
@@ -524,7 +524,7 @@ public class OrganizationsService : IOrganizationsService
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
         var isMember = currentUser is not null && organization.Members.Any(m => m.UserId == currentUser.Id);
-        var isSystemAdmin = string.Equals(userRole, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isSystemAdmin = User.IsAdminRole(userRole);
         if (!isMember && !isSystemAdmin)
             return new OrganizationsResult<RepositoryResponse>(false, null, "Forbidden");
 
@@ -623,7 +623,7 @@ public class OrganizationsService : IOrganizationsService
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
         var isMember = currentUser is not null && org.Members.Any(m => m.UserId == currentUser.Id);
-        var isAdmin = string.Equals(userRole, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(userRole);
         if (!isMember && !isAdmin)
             return new OrganizationsResult<OrganizationTeamListResponse>(false, null, "Forbidden");
 
@@ -652,7 +652,7 @@ public class OrganizationsService : IOrganizationsService
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
         var isMember = currentUser is not null && org.Members.Any(m => m.UserId == currentUser.Id);
-        var isAdmin = string.Equals(userRole, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(userRole);
         if (!isMember && !isAdmin)
             return new OrganizationsResult<OrganizationTeamResponse>(false, null, "Forbidden");
 
@@ -757,7 +757,7 @@ public class OrganizationsService : IOrganizationsService
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
         var isMember = currentUser is not null && org.Members.Any(m => m.UserId == currentUser.Id);
-        var isAdmin = string.Equals(userRole, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(userRole);
         if (!isMember && !isAdmin)
             return new OrganizationsResult<OrganizationTeamMemberListResponse>(false, null, "Forbidden");
 
@@ -852,7 +852,7 @@ public class OrganizationsService : IOrganizationsService
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
         var isMember = currentUser is not null && org.Members.Any(m => m.UserId == currentUser.Id);
-        var isAdmin = string.Equals(userRole, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(userRole);
         if (!isMember && !isAdmin)
             return new OrganizationsResult<OrganizationTeamRepositoryListResponse>(false, null, "Forbidden");
 
@@ -1187,7 +1187,7 @@ public class OrganizationsService : IOrganizationsService
         if (currentUser is null)
             return false;
 
-        if (string.Equals(currentUserRole, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase))
+        if (User.IsAdminRole(currentUserRole))
             return true;
 
         var member = await _dbContext.OrganizationMembers

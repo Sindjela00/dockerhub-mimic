@@ -7,33 +7,27 @@ import {
 import { removeRepositoryFromTeam } from "@/services/organizations/organizations.api";
 import { useState } from "react";
 
-export function useRepositoryTeams(
-  repoId: number,
-  orgName: string,
-  token: string,
-) {
+export function useRepositoryTeams(repoId: number, orgName: string) {
   const [teams, setTeams] = useState<RepositoryTeam[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTeams = () => {
-    if (!orgName || !token) return;
+    if (!orgName) return;
     setLoading(true);
     setError(null);
-    getRepositoryTeams(repoId, token)
+    getRepositoryTeams(repoId)
       .then((res) => setTeams(res.data.teams))
       .catch((e) => setError(e?.message ?? "Failed to load teams"))
       .finally(() => setLoading(false));
   };
 
   const removeTeam = async (teamId: number, teamName: string) => {
-    if (!token) return;
-    await removeRepositoryFromTeam(orgName, teamName, repoId, token);
+    await removeRepositoryFromTeam(orgName, teamName, repoId);
     setTeams((prev) => prev.filter((t) => t.teamId !== teamId));
   };
 
   const updatePermission = async (teamId: number, permission: string) => {
-    if (!token) return;
     const previous = teams.find((t) => t.teamId === teamId)?.permission;
     setTeams((prev) =>
       prev.map((t) => (t.teamId === teamId ? { ...t, permission } : t)),

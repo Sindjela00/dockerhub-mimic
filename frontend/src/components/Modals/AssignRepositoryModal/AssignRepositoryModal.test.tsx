@@ -68,10 +68,6 @@ vi.mock("@/services/organizations/organizations.api", () => ({
     mockFetchOrganizationTeams(...args),
 }));
 
-vi.mock("@/context/AppContext", () => ({
-  useAuth: () => ({ token: "test-token" }),
-}));
-
 vi.mock("./types/types", () => ({
   PERMISSIONS: [
     { label: "Read", key: "read-only" },
@@ -213,13 +209,10 @@ describe("AssignRepositoryModal", () => {
       );
     });
 
-    it("calls fetchOrganizationTeams with orgName and token", async () => {
+    it("calls fetchOrganizationTeams with orgName", async () => {
       renderOpen();
       await waitFor(() =>
-        expect(mockFetchOrganizationTeams).toHaveBeenCalledWith(
-          "acme",
-          "test-token",
-        ),
+        expect(mockFetchOrganizationTeams).toHaveBeenCalledWith("acme"),
       );
     });
   });

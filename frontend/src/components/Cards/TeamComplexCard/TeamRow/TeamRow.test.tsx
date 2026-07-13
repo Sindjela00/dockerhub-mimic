@@ -9,12 +9,6 @@ vi.mock("react-router-dom", () => ({
   useNavigate: () => navigateMock,
 }));
 
-vi.mock("@/context/AppContext", () => ({
-  useAuth: () => ({
-    token: "token",
-  }),
-}));
-
 vi.mock("@/components/Modals/DeleteConfirmModal/DeleteConfirmModal", () => ({
   default: ({ isOpen, onDelete, error, loading }: any) =>
     isOpen ? (
@@ -72,7 +66,7 @@ describe("TeamRow", () => {
 
     fireEvent.click(screen.getByRole("button"));
 
-    expect(fetchReposMock).toHaveBeenCalledWith("org", "team-a", "token");
+    expect(fetchReposMock).toHaveBeenCalledWith("org", "team-a");
 
     await waitFor(() => {
       expect(screen.getByText("org/repo-1")).toBeInTheDocument();

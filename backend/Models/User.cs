@@ -9,8 +9,13 @@ namespace backend.Models;
 [Table("User")]
 public class User
 {
+    public const string RoleSuperAdmin = "SuperAdmin";
     public const string RoleAdministrator = "Administrator";
     public const string RoleUser = "User";
+
+    public static bool IsAdminRole(string? role) =>
+        string.Equals(role, RoleAdministrator, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(role, RoleSuperAdmin, StringComparison.OrdinalIgnoreCase);
 
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -29,6 +34,12 @@ public class User
 
     [Required]
     public string Role { get; set; } = RoleUser;
+
+    public bool MustChangePassword { get; set; }
+
+    public bool VerifiedPublisher { get; set; }
+
+    public bool SponsoredOSS { get; set; }
 
     [Column(TypeName = "timestamp with time zone")]
     public DateTime CreatedAt { get; set; }

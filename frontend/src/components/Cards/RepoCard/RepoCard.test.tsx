@@ -108,6 +108,27 @@ describe("RepoCard", async () => {
 
       expect(screen.queryByText("Official")).not.toBeInTheDocument();
     });
+
+    it("renders verified publisher badge when owner is a verified publisher", () => {
+      render(
+        <RepoCard repo={createMockRepo({ isVerifiedPublisher: true })} />,
+      );
+
+      expect(screen.getByText("Verified Publisher")).toBeInTheDocument();
+    });
+
+    it("renders sponsored OSS badge when owner is a sponsored OSS publisher", () => {
+      render(<RepoCard repo={createMockRepo({ isSponsoredOss: true })} />);
+
+      expect(screen.getByText("Sponsored OSS")).toBeInTheDocument();
+    });
+
+    it("does not render verified/sponsored badges by default", () => {
+      render(<RepoCard repo={createMockRepo()} />);
+
+      expect(screen.queryByText("Verified Publisher")).not.toBeInTheDocument();
+      expect(screen.queryByText("Sponsored OSS")).not.toBeInTheDocument();
+    });
   });
 
   describe("Tags", () => {

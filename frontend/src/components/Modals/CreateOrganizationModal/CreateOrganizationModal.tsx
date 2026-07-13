@@ -2,7 +2,6 @@ import { Building2 } from "lucide-react";
 import Button from "@/components/Button/Button";
 import InputField from "@/components/InputField/InputField";
 import Modal from "../Modal";
-import { useAuth } from "@/context/AppContext";
 import { useOrganizations } from "@/services/organizations/useOrganizations/useOrganizations";
 import { useState } from "react";
 
@@ -29,8 +28,7 @@ export default function CreateOrganizationModal({
   onClose,
   onSuccess,
 }: AddOrganizationModalProps) {
-  const { token } = useAuth();
-  const { addOrganization, creating } = useOrganizations(token ?? "");
+  const { addOrganization, creating } = useOrganizations();
 
   const [formData, setFormData] = useState<FormData>({
     name: "",

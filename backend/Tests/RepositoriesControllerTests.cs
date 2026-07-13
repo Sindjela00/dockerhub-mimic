@@ -80,6 +80,20 @@ public sealed class RepositoriesControllerTests
     }
 
     [TestMethod]
+    public async Task CreateRepository_WhenServiceRejectsOfficialForNonAdmin_ReturnsForbidden()
+    {
+        var service = new StubRepositoriesService
+        {
+            CreateResult = new RepositoriesResult<RepositoryResponse>(false, null, "Only administrators can create official repositories.")
+        };
+        var controller = CreateController(service, "demo", User.RoleUser);
+
+        var result = await controller.CreateRepository(new RepositoriesController.CreateRepositoryRequest("nginx", "desc", "public", true), CancellationToken.None);
+
+        Assert.IsInstanceOfType<ForbidResult>(result);
+    }
+
+    [TestMethod]
     public async Task UpdateRepository_WhenUnauthorizedUser_ReturnsUnauthorized()
     {
         var controller = CreateController(new StubRepositoriesService());
@@ -332,10 +346,11 @@ public sealed class RepositoriesControllerTests
         public RepositoriesResult<RepositoryTeamAccessListResponse> TeamAccessResult { get; set; } = new(true, new RepositoryTeamAccessListResponse(), null);
         public RepositoriesResult<RepositoryTeamAccessResponse> SetTeamPermissionResult { get; set; } = new(true, new RepositoryTeamAccessResponse(), null);
         public RepositoriesResult<string> RemoveTeamResult { get; set; } = new(true, "removed", null);
+        public RepositoriesResult<UserDashboardStatsResponse> DashboardStatsResult { get; set; } = new(true, new UserDashboardStatsResponse(), null);
         public string? LastCurrentUsername { get; private set; }
         public string? LastUserRole { get; private set; }
 
-        public Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir, bool mine, bool starred, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
+        public Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir, bool mine, bool starred, string? badges, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
         {
             LastCurrentUsername = currentUsername;
             return Task.FromResult(ExploreResult);
@@ -348,9 +363,10 @@ public sealed class RepositoriesControllerTests
             return Task.FromResult(GetRepositoryResult);
         }
 
-        public Task<RepositoriesResult<RepositoryResponse>> CreateRepositoryAsync(string name, string? description, string visibility, string username, CancellationToken cancellationToken)
+        public Task<RepositoriesResult<RepositoryResponse>> CreateRepositoryAsync(string name, string? description, string visibility, bool isOfficial, string username, string? userRole, CancellationToken cancellationToken)
         {
             LastCurrentUsername = username;
+            LastUserRole = userRole;
             return Task.FromResult(CreateResult);
         }
 
@@ -434,6 +450,12 @@ public sealed class RepositoriesControllerTests
             LastCurrentUsername = currentUsername;
             LastUserRole = userRole;
             return Task.FromResult(RemoveTeamResult);
+        }
+
+        public Task<RepositoriesResult<UserDashboardStatsResponse>> GetDashboardStatsAsync(string? currentUsername, CancellationToken cancellationToken)
+        {
+            LastCurrentUsername = currentUsername;
+            return Task.FromResult(DashboardStatsResult);
         }
     }
 }

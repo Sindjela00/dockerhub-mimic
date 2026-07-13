@@ -1,12 +1,45 @@
 using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 
 namespace backend.Tests;
 
+/// <summary>Minimal in-memory IDistributedCache stand-in for Redis in unit tests. Ignores expiration.</summary>
+internal sealed class FakeDistributedCache : IDistributedCache
+{
+    private readonly Dictionary<string, byte[]> _store = new();
+
+    public byte[]? Get(string key) => _store.TryGetValue(key, out var value) ? value : null;
+
+    public Task<byte[]?> GetAsync(string key, CancellationToken token = default) => Task.FromResult(Get(key));
+
+    public void Refresh(string key) { }
+
+    public Task RefreshAsync(string key, CancellationToken token = default) => Task.CompletedTask;
+
+    public void Remove(string key) => _store.Remove(key);
+
+    public Task RemoveAsync(string key, CancellationToken token = default)
+    {
+        Remove(key);
+        return Task.CompletedTask;
+    }
+
+    public void Set(string key, byte[] value, DistributedCacheEntryOptions options) => _store[key] = value;
+
+    public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default)
+    {
+        Set(key, value, options);
+        return Task.CompletedTask;
+    }
+}
+
 internal static class TestHelpers
 {
+    public static IDistributedCache CreateCache() => new FakeDistributedCache();
+
     public static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -40,7 +73,7 @@ internal static class TestHelpers
             .Build();
     }
 
-    public static async Task<User> AddUserAsync(AppDbContext dbContext, string username, string email, string role = User.RoleUser)
+    public static async Task<User> AddUserAsync(AppDbContext dbContext, string username, string email, string role = User.RoleUser, bool mustChangePassword = false)
     {
         var user = new User
         {
@@ -48,6 +81,7 @@ internal static class TestHelpers
             Email = email,
             PasswordHash = User.HashPassword("Password1"),
             Role = role,
+            MustChangePassword = mustChangePassword,
             CreatedAt = DateTime.UtcNow
         };
 

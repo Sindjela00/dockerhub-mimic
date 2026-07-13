@@ -19,7 +19,6 @@ vi.mock("@/services/organizations/organizations.api", () => ({
   removeRepositoryFromTeam: vi.fn(),
 }));
 
-const TOKEN = "test-token";
 const ORG_NAME = "acme";
 const TEAM_NAME = "eng";
 
@@ -77,7 +76,7 @@ beforeEach(() => {
 describe("initial state", () => {
   it("exposes correct zero values", () => {
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     expect(result.current.repositories).toEqual([]);
@@ -88,7 +87,7 @@ describe("initial state", () => {
   });
 
   it("does not auto-fetch on mount", () => {
-    renderHook(() => useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME));
+    renderHook(() => useTeamRepositories(ORG_NAME, TEAM_NAME));
 
     expect(fetchTeamRepositories).not.toHaveBeenCalled();
     expect(fetchOrganizationRepositories).not.toHaveBeenCalled();
@@ -102,7 +101,7 @@ describe("fetchRepos", () => {
     setupSuccessfulFetch(teamRepos, orgRepos);
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -112,9 +111,8 @@ describe("fetchRepos", () => {
     expect(fetchTeamRepositories).toHaveBeenCalledWith(
       ORG_NAME,
       TEAM_NAME,
-      TOKEN,
     );
-    expect(fetchOrganizationRepositories).toHaveBeenCalledWith(ORG_NAME, TOKEN);
+    expect(fetchOrganizationRepositories).toHaveBeenCalledWith(ORG_NAME);
     expect(result.current.repositories).toEqual(teamRepos);
     expect(result.current.orgRepositories).toEqual(orgRepos);
     expect(result.current.total).toBe(2);
@@ -136,7 +134,7 @@ describe("fetchRepos", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -151,7 +149,7 @@ describe("fetchRepos", () => {
 
   it("does nothing when orgName is empty", async () => {
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, "", TEAM_NAME),
+      useTeamRepositories("", TEAM_NAME),
     );
 
     await act(async () => {
@@ -165,7 +163,7 @@ describe("fetchRepos", () => {
 
   it("does nothing when teamName is empty", async () => {
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, ""),
+      useTeamRepositories(ORG_NAME, ""),
     );
 
     await act(async () => {
@@ -189,7 +187,7 @@ describe("fetchRepos", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     act(() => {
@@ -212,7 +210,7 @@ describe("fetchRepos", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -231,7 +229,7 @@ describe("fetchRepos", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -252,7 +250,7 @@ describe("fetchRepos", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -271,7 +269,7 @@ describe("fetchRepos", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -293,7 +291,7 @@ describe("fetchRepos", () => {
     setupSuccessfulFetch([mockTeamRepo(1)], [mockOrgRepo(1)]);
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -316,39 +314,12 @@ describe("fetchRepos", () => {
     expect(result.current.orgRepositories).toEqual([mockOrgRepo(2)]);
   });
 
-  it("uses updated token after re-render", async () => {
-    setupSuccessfulFetch();
-
-    const { result, rerender } = renderHook(
-      ({ token }: { token: string }) =>
-        useTeamRepositories(token, ORG_NAME, TEAM_NAME),
-      { initialProps: { token: TOKEN } },
-    );
-
-    rerender({ token: "new-token" });
-    setupSuccessfulFetch();
-
-    await act(async () => {
-      await result.current.fetchRepos();
-    });
-
-    expect(fetchTeamRepositories).toHaveBeenLastCalledWith(
-      ORG_NAME,
-      TEAM_NAME,
-      "new-token",
-    );
-    expect(fetchOrganizationRepositories).toHaveBeenLastCalledWith(
-      ORG_NAME,
-      "new-token",
-    );
-  });
-
   it("uses updated orgName after re-render", async () => {
     setupSuccessfulFetch();
 
     const { result, rerender } = renderHook(
       ({ orgName }: { orgName: string }) =>
-        useTeamRepositories(TOKEN, orgName, TEAM_NAME),
+        useTeamRepositories(orgName, TEAM_NAME),
       { initialProps: { orgName: ORG_NAME } },
     );
 
@@ -362,11 +333,9 @@ describe("fetchRepos", () => {
     expect(fetchTeamRepositories).toHaveBeenLastCalledWith(
       "other-org",
       TEAM_NAME,
-      TOKEN,
     );
     expect(fetchOrganizationRepositories).toHaveBeenLastCalledWith(
       "other-org",
-      TOKEN,
     );
   });
 
@@ -375,7 +344,7 @@ describe("fetchRepos", () => {
 
     const { result, rerender } = renderHook(
       ({ teamName }: { teamName: string }) =>
-        useTeamRepositories(TOKEN, ORG_NAME, teamName),
+        useTeamRepositories(ORG_NAME, teamName),
       { initialProps: { teamName: TEAM_NAME } },
     );
 
@@ -389,7 +358,6 @@ describe("fetchRepos", () => {
     expect(fetchTeamRepositories).toHaveBeenLastCalledWith(
       ORG_NAME,
       "design",
-      TOKEN,
     );
   });
 });
@@ -408,7 +376,7 @@ describe("addRepository", () => {
     setupSuccessfulFetch();
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -419,7 +387,6 @@ describe("addRepository", () => {
       ORG_NAME,
       TEAM_NAME,
       payload,
-      TOKEN,
     );
   });
 
@@ -429,7 +396,7 @@ describe("addRepository", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await expect(
@@ -450,7 +417,7 @@ describe("removeRepository", () => {
     setupSuccessfulFetch([], [mockOrgRepo(1)]);
 
     const { result } = renderHook(() =>
-      useTeamRepositories(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamRepositories(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -465,7 +432,6 @@ describe("removeRepository", () => {
       ORG_NAME,
       TEAM_NAME,
       1,
-      TOKEN,
     );
   });
 });

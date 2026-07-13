@@ -70,13 +70,7 @@ function setupHooks({
 }
 
 function renderTab(role: "owner" | "admin" | "member" = "owner") {
-  return render(
-    <TeamsTab
-      orgName="my-org"
-      token="test-token"
-      organization={makeOrg(role)}
-    />,
-  );
+  return render(<TeamsTab orgName="my-org" organization={makeOrg(role)} />);
 }
 
 describe("TeamsTab", () => {

@@ -13,11 +13,9 @@ import { useTeamRepositories } from "@/services/organizations/useTeamRepositorie
 export function RepositoriesTab({
   orgName,
   teamName,
-  token,
 }: {
   orgName: string;
   teamName: string;
-  token: string;
 }) {
   const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -36,10 +34,10 @@ export function RepositoriesTab({
     fetchRepos,
     addRepository,
     removeRepository,
-  } = useTeamRepositories(token, orgName, teamName);
+  } = useTeamRepositories(orgName, teamName);
 
   const { repositories: orgRepos, fetchRepos: fetchOrgRepos } =
-    useOrganizationRepositories(token, orgName);
+    useOrganizationRepositories(orgName);
 
   const initialFetchDone = useRef(false);
   useEffect(() => {

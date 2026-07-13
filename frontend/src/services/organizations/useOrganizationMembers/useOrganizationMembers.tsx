@@ -6,7 +6,7 @@ import {
 } from "@/services/organizations/organizations.api";
 import { useCallback, useState } from "react";
 
-export function useOrganizationMembers(token: string, orgName?: string) {
+export function useOrganizationMembers(orgName?: string) {
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export function useOrganizationMembers(token: string, orgName?: string) {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchOrganizationMembers(orgName, token, search);
+        const data = await fetchOrganizationMembers(orgName, search);
         setMembers(data.members);
         setTotal(data.total);
       } catch {
@@ -28,16 +28,16 @@ export function useOrganizationMembers(token: string, orgName?: string) {
         setLoading(false);
       }
     },
-    [orgName, token],
+    [orgName],
   );
 
   const inviteMember = useCallback(
     async (payload: InviteMemberPayload) => {
       if (!orgName) return;
-      await inviteOrganizationMember(orgName, payload, token);
+      await inviteOrganizationMember(orgName, payload);
       await fetchMembers(searchQuery);
     },
-    [orgName, token, fetchMembers, searchQuery],
+    [orgName, fetchMembers, searchQuery],
   );
 
   return {

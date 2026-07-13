@@ -15,7 +15,6 @@ vi.mock("../organizations.api", () => ({
   deleteOrganization: vi.fn(),
 }));
 
-const TOKEN = "test-token";
 const ORG_NAME = "acme";
 
 const mockOrg = {
@@ -40,25 +39,19 @@ describe("initial fetch", () => {
   it("fetches the organization on mount and sets it", async () => {
     vi.mocked(fetchOrganization).mockResolvedValueOnce(mockOrg);
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     expect(result.current.loading).toBe(true);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(fetchOrganization).toHaveBeenCalledWith(ORG_NAME, TOKEN);
+    expect(fetchOrganization).toHaveBeenCalledWith(ORG_NAME);
     expect(result.current.organization).toEqual(mockOrg);
     expect(result.current.error).toBeNull();
   });
 
   it("does not fetch when orgName is missing", () => {
-    renderHook(() => useOrganization(TOKEN, undefined));
-
-    expect(fetchOrganization).not.toHaveBeenCalled();
-  });
-
-  it("does not fetch when token is empty", () => {
-    renderHook(() => useOrganization("", ORG_NAME));
+    renderHook(() => useOrganization(undefined));
 
     expect(fetchOrganization).not.toHaveBeenCalled();
   });
@@ -66,7 +59,7 @@ describe("initial fetch", () => {
   it("sets error state on fetch failure", async () => {
     vi.mocked(fetchOrganization).mockRejectedValueOnce(new Error("Not found"));
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -77,7 +70,7 @@ describe("initial fetch", () => {
   it("sets a generic error message for non-Error rejections", async () => {
     vi.mocked(fetchOrganization).mockRejectedValueOnce("something went wrong");
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -89,7 +82,7 @@ describe("initial fetch", () => {
       .mockRejectedValueOnce(new Error("First failure"))
       .mockResolvedValueOnce(mockOrg);
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     await waitFor(() => expect(result.current.error).toBe("First failure"));
 
@@ -113,7 +106,7 @@ describe("loading state", () => {
       }),
     );
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     expect(result.current.loading).toBe(true);
 
@@ -127,7 +120,7 @@ describe("loading state", () => {
   it("sets loading to false even when fetch throws", async () => {
     vi.mocked(fetchOrganization).mockRejectedValueOnce(new Error("oops"));
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
   });
@@ -137,7 +130,7 @@ describe("refetch", () => {
   it("re-calls fetchOrganization when invoked manually", async () => {
     vi.mocked(fetchOrganization).mockResolvedValue(mockOrg);
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -154,7 +147,7 @@ describe("refetch", () => {
       .mockResolvedValueOnce(mockOrg)
       .mockResolvedValueOnce(updatedOrg);
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     await waitFor(() => expect(result.current.organization).toEqual(mockOrg));
 
@@ -171,7 +164,7 @@ describe("remove", () => {
     vi.mocked(fetchOrganization).mockResolvedValue(mockOrg);
     vi.mocked(deleteOrganization).mockResolvedValueOnce(undefined);
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -179,7 +172,7 @@ describe("remove", () => {
       await result.current.remove();
     });
 
-    expect(deleteOrganization).toHaveBeenCalledWith(ORG_NAME, TOKEN);
+    expect(deleteOrganization).toHaveBeenCalledWith(ORG_NAME);
     expect(mockNavigate).toHaveBeenCalledWith("/organizations", {
       replace: true,
     });
@@ -195,7 +188,7 @@ describe("remove", () => {
       }),
     );
 
-    const { result } = renderHook(() => useOrganization(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganization(ORG_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -218,7 +211,7 @@ describe("dependency changes", () => {
     vi.mocked(fetchOrganization).mockResolvedValue(mockOrg);
 
     const { result, rerender } = renderHook(
-      ({ orgName }: { orgName: string }) => useOrganization(TOKEN, orgName),
+      ({ orgName }: { orgName: string }) => useOrganization(orgName),
       { initialProps: { orgName: "acme" } },
     );
 
@@ -227,22 +220,6 @@ describe("dependency changes", () => {
     rerender({ orgName: "other-org" });
 
     await waitFor(() => expect(fetchOrganization).toHaveBeenCalledTimes(2));
-    expect(fetchOrganization).toHaveBeenLastCalledWith("other-org", TOKEN);
-  });
-
-  it("re-fetches when token changes", async () => {
-    vi.mocked(fetchOrganization).mockResolvedValue(mockOrg);
-
-    const { result, rerender } = renderHook(
-      ({ token }: { token: string }) => useOrganization(token, ORG_NAME),
-      { initialProps: { token: TOKEN } },
-    );
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    rerender({ token: "new-token" });
-
-    await waitFor(() => expect(fetchOrganization).toHaveBeenCalledTimes(2));
-    expect(fetchOrganization).toHaveBeenLastCalledWith(ORG_NAME, "new-token");
+    expect(fetchOrganization).toHaveBeenLastCalledWith("other-org");
   });
 });

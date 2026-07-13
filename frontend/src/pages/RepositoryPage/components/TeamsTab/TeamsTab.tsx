@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import AssignRepositoryModal from "@/components/Modals/AssignRepositoryModal/AssignRepositoryModal";
 import Button from "@/components/Button/Button";
 import { TeamCard } from "@/components/Cards/TeamCard/TeamCard";
-import { useAuth } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { useRepositoryTeams } from "@/services/repositories/useRepositoryTeams/useRepositoryTeams";
 
@@ -14,16 +13,15 @@ interface TeamsTabProps {
 }
 
 export default function TeamsTab({ orgName, repoId }: TeamsTabProps) {
-  const { token } = useAuth();
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { teams, loading, error, fetchTeams, removeTeam, updatePermission } =
-    useRepositoryTeams(repoId, orgName, token ?? "");
+    useRepositoryTeams(repoId, orgName);
 
   useEffect(() => {
     fetchTeams();
-  }, [orgName, token]);
+  }, [orgName]);
 
   if (loading) {
     return (

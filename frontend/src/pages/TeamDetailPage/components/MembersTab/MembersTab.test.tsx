@@ -19,39 +19,33 @@ vi.mock("@/components/Button/Button", () => ({
   ),
 }));
 
-vi.mock("@/components/Table/Table", () => ({
-  default: ({ data }: any) => (
-    <div data-testid="table">
-      {data.map((m: any) => (
-        <div key={m.userId}>{m.username}</div>
-      ))}
-    </div>
-  ),
-}));
-
 // Mock hooks
 const fetchMembersMock = vi.fn();
 const addMemberMock = vi.fn();
 const removeMemberMock = vi.fn();
 const fetchOrgMembersMock = vi.fn();
 
+const defaultMembers = [
+  {
+    userId: 1,
+    username: "john",
+    email: "john@test.com",
+    addedAt: "2024-01-01",
+  },
+];
+
+const useTeamMembersMock = vi.fn(() => ({
+  members: defaultMembers,
+  total: 1,
+  loading: false,
+  error: null,
+  fetchMembers: fetchMembersMock,
+  addMember: addMemberMock,
+  removeMember: removeMemberMock,
+}));
+
 vi.mock("@/services/organizations/useTeamMembers/useTeamMembers", () => ({
-  useTeamMembers: () => ({
-    members: [
-      {
-        userId: 1,
-        username: "john",
-        email: "john@test.com",
-        addedAt: "2024-01-01",
-      },
-    ],
-    total: 1,
-    loading: false,
-    error: null,
-    fetchMembers: fetchMembersMock,
-    addMember: addMemberMock,
-    removeMember: removeMemberMock,
-  }),
+  useTeamMembers: () => useTeamMembersMock(),
 }));
 
 vi.mock(
@@ -70,28 +64,96 @@ vi.mock(
 describe("MembersTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useTeamMembersMock.mockReturnValue({
+      members: defaultMembers,
+      total: 1,
+      loading: false,
+      error: null,
+      fetchMembers: fetchMembersMock,
+      addMember: addMemberMock,
+      removeMember: removeMemberMock,
+    });
   });
 
-  it("renders members count and table", () => {
-    render(<MembersTab orgName="org" teamName="team" token="token" />);
+  it("renders members count and table rows", () => {
+    render(<MembersTab orgName="org" teamName="team" />);
 
     expect(screen.getByText("1 members")).toBeInTheDocument();
-    expect(screen.getByTestId("table")).toBeInTheDocument();
     expect(screen.getByText("john")).toBeInTheDocument();
+    expect(screen.getAllByText("john@test.com").length).toBeGreaterThan(0);
+    expect(screen.getByText("@john")).toBeInTheDocument();
   });
 
   it("calls fetchMembers and fetchOrgMembers on mount", () => {
-    render(<MembersTab orgName="org" teamName="team" token="token" />);
+    render(<MembersTab orgName="org" teamName="team" />);
 
     expect(fetchMembersMock).toHaveBeenCalledTimes(1);
     expect(fetchOrgMembersMock).toHaveBeenCalledWith("");
   });
 
   it("opens modal when clicking Add member", () => {
-    render(<MembersTab orgName="org" teamName="team" token="token" />);
+    render(<MembersTab orgName="org" teamName="team" />);
 
     fireEvent.click(screen.getByText(/add member/i));
 
     expect(screen.getByTestId("add-modal")).toBeInTheDocument();
+  });
+
+  it("calls removeMember when Remove is clicked", () => {
+    render(<MembersTab orgName="org" teamName="team" />);
+
+    fireEvent.click(screen.getByText("Remove"));
+
+    expect(removeMemberMock).toHaveBeenCalledWith(1);
+  });
+
+  it("shows a loading state and hides the table", () => {
+    useTeamMembersMock.mockReturnValue({
+      members: [],
+      total: 0,
+      loading: true,
+      error: null,
+      fetchMembers: fetchMembersMock,
+      addMember: addMemberMock,
+      removeMember: removeMemberMock,
+    });
+
+    render(<MembersTab orgName="org" teamName="team" />);
+
+    expect(screen.getByText("Loading members...")).toBeInTheDocument();
+    expect(screen.queryByText("john")).not.toBeInTheDocument();
+  });
+
+  it("shows an error message and hides the table", () => {
+    useTeamMembersMock.mockReturnValue({
+      members: [],
+      total: 0,
+      loading: false,
+      error: "Failed to load members.",
+      fetchMembers: fetchMembersMock,
+      addMember: addMemberMock,
+      removeMember: removeMemberMock,
+    });
+
+    render(<MembersTab orgName="org" teamName="team" />);
+
+    expect(screen.getByText("Failed to load members.")).toBeInTheDocument();
+    expect(screen.queryByText("john")).not.toBeInTheDocument();
+  });
+
+  it("shows the empty state when there are no members", () => {
+    useTeamMembersMock.mockReturnValue({
+      members: [],
+      total: 0,
+      loading: false,
+      error: null,
+      fetchMembers: fetchMembersMock,
+      addMember: addMemberMock,
+      removeMember: removeMemberMock,
+    });
+
+    render(<MembersTab orgName="org" teamName="team" />);
+
+    expect(screen.getByText("No members found.")).toBeInTheDocument();
   });
 });

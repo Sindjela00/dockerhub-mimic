@@ -6,12 +6,12 @@ using System.Text;
 using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Services;
 
-public sealed record AuthResult(bool Succeeded, string Message, string? Token = null, string? Role = null);
+public sealed record AuthResult(bool Succeeded, string Message, string? Token = null, string? Role = null, bool MustChangePassword = false);
 
 public interface IAuthService
 {
@@ -25,9 +25,9 @@ public class AuthService : IAuthService
 {
     private readonly AppDbContext _dbContext;
     private readonly IConfiguration _configuration;
-    private readonly IMemoryCache _cache;
+    private readonly IDistributedCache _cache;
 
-    public AuthService(AppDbContext dbContext, IConfiguration configuration, IMemoryCache cache)
+    public AuthService(AppDbContext dbContext, IConfiguration configuration, IDistributedCache cache)
     {
         _dbContext = dbContext;
         _configuration = configuration;
@@ -91,12 +91,12 @@ public class AuthService : IAuthService
 
         var cacheKey = $"registry_creds_{user!.Username}";
         var jwtExpiresMinutes = _configuration.GetValue<int?>("Jwt:ExpiresMinutes") ?? 60;
-        _cache.Set(cacheKey, (user.Username, password), new MemoryCacheEntryOptions
+        await _cache.SetStringAsync(cacheKey, password, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(jwtExpiresMinutes)
-        });
+        }, cancellationToken);
 
-        return new AuthResult(true, "Login successful.", token, user.Role);
+        return new AuthResult(true, "Login successful.", token, user.Role, user.MustChangePassword);
     }
 
     public async Task<AuthResult> ChangePasswordAsync(string email, string oldPassword, string newPassword, CancellationToken cancellationToken)
@@ -117,9 +117,12 @@ public class AuthService : IAuthService
         }
 
         user!.PasswordHash = User.HashPassword(newPassword);
+        user.MustChangePassword = false;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new AuthResult(true, "Password changed successfully.");
+        var token = GenerateToken(user);
+
+        return new AuthResult(true, "Password changed successfully.", token, user.Role, false);
     }
 
     public string GenerateToken(User user)
@@ -139,7 +142,8 @@ public class AuthService : IAuthService
             new(JwtRegisteredClaimNames.Name, user.Username ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Email),
             new(ClaimTypes.Name, user.Username ?? string.Empty),
-            new(ClaimTypes.Role, user.Role)
+            new(ClaimTypes.Role, user.Role),
+            new("must_change_password", user.MustChangePassword ? "true" : "false")
         };
 
         var credentials = new SigningCredentials(

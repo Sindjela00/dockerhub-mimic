@@ -9,7 +9,7 @@ import api from "@/lib/api";
 
 const BASE_URL = "/api";
 
-export function useOrganizationInvites(token: string, orgName: string) {
+export function useOrganizationInvites(orgName: string) {
   const [invites, setInvites] = useState<OrganizationInvite[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,21 +18,21 @@ export function useOrganizationInvites(token: string, orgName: string) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchMembersInvites(orgName, token);
+      const res = await fetchMembersInvites(orgName);
       setInvites(res);
     } catch {
       setError("Failed to load invites.");
     } finally {
       setLoading(false);
     }
-  }, [token, orgName]);
+  }, [orgName]);
 
   const cancelInvite = useCallback(
     async (inviteId: number) => {
-      await cancelMemberInvite(inviteId, orgName, token);
+      await cancelMemberInvite(inviteId, orgName);
       await fetchInvites();
     },
-    [token, orgName, fetchInvites],
+    [orgName, fetchInvites],
   );
 
   return { invites, loading, error, fetchInvites, cancelInvite };

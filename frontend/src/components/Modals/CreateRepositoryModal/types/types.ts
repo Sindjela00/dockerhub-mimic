@@ -8,6 +8,7 @@ export interface FormState {
   name: string;
   description: string;
   visibility: RepoVisibility;
+  isOfficial: boolean;
 }
 
 export interface FormErrors {

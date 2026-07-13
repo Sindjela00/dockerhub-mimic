@@ -9,7 +9,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MemoryRouter } from "react-router-dom";
 import OrganizationsPage from "./OrganizationsPage";
-import { useAuth } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { useOrganizations } from "@/services/organizations/useOrganizations/useOrganizations";
 
@@ -20,7 +19,6 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: vi.fn() };
 });
 
-vi.mock("@/context/AppContext", () => ({ useAuth: vi.fn() }));
 vi.mock("@/services/organizations/useOrganizations/useOrganizations", () => ({
   useOrganizations: vi.fn(),
 }));
@@ -88,7 +86,6 @@ function setupMocks({
   loading = false,
   error = null as string | null,
 } = {}) {
-  (useAuth as any).mockReturnValue({ token: "test-token" });
   (useNavigate as any).mockReturnValue(mockNavigate);
   (useOrganizations as any).mockReturnValue({
     orgs,
@@ -137,26 +134,6 @@ describe("OrganizationsPage", () => {
       expect(mockFetchOrganizations).toHaveBeenCalledTimes(1);
     });
 
-    it("passes token to useOrganizations", () => {
-      setupMocks();
-      renderPage();
-      expect(useOrganizations).toHaveBeenCalledWith("test-token");
-    });
-
-    it("passes empty string when token is null", () => {
-      (useAuth as any).mockReturnValue({ token: null });
-      (useOrganizations as any).mockReturnValue({
-        orgs: [],
-        total: 0,
-        page: 1,
-        pageSize: 12,
-        loading: false,
-        error: null,
-        fetchOrganizations: mockFetchOrganizations,
-      });
-      renderPage();
-      expect(useOrganizations).toHaveBeenCalledWith("");
-    });
   });
 
   describe("header", () => {

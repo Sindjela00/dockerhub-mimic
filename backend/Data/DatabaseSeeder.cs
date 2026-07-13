@@ -1,4 +1,5 @@
 using backend.Models;
+using backend.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Data;
@@ -27,6 +28,8 @@ public class DatabaseSeeder
 		await EnsureRepositorySchemaAsync(cancellationToken);
 		await EnsureRepositoryTagSchemaAsync(cancellationToken);
 		await EnsureRepositoryCollaboratorSchemaAsync(cancellationToken);
+		await EnsureUserSchemaAsync(cancellationToken);
+		await EnsureSuperAdminAsync(cancellationToken);
 
 		var adminEmail = NormalizeEmail(_configuration.GetValue<string>("Seed:AdminEmail") ?? "admin@dockerhubmimic.local");
 		var demoEmail = NormalizeEmail(_configuration.GetValue<string>("Seed:DemoEmail") ?? "demo@dockerhubmimic.local");
@@ -198,6 +201,62 @@ public class DatabaseSeeder
 		await _dbContext.Database.ExecuteSqlRawAsync(
 			"CREATE UNIQUE INDEX IF NOT EXISTS \"IX_RepositoryCollaborator_RepositoryId_UserId\" ON \"RepositoryCollaborator\" (\"RepositoryId\", \"UserId\");",
 			cancellationToken);
+	}
+
+	private async Task EnsureUserSchemaAsync(CancellationToken cancellationToken)
+	{
+		await _dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE \"User\" ADD COLUMN IF NOT EXISTS \"MustChangePassword\" boolean NOT NULL DEFAULT false;", cancellationToken);
+		await _dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE \"User\" ADD COLUMN IF NOT EXISTS \"VerifiedPublisher\" boolean NOT NULL DEFAULT false;", cancellationToken);
+		await _dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE \"User\" ADD COLUMN IF NOT EXISTS \"SponsoredOSS\" boolean NOT NULL DEFAULT false;", cancellationToken);
+	}
+
+	private async Task EnsureSuperAdminAsync(CancellationToken cancellationToken)
+	{
+		var superAdminExists = await _dbContext.Users
+			.AnyAsync(user => user.Role == User.RoleSuperAdmin, cancellationToken);
+
+		if (superAdminExists)
+		{
+			return;
+		}
+
+		var email = NormalizeEmail(_configuration.GetValue<string>("Seed:SuperAdminEmail") ?? "superadmin@dockerhubmimic.local");
+		var username = NormalizeIdentifier(_configuration.GetValue<string>("Seed:SuperAdminUsername") ?? "superadmin");
+		var passwordFilePath = _configuration.GetValue<string>("Seed:SuperAdminPasswordFilePath")
+			?? (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true"
+				? "/app/secrets/super-admin-password.txt"
+				: Path.Combine("secrets", "super-admin-password.txt"));
+
+		var generatedPassword = SecurePasswordGenerator.Generate();
+
+		_dbContext.Users.Add(new User
+		{
+			Email = email,
+			Username = username,
+			PasswordHash = User.HashPassword(generatedPassword),
+			Role = User.RoleSuperAdmin,
+			MustChangePassword = true,
+			CreatedAt = DateTime.UtcNow
+		});
+
+		await _dbContext.SaveChangesAsync(cancellationToken);
+
+		try
+		{
+			var directory = Path.GetDirectoryName(passwordFilePath);
+			if (!string.IsNullOrEmpty(directory))
+			{
+				Directory.CreateDirectory(directory);
+			}
+
+			await File.WriteAllTextAsync(passwordFilePath, generatedPassword, cancellationToken);
+			_logger.LogInformation("Super-administrator account created; initial password written to {Path}", passwordFilePath);
+		}
+		catch (Exception ex)
+		{
+			_logger.LogCritical(ex, "Failed to write super-administrator initial password to {Path}", passwordFilePath);
+			throw;
+		}
 	}
 
 	private async Task<User> EnsureUserAsync(

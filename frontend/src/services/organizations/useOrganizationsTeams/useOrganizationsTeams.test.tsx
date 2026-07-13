@@ -13,7 +13,6 @@ vi.mock("@/services/organizations/organizations.api", () => ({
   createOrganizationTeam: vi.fn(),
 }));
 
-const TOKEN = "test-token";
 const ORG_NAME = "acme";
 
 const mockTeam = (id: number): Team => ({
@@ -39,7 +38,7 @@ beforeEach(() => {
 
 describe("initial state", () => {
   it("exposes correct zero values", () => {
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     expect(result.current.teams).toEqual([]);
     expect(result.current.total).toBe(0);
@@ -49,7 +48,7 @@ describe("initial state", () => {
   });
 
   it("does not auto-fetch on mount", () => {
-    renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    renderHook(() => useOrganizationTeams(ORG_NAME));
 
     expect(fetchOrganizationTeams).not.toHaveBeenCalled();
   });
@@ -62,13 +61,13 @@ describe("fetchTeams", () => {
       mockTeamsResponse(teams),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.fetchTeams();
     });
 
-    expect(fetchOrganizationTeams).toHaveBeenCalledWith(ORG_NAME, TOKEN, "");
+    expect(fetchOrganizationTeams).toHaveBeenCalledWith(ORG_NAME, "");
     expect(result.current.teams).toEqual(teams);
     expect(result.current.total).toBe(2);
     expect(result.current.error).toBeNull();
@@ -79,13 +78,13 @@ describe("fetchTeams", () => {
       mockTeamsResponse([]),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.fetchTeams();
     });
 
-    expect(fetchOrganizationTeams).toHaveBeenCalledWith(ORG_NAME, TOKEN, "");
+    expect(fetchOrganizationTeams).toHaveBeenCalledWith(ORG_NAME, "");
   });
 
   it("passes the search argument through to the API", async () => {
@@ -93,17 +92,17 @@ describe("fetchTeams", () => {
       mockTeamsResponse([]),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.fetchTeams("eng");
     });
 
-    expect(fetchOrganizationTeams).toHaveBeenCalledWith(ORG_NAME, TOKEN, "eng");
+    expect(fetchOrganizationTeams).toHaveBeenCalledWith(ORG_NAME, "eng");
   });
 
   it("does nothing when orgName is undefined", async () => {
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN));
+    const { result } = renderHook(() => useOrganizationTeams());
 
     await act(async () => {
       await result.current.fetchTeams();
@@ -121,7 +120,7 @@ describe("fetchTeams", () => {
       }),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     act(() => {
       result.current.fetchTeams();
@@ -141,7 +140,7 @@ describe("fetchTeams", () => {
       new Error("Network error"),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.fetchTeams();
@@ -155,7 +154,7 @@ describe("fetchTeams", () => {
       new Error("Server error"),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.fetchTeams();
@@ -171,7 +170,7 @@ describe("fetchTeams", () => {
       .mockRejectedValueOnce(new Error("First failure"))
       .mockResolvedValueOnce(mockTeamsResponse([mockTeam(1)]));
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.fetchTeams();
@@ -194,7 +193,7 @@ describe("fetchTeams", () => {
       .mockResolvedValueOnce(mockTeamsResponse(first))
       .mockResolvedValueOnce(mockTeamsResponse(second));
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.fetchTeams();
@@ -211,33 +210,12 @@ describe("fetchTeams", () => {
     expect(result.current.total).toBe(1);
   });
 
-  it("uses updated token after re-render", async () => {
-    vi.mocked(fetchOrganizationTeams).mockResolvedValue(mockTeamsResponse([]));
-
-    const { result, rerender } = renderHook(
-      ({ token }: { token: string }) => useOrganizationTeams(token, ORG_NAME),
-      { initialProps: { token: TOKEN } },
-    );
-
-    rerender({ token: "new-token" });
-
-    await act(async () => {
-      await result.current.fetchTeams();
-    });
-
-    expect(fetchOrganizationTeams).toHaveBeenCalledWith(
-      ORG_NAME,
-      "new-token",
-      "",
-    );
-  });
-
   it("uses updated orgName after re-render", async () => {
     vi.mocked(fetchOrganizationTeams).mockResolvedValue(mockTeamsResponse([]));
 
     const { result, rerender } = renderHook(
       ({ orgName }: { orgName: string }) =>
-        useOrganizationTeams(TOKEN, orgName),
+        useOrganizationTeams(orgName),
       { initialProps: { orgName: ORG_NAME } },
     );
 
@@ -247,7 +225,7 @@ describe("fetchTeams", () => {
       await result.current.fetchTeams();
     });
 
-    expect(fetchOrganizationTeams).toHaveBeenCalledWith("other-org", TOKEN, "");
+    expect(fetchOrganizationTeams).toHaveBeenCalledWith("other-org", "");
   });
 });
 
@@ -260,7 +238,7 @@ describe("createTeam", () => {
       mockTeamsResponse([]),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.createTeam(payload);
@@ -269,7 +247,6 @@ describe("createTeam", () => {
     expect(createOrganizationTeam).toHaveBeenCalledWith(
       ORG_NAME,
       payload,
-      TOKEN,
     );
   });
 
@@ -279,7 +256,7 @@ describe("createTeam", () => {
       mockTeamsResponse([mockTeam(10)]),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.createTeam(payload);
@@ -295,7 +272,7 @@ describe("createTeam", () => {
       mockTeamsResponse([]),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     act(() => {
       result.current.setSearchQuery("eng");
@@ -305,11 +282,11 @@ describe("createTeam", () => {
       await result.current.createTeam(payload);
     });
 
-    expect(fetchOrganizationTeams).toHaveBeenCalledWith(ORG_NAME, TOKEN, "eng");
+    expect(fetchOrganizationTeams).toHaveBeenCalledWith(ORG_NAME, "eng");
   });
 
   it("does nothing when orgName is undefined", async () => {
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN));
+    const { result } = renderHook(() => useOrganizationTeams());
 
     await act(async () => {
       await result.current.createTeam(payload);
@@ -324,7 +301,7 @@ describe("createTeam", () => {
       new Error("Duplicate team name"),
     );
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await expect(
       act(async () => {
@@ -345,7 +322,7 @@ describe("createTeam", () => {
 
     vi.mocked(createOrganizationTeam).mockResolvedValueOnce(mockTeam(2));
 
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     await act(async () => {
       await result.current.fetchTeams();
@@ -364,7 +341,7 @@ describe("createTeam", () => {
 
 describe("setSearchQuery", () => {
   it("updates searchQuery state", () => {
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     act(() => {
       result.current.setSearchQuery("design");
@@ -374,7 +351,7 @@ describe("setSearchQuery", () => {
   });
 
   it("can be cleared back to an empty string", () => {
-    const { result } = renderHook(() => useOrganizationTeams(TOKEN, ORG_NAME));
+    const { result } = renderHook(() => useOrganizationTeams(ORG_NAME));
 
     act(() => {
       result.current.setSearchQuery("design");

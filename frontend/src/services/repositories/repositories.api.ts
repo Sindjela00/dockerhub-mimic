@@ -11,6 +11,8 @@ export interface Repository {
   createdAt: string;
   updatedAt: string;
   isOfficial: boolean;
+  isVerifiedPublisher?: boolean;
+  isSponsoredOss?: boolean;
   starCount: number;
   tags: string[];
   isStarredByCurrentUser?: boolean;
@@ -31,9 +33,10 @@ export interface GetRepositoriesParams {
   visibility?: "all" | "public" | "private";
   search?: string;
   owner?: string;
-  sortBy?: "createdAt" | "stars";
+  sortBy?: "createdAt" | "stars" | "pulls";
   sortDir?: "asc" | "desc";
   starred?: boolean;
+  badges?: string[];
 }
 export interface RepositoriesResponse {
   repositories: Repository[];
@@ -46,6 +49,7 @@ export interface CreateRepositoryPayload {
   name: string;
   description: string;
   visibility: RepoVisibility;
+  isOfficial?: boolean;
 }
 
 export interface CreateRepositoryResponse {
@@ -123,11 +127,8 @@ export const updateRepositoryTeamPermission = (
 
 export const getRepositoryTeams = (
   repositoryId: number,
-  token: string,
 ): Promise<{ data: RepositoryTeamsResponse }> =>
-  api.get(`/api/repositories/${repositoryId}/teams`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  api.get(`/api/repositories/${repositoryId}/teams`);
 
 export const getMyRepositories = (
   params: GetRepositoriesParams = {},
@@ -142,6 +143,7 @@ export const getMyRepositories = (
     sortBy,
     sortDir,
     starred,
+    badges,
   } = params;
 
   return api.get("/api/repositories/explore", {
@@ -155,6 +157,9 @@ export const getMyRepositories = (
       ...(sortBy !== undefined ? { sortBy } : {}),
       ...(sortDir !== undefined ? { sortDir } : {}),
       ...(starred !== undefined ? { starred } : {}),
+      ...(badges !== undefined && badges.length > 0
+        ? { badges: badges.join(",") }
+        : {}),
     },
   });
 };
@@ -207,3 +212,13 @@ export const starRepository = (id: number) =>
 
 export const unstarRepository = (id: number) =>
   api.delete(`/api/repositories/${id}/star`);
+
+export interface DashboardStats {
+  repositoryCount: number;
+  totalStars: number;
+  totalPulls: number;
+  teamsCount: number;
+}
+
+export const getDashboardStats = (): Promise<{ data: DashboardStats }> =>
+  api.get("/api/repositories/stats");

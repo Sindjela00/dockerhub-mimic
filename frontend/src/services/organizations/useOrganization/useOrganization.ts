@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchOrganization } from "../organizations.api";
 import { useNavigate } from "react-router-dom";
 
-export function useOrganization(token: string, orgName?: string) {
+export function useOrganization(orgName?: string) {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -13,20 +13,20 @@ export function useOrganization(token: string, orgName?: string) {
   const navigate = useNavigate();
 
   const fetchOrg = useCallback(async () => {
-    if (!orgName || !token) return;
+    if (!orgName) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const org = await fetchOrganization(orgName, token);
+      const org = await fetchOrganization(orgName);
       setOrganization(org);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, [orgName, token]);
+  }, [orgName]);
 
   useEffect(() => {
     fetchOrg();
@@ -36,9 +36,8 @@ export function useOrganization(token: string, orgName?: string) {
     setDeleteLoading(true);
     setDeleteError(null);
     try {
-      if (!orgName || !token)
-        throw new Error("Organization name or token is missing");
-      await deleteOrganization(orgName, token);
+      if (!orgName) throw new Error("Organization name is missing");
+      await deleteOrganization(orgName);
       navigate("/organizations", { replace: true });
     } catch {
       setDeleteError("Failed to delete organization. Please try again.");
@@ -46,7 +45,7 @@ export function useOrganization(token: string, orgName?: string) {
     } finally {
       setDeleteLoading(false);
     }
-  }, [orgName, token, navigate]);
+  }, [orgName, navigate]);
 
   return {
     organization,
