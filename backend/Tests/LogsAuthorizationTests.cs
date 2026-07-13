@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -116,6 +117,9 @@ public sealed class LogsAuthorizationTests
 
                 services.RemoveAll<ILogSearchService>();
                 services.AddScoped<ILogSearchService, StubLogSearchService>();
+
+                services.RemoveAll<IDistributedCache>();
+                services.AddSingleton<IDistributedCache, FakeDistributedCache>();
             });
         }
     }

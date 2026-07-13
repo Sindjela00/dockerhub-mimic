@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -134,6 +135,9 @@ public sealed class MustChangePasswordAuthorizationTests
                 services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
                 services.RemoveAll<AppDbContext>();
                 services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(databaseName));
+
+                services.RemoveAll<IDistributedCache>();
+                services.AddSingleton<IDistributedCache, FakeDistributedCache>();
             });
         }
     }

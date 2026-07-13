@@ -6,7 +6,7 @@ using System.Text;
 using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Services;
@@ -25,9 +25,9 @@ public class AuthService : IAuthService
 {
     private readonly AppDbContext _dbContext;
     private readonly IConfiguration _configuration;
-    private readonly IMemoryCache _cache;
+    private readonly IDistributedCache _cache;
 
-    public AuthService(AppDbContext dbContext, IConfiguration configuration, IMemoryCache cache)
+    public AuthService(AppDbContext dbContext, IConfiguration configuration, IDistributedCache cache)
     {
         _dbContext = dbContext;
         _configuration = configuration;
@@ -91,10 +91,10 @@ public class AuthService : IAuthService
 
         var cacheKey = $"registry_creds_{user!.Username}";
         var jwtExpiresMinutes = _configuration.GetValue<int?>("Jwt:ExpiresMinutes") ?? 60;
-        _cache.Set(cacheKey, (user.Username, password), new MemoryCacheEntryOptions
+        await _cache.SetStringAsync(cacheKey, password, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(jwtExpiresMinutes)
-        });
+        }, cancellationToken);
 
         return new AuthResult(true, "Login successful.", token, user.Role, user.MustChangePassword);
     }

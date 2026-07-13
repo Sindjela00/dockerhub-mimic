@@ -53,7 +53,6 @@ builder.Services.AddScoped<IOrganizationsService, OrganizationsService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddHttpClient();
-builder.Services.AddMemoryCache();
 var jwtKey = builder.Configuration.GetValue<string>("Jwt:Key")
     ?? "CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_12345";
 var jwtIssuer = builder.Configuration.GetValue<string>("Jwt:Issuer") ?? "dockerhub-mimic";

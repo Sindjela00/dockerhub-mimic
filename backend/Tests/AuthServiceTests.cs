@@ -1,7 +1,7 @@
 using backend.Models;
 using backend.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace backend.Tests;
 
@@ -12,7 +12,7 @@ public sealed class AuthServiceTests
     public async Task RegisterAsync_WithInvalidUsername_ReturnsValidationError()
     {
         using var dbContext = TestHelpers.CreateDbContext();
-        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), new MemoryCache(new MemoryCacheOptions()));
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), TestHelpers.CreateCache());
 
         var result = await service.RegisterAsync("!", "user@example.com", "Password1", CancellationToken.None);
 
@@ -24,7 +24,7 @@ public sealed class AuthServiceTests
     public async Task LoginAsync_WithNormalizedEmail_CachesRegistryCredentials()
     {
         using var dbContext = TestHelpers.CreateDbContext();
-        var cache = new MemoryCache(new MemoryCacheOptions());
+        var cache = TestHelpers.CreateCache();
         dbContext.Users.Add(new User
         {
             Email = "user@example.com",
@@ -39,9 +39,8 @@ public sealed class AuthServiceTests
         var result = await service.LoginAsync(" USER@EXAMPLE.COM ", "Password1", CancellationToken.None);
 
         Assert.IsTrue(result.Succeeded);
-        Assert.IsTrue(cache.TryGetValue<(string Username, string Password)>("registry_creds_demo", out var cached));
-        Assert.AreEqual("demo", cached.Username);
-        Assert.AreEqual("Password1", cached.Password);
+        var cachedPassword = await cache.GetStringAsync("registry_creds_demo");
+        Assert.AreEqual("Password1", cachedPassword);
     }
 
     [TestMethod]
@@ -59,7 +58,7 @@ public sealed class AuthServiceTests
         });
         await dbContext.SaveChangesAsync();
 
-        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), new MemoryCache(new MemoryCacheOptions()));
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), TestHelpers.CreateCache());
         var result = await service.LoginAsync("locked", "Password1", CancellationToken.None);
 
         Assert.IsTrue(result.Succeeded);
@@ -81,7 +80,7 @@ public sealed class AuthServiceTests
         });
         await dbContext.SaveChangesAsync();
 
-        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), new MemoryCache(new MemoryCacheOptions()));
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), TestHelpers.CreateCache());
         var result = await service.ChangePasswordAsync("locked@example.com", "Password1", "Newpass1A", CancellationToken.None);
 
         Assert.IsTrue(result.Succeeded);
@@ -106,7 +105,7 @@ public sealed class AuthServiceTests
         });
         await dbContext.SaveChangesAsync();
 
-        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), new MemoryCache(new MemoryCacheOptions()));
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), TestHelpers.CreateCache());
         var result = await service.ChangePasswordAsync("user@example.com", "wrong", "Password2", CancellationToken.None);
 
         Assert.IsFalse(result.Succeeded);

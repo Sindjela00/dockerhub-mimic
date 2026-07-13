@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using backend.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -77,6 +78,9 @@ public sealed class ProgramIntegrationTests
                 services.RemoveAll<IRepositoriesService>();
                 services.AddScoped<IAuthService, StubAuthService>();
                 services.AddScoped<IRepositoriesService, StubRepositoriesService>();
+
+                services.RemoveAll<IDistributedCache>();
+                services.AddSingleton<IDistributedCache, FakeDistributedCache>();
             });
         }
     }

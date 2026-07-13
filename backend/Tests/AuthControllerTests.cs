@@ -4,7 +4,6 @@ using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 
 namespace backend.Tests;
@@ -220,7 +219,7 @@ public sealed class AuthControllerTests
             })
             .Build();
 
-        var tokenService = new AuthService(dbContext, config, new MemoryCache(new MemoryCacheOptions()));
+        var tokenService = new AuthService(dbContext, config, TestHelpers.CreateCache());
         return new AuthController(tokenService);
     }
 

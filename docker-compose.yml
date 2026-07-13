@@ -18,6 +18,18 @@ services:
       timeout: 5s
       retries: 5
 
+  mem-cache:
+    image: redis:7-alpine
+    container_name: mem-cache
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     container_name: backend
@@ -45,6 +57,7 @@ services:
       - Email__UseSsl=${EMAIL_USE_SSL}
       - App__BaseUrl=${APP_BASE_URL}
       - Elasticsearch__Uri=http://elasticsearch:9200
+      - Redis__Configuration=mem-cache:6379
     volumes:
       - ./deploy/registry/registry-private.pem:/app/registry-private.pem:ro
       - ./deploy/registry/registry-public.crt:/app/registry-public.crt:ro
@@ -54,6 +67,8 @@ services:
       db:
         condition: service_healthy
       elasticsearch:
+        condition: service_healthy
+      mem-cache:
         condition: service_healthy
     restart: unless-stopped
 
@@ -128,3 +143,4 @@ volumes:
   registry_data:
   es_data:
   backend_logs:
+  redis_data:

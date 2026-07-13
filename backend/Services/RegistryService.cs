@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Services;
@@ -55,10 +55,10 @@ public interface IRegistryService
 public class RegistryService : IRegistryService
 {
     private readonly AppDbContext _dbContext;
-    private readonly IMemoryCache _cache;
+    private readonly IDistributedCache _cache;
     private readonly IConfiguration _configuration;
 
-    public RegistryService(AppDbContext dbContext, IMemoryCache cache, IConfiguration configuration)
+    public RegistryService(AppDbContext dbContext, IDistributedCache cache, IConfiguration configuration)
     {
         _dbContext = dbContext;
         _cache = cache;
@@ -81,10 +81,13 @@ public class RegistryService : IRegistryService
             username = Normalize(basicUsername);
             password = basicPassword;
         }
-        else if (!string.IsNullOrWhiteSpace(username)
-                 && _cache.TryGetValue<(string Username, string Password)>($"registry_creds_{username}", out var cachedCreds))
+        else if (!string.IsNullOrWhiteSpace(username))
         {
-            password = cachedCreds.Password;
+            var cachedPassword = await _cache.GetStringAsync($"registry_creds_{username}", cancellationToken);
+            if (cachedPassword is null)
+                return new RegistryTokenResult(false, null, 0, "Missing or invalid credentials for registry token.");
+
+            password = cachedPassword;
         }
         else
         {
