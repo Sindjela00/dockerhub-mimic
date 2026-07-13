@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { MemoryRouter } from "react-router-dom";
 import TeamsTab from "./TeamsTab";
-import { useAuth } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { useRepositoryTeams } from "@/services/repositories/useRepositoryTeams/useRepositoryTeams";
 
@@ -14,7 +13,6 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: vi.fn() };
 });
 
-vi.mock("@/context/AppContext", () => ({ useAuth: vi.fn() }));
 vi.mock(
   "@/services/repositories/useRepositoryTeams/useRepositoryTeams",
   () => ({ useRepositoryTeams: vi.fn() }),
@@ -78,7 +76,6 @@ function setupMocks({
   loading = false,
   error = null as string | null,
 } = {}) {
-  (useAuth as any).mockReturnValue({ token: "test-token" });
   (useNavigate as any).mockReturnValue(mockNavigate);
   (useRepositoryTeams as any).mockReturnValue({
     teams,
@@ -109,24 +106,10 @@ describe("TeamsTab (repository)", () => {
   // ── Hook initialization ───────────────────────────────────────────────────
 
   describe("hook initialization", () => {
-    it("passes repoId, orgName and token to useRepositoryTeams", () => {
+    it("passes repoId and orgName to useRepositoryTeams", () => {
       setupMocks();
       renderTab({ repoId: 42, orgName: "acme" });
-      expect(useRepositoryTeams).toHaveBeenCalledWith(42, "acme", "test-token");
-    });
-
-    it("passes empty string when token is null", () => {
-      (useAuth as any).mockReturnValue({ token: null });
-      (useRepositoryTeams as any).mockReturnValue({
-        teams: [],
-        loading: false,
-        error: null,
-        fetchTeams: mockFetchTeams,
-        removeTeam: mockRemoveTeam,
-        updatePermission: mockUpdatePermission,
-      });
-      renderTab();
-      expect(useRepositoryTeams).toHaveBeenCalledWith(10, "my-org", "");
+      expect(useRepositoryTeams).toHaveBeenCalledWith(42, "acme");
     });
 
     it("calls fetchTeams on mount", () => {
@@ -146,27 +129,6 @@ describe("TeamsTab (repository)", () => {
       expect(mockFetchTeams).toHaveBeenCalledTimes(2);
     });
 
-    it("re-fetches when token changes", () => {
-      (useAuth as any).mockReturnValue({ token: "token-a" });
-      (useRepositoryTeams as any).mockReturnValue({
-        teams: [],
-        loading: false,
-        error: null,
-        fetchTeams: mockFetchTeams,
-        removeTeam: mockRemoveTeam,
-        updatePermission: mockUpdatePermission,
-      });
-      const { rerender } = renderTab();
-
-      (useAuth as any).mockReturnValue({ token: "token-b" });
-      rerender(
-        <MemoryRouter>
-          <TeamsTab repoId={10} orgName="my-org" />
-        </MemoryRouter>,
-      );
-
-      expect(mockFetchTeams).toHaveBeenCalledTimes(2);
-    });
   });
 
   // ── Loading state ─────────────────────────────────────────────────────────

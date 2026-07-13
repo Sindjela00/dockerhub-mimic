@@ -21,7 +21,6 @@ vi.mock("@/services/organizations/organizations.api", () => ({
   updateTeam: vi.fn(),
 }));
 
-const TOKEN = "test-token";
 const ORG_NAME = "acme";
 const TEAM_NAME = "eng";
 
@@ -45,25 +44,25 @@ describe("initial fetch", () => {
   it("fetches the team on mount and stores it", async () => {
     vi.mocked(fetchTeam).mockResolvedValueOnce(mockTeam());
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     expect(result.current.loading).toBe(true);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(fetchTeam).toHaveBeenCalledWith(ORG_NAME, TEAM_NAME, TOKEN);
+    expect(fetchTeam).toHaveBeenCalledWith(ORG_NAME, TEAM_NAME);
     expect(result.current.team).toEqual(mockTeam());
     expect(result.current.error).toBeNull();
   });
 
   it("does not fetch when orgName is empty", async () => {
-    renderHook(() => useTeam(TOKEN, "", TEAM_NAME));
+    renderHook(() => useTeam("", TEAM_NAME));
 
     await waitFor(() => expect(fetchTeam).not.toHaveBeenCalled());
   });
 
   it("does not fetch when teamName is empty", async () => {
-    renderHook(() => useTeam(TOKEN, ORG_NAME, ""));
+    renderHook(() => useTeam(ORG_NAME, ""));
 
     await waitFor(() => expect(fetchTeam).not.toHaveBeenCalled());
   });
@@ -71,7 +70,7 @@ describe("initial fetch", () => {
   it("sets hardcoded error message on fetch failure", async () => {
     vi.mocked(fetchTeam).mockRejectedValueOnce(new Error("Not found"));
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -82,7 +81,7 @@ describe("initial fetch", () => {
   it("sets loading to false in finally even on failure", async () => {
     vi.mocked(fetchTeam).mockRejectedValueOnce(new Error("oops"));
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
   });
@@ -92,7 +91,7 @@ describe("refetch", () => {
   it("re-calls fetchTeam when invoked manually", async () => {
     vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -108,7 +107,7 @@ describe("refetch", () => {
       .mockRejectedValueOnce(new Error("First failure"))
       .mockResolvedValueOnce(mockTeam());
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() =>
       expect(result.current.error).toBe("Failed to load team"),
@@ -128,7 +127,7 @@ describe("refetch", () => {
       .mockResolvedValueOnce(mockTeam())
       .mockResolvedValueOnce(updated);
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.team).toEqual(mockTeam()));
 
@@ -143,7 +142,7 @@ describe("refetch", () => {
     vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
 
     const { result, rerender } = renderHook(
-      ({ orgName }: { orgName: string }) => useTeam(TOKEN, orgName, TEAM_NAME),
+      ({ orgName }: { orgName: string }) => useTeam(orgName, TEAM_NAME),
       { initialProps: { orgName: ORG_NAME } },
     );
 
@@ -152,7 +151,7 @@ describe("refetch", () => {
     rerender({ orgName: "other-org" });
 
     await waitFor(() => expect(fetchTeam).toHaveBeenCalledTimes(2));
-    expect(fetchTeam).toHaveBeenLastCalledWith("other-org", TEAM_NAME, TOKEN);
+    expect(fetchTeam).toHaveBeenLastCalledWith("other-org", TEAM_NAME);
   });
 
   it("re-fetches when teamName changes", async () => {
@@ -160,7 +159,7 @@ describe("refetch", () => {
 
     const { result, rerender } = renderHook(
       ({ teamName }: { teamName: string }) =>
-        useTeam(TOKEN, ORG_NAME, teamName),
+        useTeam(ORG_NAME, teamName),
       { initialProps: { teamName: TEAM_NAME } },
     );
 
@@ -169,28 +168,9 @@ describe("refetch", () => {
     rerender({ teamName: "design" });
 
     await waitFor(() => expect(fetchTeam).toHaveBeenCalledTimes(2));
-    expect(fetchTeam).toHaveBeenLastCalledWith(ORG_NAME, "design", TOKEN);
+    expect(fetchTeam).toHaveBeenLastCalledWith(ORG_NAME, "design");
   });
 
-  it("re-fetches when token changes", async () => {
-    vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
-
-    const { result, rerender } = renderHook(
-      ({ token }: { token: string }) => useTeam(token, ORG_NAME, TEAM_NAME),
-      { initialProps: { token: TOKEN } },
-    );
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    rerender({ token: "new-token" });
-
-    await waitFor(() => expect(fetchTeam).toHaveBeenCalledTimes(2));
-    expect(fetchTeam).toHaveBeenLastCalledWith(
-      ORG_NAME,
-      TEAM_NAME,
-      "new-token",
-    );
-  });
 });
 
 describe("deleteTeam", () => {
@@ -198,7 +178,7 @@ describe("deleteTeam", () => {
     vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
     vi.mocked(deleteTeam).mockResolvedValueOnce(undefined);
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -206,7 +186,7 @@ describe("deleteTeam", () => {
       await result.current.deleteTeam();
     });
 
-    expect(deleteTeam).toHaveBeenCalledWith(ORG_NAME, TEAM_NAME, TOKEN);
+    expect(deleteTeam).toHaveBeenCalledWith(ORG_NAME, TEAM_NAME);
     expect(mockNavigate).toHaveBeenCalledWith(`/organizations/${ORG_NAME}`, {
       replace: true,
     });
@@ -222,7 +202,7 @@ describe("deleteTeam", () => {
       }),
     );
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -243,7 +223,7 @@ describe("deleteTeam", () => {
     vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
     vi.mocked(deleteTeam).mockRejectedValueOnce(new Error("Server error"));
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -265,7 +245,7 @@ describe("updateTeam", () => {
     vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
     vi.mocked(updateTeam).mockResolvedValueOnce(updated);
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -277,7 +257,6 @@ describe("updateTeam", () => {
       ORG_NAME,
       TEAM_NAME,
       payload,
-      TOKEN,
     );
     expect(result.current.team).toEqual(updated);
   });
@@ -290,7 +269,7 @@ describe("updateTeam", () => {
       mockTeam({ description: "New description" }),
     );
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -310,7 +289,7 @@ describe("updateTeam", () => {
     vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
     vi.mocked(updateTeam).mockResolvedValueOnce(updated);
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -328,7 +307,7 @@ describe("updateTeam", () => {
     vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
     vi.mocked(updateTeam).mockRejectedValueOnce(new Error("Conflict"));
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -352,7 +331,7 @@ describe("updateTeam", () => {
     vi.mocked(fetchTeam).mockResolvedValue(mockTeam());
     vi.mocked(updateTeam).mockResolvedValueOnce(updated);
 
-    const { result } = renderHook(() => useTeam(TOKEN, ORG_NAME, TEAM_NAME));
+    const { result } = renderHook(() => useTeam(ORG_NAME, TEAM_NAME));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 

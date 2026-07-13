@@ -23,6 +23,12 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       window.location.href = "/login";
+    } else if (
+      error.response?.status === 403 &&
+      error.response?.data?.code === "MUST_CHANGE_PASSWORD"
+    ) {
+      localStorage.setItem("mustChangePassword", "true");
+      window.location.href = "/change-password?forced=true";
     }
     return Promise.reject(error);
   },

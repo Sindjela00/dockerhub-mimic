@@ -13,7 +13,6 @@ vi.mock("@/services/organizations/organizations.api", () => ({
   inviteOrganizationMember: vi.fn(),
 }));
 
-const TOKEN = "test-token";
 const ORG_NAME = "acme";
 
 const mockMember = (id: number): OrganizationMember => ({
@@ -37,7 +36,7 @@ beforeEach(() => {
 describe("initial state", () => {
   it("starts with empty members, zero total, no loading, and no error", () => {
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     expect(result.current.members).toEqual([]);
@@ -48,7 +47,7 @@ describe("initial state", () => {
   });
 
   it("does not auto-fetch on mount", () => {
-    renderHook(() => useOrganizationMembers(TOKEN, ORG_NAME));
+    renderHook(() => useOrganizationMembers(ORG_NAME));
 
     expect(fetchOrganizationMembers).not.toHaveBeenCalled();
   });
@@ -62,14 +61,14 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
       await result.current.fetchMembers();
     });
 
-    expect(fetchOrganizationMembers).toHaveBeenCalledWith(ORG_NAME, TOKEN, "");
+    expect(fetchOrganizationMembers).toHaveBeenCalledWith(ORG_NAME, "");
     expect(result.current.members).toEqual(members);
     expect(result.current.total).toBe(2);
     expect(result.current.error).toBeNull();
@@ -81,7 +80,7 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
@@ -90,7 +89,6 @@ describe("fetchMembers", () => {
 
     expect(fetchOrganizationMembers).toHaveBeenCalledWith(
       ORG_NAME,
-      TOKEN,
       "alice",
     );
   });
@@ -101,18 +99,18 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
       await result.current.fetchMembers();
     });
 
-    expect(fetchOrganizationMembers).toHaveBeenCalledWith(ORG_NAME, TOKEN, "");
+    expect(fetchOrganizationMembers).toHaveBeenCalledWith(ORG_NAME, "");
   });
 
   it("does nothing when orgName is undefined", async () => {
-    const { result } = renderHook(() => useOrganizationMembers(TOKEN));
+    const { result } = renderHook(() => useOrganizationMembers());
 
     await act(async () => {
       await result.current.fetchMembers();
@@ -131,7 +129,7 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     act(() => {
@@ -153,7 +151,7 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
@@ -169,7 +167,7 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
@@ -187,7 +185,7 @@ describe("fetchMembers", () => {
       .mockResolvedValueOnce(mockMembersResponse([mockMember(1)]));
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
@@ -212,7 +210,7 @@ describe("fetchMembers", () => {
       .mockResolvedValueOnce(mockMembersResponse(second));
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
@@ -240,7 +238,7 @@ describe("inviteMember", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
@@ -250,7 +248,6 @@ describe("inviteMember", () => {
     expect(inviteOrganizationMember).toHaveBeenCalledWith(
       ORG_NAME,
       payload,
-      TOKEN,
     );
   });
 
@@ -262,7 +259,7 @@ describe("inviteMember", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await act(async () => {
@@ -280,7 +277,7 @@ describe("inviteMember", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     act(() => {
@@ -296,13 +293,12 @@ describe("inviteMember", () => {
 
     expect(fetchOrganizationMembers).toHaveBeenCalledWith(
       ORG_NAME,
-      TOKEN,
       "alice",
     );
   });
 
   it("does nothing when orgName is undefined", async () => {
-    const { result } = renderHook(() => useOrganizationMembers(TOKEN));
+    const { result } = renderHook(() => useOrganizationMembers());
 
     await act(async () => {
       await result.current.inviteMember({
@@ -321,7 +317,7 @@ describe("inviteMember", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     await expect(
@@ -340,7 +336,7 @@ describe("inviteMember", () => {
 describe("setSearchQuery", () => {
   it("updates searchQuery state", () => {
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     act(() => {
@@ -352,7 +348,7 @@ describe("setSearchQuery", () => {
 
   it("can be cleared back to empty string", () => {
     const { result } = renderHook(() =>
-      useOrganizationMembers(TOKEN, ORG_NAME),
+      useOrganizationMembers(ORG_NAME),
     );
 
     act(() => {
@@ -368,29 +364,6 @@ describe("setSearchQuery", () => {
 });
 
 describe("dependency changes", () => {
-  it("uses updated token when fetchMembers is called after token change", async () => {
-    vi.mocked(fetchOrganizationMembers).mockResolvedValue(
-      mockMembersResponse([]),
-    );
-
-    const { result, rerender } = renderHook(
-      ({ token }: { token: string }) => useOrganizationMembers(token, ORG_NAME),
-      { initialProps: { token: TOKEN } },
-    );
-
-    rerender({ token: "new-token" });
-
-    await act(async () => {
-      await result.current.fetchMembers();
-    });
-
-    expect(fetchOrganizationMembers).toHaveBeenCalledWith(
-      ORG_NAME,
-      "new-token",
-      "",
-    );
-  });
-
   it("uses updated orgName when fetchMembers is called after orgName change", async () => {
     vi.mocked(fetchOrganizationMembers).mockResolvedValue(
       mockMembersResponse([]),
@@ -398,7 +371,7 @@ describe("dependency changes", () => {
 
     const { result, rerender } = renderHook(
       ({ orgName }: { orgName: string }) =>
-        useOrganizationMembers(TOKEN, orgName),
+        useOrganizationMembers(orgName),
       { initialProps: { orgName: ORG_NAME } },
     );
 
@@ -410,7 +383,6 @@ describe("dependency changes", () => {
 
     expect(fetchOrganizationMembers).toHaveBeenCalledWith(
       "other-org",
-      TOKEN,
       "",
     );
   });

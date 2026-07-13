@@ -29,18 +29,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isLoggedIn: !!token,
     email: token ? decodeEmail(token) : "",
     username: localStorage.getItem("username") ?? "",
+    mustChangePassword: localStorage.getItem("mustChangePassword") === "true",
   });
 
-  const setAuth = (token: string, role: string, username: string) => {
+  const setAuth = (
+    token: string,
+    role: string,
+    username: string,
+    mustChangePassword: boolean,
+  ) => {
     localStorage.setItem("token", token);
     localStorage.setItem("role", role);
     localStorage.setItem("username", username);
+    localStorage.setItem("mustChangePassword", String(mustChangePassword));
     setAuthState({
       token,
       role: role as Role,
       isLoggedIn: true,
       email: decodeEmail(token),
       username,
+      mustChangePassword,
     });
   };
 
@@ -48,12 +56,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("username");
+    localStorage.removeItem("mustChangePassword");
     setAuthState({
       token: null,
       role: null,
       isLoggedIn: false,
       email: "",
       username: "",
+      mustChangePassword: false,
     });
   };
 

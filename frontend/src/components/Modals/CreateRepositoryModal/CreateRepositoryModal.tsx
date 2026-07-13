@@ -5,6 +5,7 @@ import InputField from "@/components/InputField/InputField";
 import Modal from "@/components/Modals/Modal";
 import type { RepoVisibility } from "@/pages/RepositoriesPage/types/types";
 import { VisibilityToggle } from "./components/VisibilityToggle/VisibilityToggle";
+import { isAdminRole } from "@/context/types/types";
 import { useAuth } from "@/context/AppContext";
 import { useCreateRepository } from "@/services/repositories/useCreateRepository/useCreateRepository";
 import { useOrganizationRepositories } from "@/services/organizations/useOrganizationRepositories/useOrganizationRepositories";
@@ -28,6 +29,7 @@ const INITIAL_FORM = (): FormState => ({
   description: "",
   visibility: "public",
   owner: "",
+  isOfficial: false,
 });
 
 export default function CreateRepositoryModal({
@@ -39,15 +41,16 @@ export default function CreateRepositoryModal({
 }: CreateRepositoryModalProps) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM());
   const [errors, setErrors] = useState<FormErrors>({});
-  const { token } = useAuth();
 
+  const { role } = useAuth();
   const personalRepo = useCreateRepository();
-  const orgRepo = useOrganizationRepositories(token, owner.name);
+  const orgRepo = useOrganizationRepositories(owner.name);
 
   const loading = username ? personalRepo.loading : orgRepo.creating;
   const apiError = username ? personalRepo.error : orgRepo.createError;
 
   const ownerLabel = username ? username : owner.displayName;
+  const canCreateOfficial = !!username && isAdminRole(role);
 
   const validate = (): boolean => {
     const next: FormErrors = {};
@@ -63,10 +66,12 @@ export default function CreateRepositoryModal({
     e.preventDefault();
     if (!validate()) return;
 
+    const isOfficial = canCreateOfficial && form.isOfficial;
     const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
-      visibility: form.visibility as RepoVisibility,
+      visibility: isOfficial ? ("public" as RepoVisibility) : form.visibility,
+      ...(isOfficial ? { isOfficial: true } : {}),
     };
 
     const repo = username
@@ -126,14 +131,49 @@ export default function CreateRepositoryModal({
               )}
             </div>
             <div className="text-sm">
-              <span className="text-text-muted">Creating for </span>
-              <span className="text-text-primary">{ownerLabel}</span>
-              {!username && owner.name && owner.name !== owner.displayName && (
-                <span className="text-text-muted ml-1">({owner.name})</span>
+              {form.isOfficial ? (
+                <span className="text-text-primary">
+                  Official Docker Hub repository
+                </span>
+              ) : (
+                <>
+                  <span className="text-text-muted">Creating for </span>
+                  <span className="text-text-primary">{ownerLabel}</span>
+                  {!username &&
+                    owner.name &&
+                    owner.name !== owner.displayName && (
+                      <span className="text-text-muted ml-1">
+                        ({owner.name})
+                      </span>
+                    )}
+                </>
               )}
             </div>
           </div>
         </div>
+
+        {/* Official repository toggle (admins only) */}
+        {canCreateOfficial && (
+          <label className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg bg-bg-elevated border border-border cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.isOfficial}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, isOfficial: e.target.checked }))
+              }
+              className="mt-0.5 rounded border-border text-brand focus:ring-brand focus:ring-offset-0 focus:ring-2 cursor-pointer"
+            />
+            <span className="text-sm">
+              <span className="text-text-primary font-medium">
+                Official repository
+              </span>
+              <span className="block text-xs text-text-muted mt-0.5">
+                No owner prefix, gets the Docker Official Image badge, and is
+                always public.
+              </span>
+            </span>
+          </label>
+        )}
 
         {/* Repository Name */}
         <InputField
@@ -142,7 +182,7 @@ export default function CreateRepositoryModal({
           onChange={(v) => setForm((f) => ({ ...f, name: v.toLowerCase() }))}
           placeholder="my-image"
           error={errors.name}
-          prefix={`${ownerLabel}/`}
+          prefix={form.isOfficial ? undefined : `${ownerLabel}/`}
         />
 
         {/* Description */}
@@ -167,10 +207,12 @@ export default function CreateRepositoryModal({
         </div>
 
         {/* Visibility */}
-        <VisibilityToggle
-          value={form.visibility}
-          onChange={(v) => setForm((f) => ({ ...f, visibility: v }))}
-        />
+        {!form.isOfficial && (
+          <VisibilityToggle
+            value={form.visibility}
+            onChange={(v) => setForm((f) => ({ ...f, visibility: v }))}
+          />
+        )}
 
         {apiError && <p className="text-xs text-danger">{apiError}</p>}
 

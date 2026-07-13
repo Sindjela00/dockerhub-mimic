@@ -6,6 +6,9 @@ import type {
 } from "./types/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import BadgeFilter, {
+  type BadgeOption,
+} from "./components/BadgeFilter/BadgeFilter";
 import Button from "@/components/Button/Button";
 import CreateRepositoryModal from "../../components/Modals/CreateRepositoryModal/CreateRepositoryModal";
 import DeleteRepositoryModal from "../../components/Modals/DeleteRepositoryModal/DeleteRepositoryModal";
@@ -19,13 +22,13 @@ import RepoTable from "./components/RepoTable/RepoTable";
 import { type Repository } from "@/services/repositories/repositories.api";
 import ViewToggle from "./components/ViewToggle/ViewToggle";
 import { useAuth } from "@/context/AppContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useRepositories } from "@/services/repositories/useRepositories/useRepositories";
 import InputField from "@/components/InputField/InputField";
 
 type SortOption = {
   label: string;
-  sortBy: "createdAt" | "stars";
+  sortBy: "createdAt" | "stars" | "pulls";
   sortDir: "asc" | "desc";
 };
 
@@ -34,6 +37,7 @@ const sortOptions: SortOption[] = [
   { label: "Oldest", sortBy: "createdAt", sortDir: "asc" },
   { label: "Most stars", sortBy: "stars", sortDir: "desc" },
   { label: "Least stars", sortBy: "stars", sortDir: "asc" },
+  { label: "Most pulled", sortBy: "pulls", sortDir: "desc" },
 ];
 
 export default function RepositoriesPage() {
@@ -41,13 +45,21 @@ export default function RepositoriesPage() {
   const { username } = useAuth();
   const { repos, total, page, pageSize, loading, error, fetchRepositories } =
     useRepositories();
+  const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState("");
   const [visibility, setVisibility] = useState<VisibilityFilter>("all");
   const [mineOnly, setMineOnly] = useState(false);
-  const [starredOnly, setStarredOnly] = useState(false);
+  const [starredOnly, setStarredOnly] = useState(
+    searchParams.get("starred") === "true",
+  );
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>("all");
-  const [selectedSort, setSelectedSort] = useState<SortOption>(sortOptions[0]);
+  const [badges, setBadges] = useState<BadgeOption[]>([]);
+  const [selectedSort, setSelectedSort] = useState<SortOption>(
+    () =>
+      sortOptions.find((o) => o.sortBy === searchParams.get("sortBy")) ??
+      sortOptions[0],
+  );
   const [view, setView] = useState<ViewMode>("grid");
   const [modalOpen, setModalOpen] = useState(false);
   const [editRepo, setEditRepo] = useState<Repository | null>(null);
@@ -65,7 +77,8 @@ export default function RepositoriesPage() {
     visibility !== "all" ||
     timeRange !== "all" ||
     trimmedSearch.length > 0 ||
-    starredOnly;
+    starredOnly ||
+    badges.length > 0;
 
   const filtered = useMemo(() => {
     const now = Date.now();
@@ -107,7 +120,17 @@ export default function RepositoriesPage() {
   useEffect(() => {
     if (initialFetchDone.current) return;
     initialFetchDone.current = true;
-    fetchRepositories(1);
+    fetchRepositories(
+      1,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      starredOnly || undefined,
+      badges.length ? badges : undefined,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -128,6 +151,7 @@ export default function RepositoriesPage() {
       selectedSort.sortBy,
       selectedSort.sortDir,
       starredOnly || undefined,
+      badges.length ? badges : undefined,
     );
   };
 
@@ -142,6 +166,7 @@ export default function RepositoriesPage() {
       selectedSort.sortBy,
       selectedSort.sortDir,
       starredOnly || undefined,
+      badges.length ? badges : undefined,
     );
   };
 
@@ -156,6 +181,7 @@ export default function RepositoriesPage() {
       selectedSort.sortBy,
       selectedSort.sortDir,
       starredOnly || undefined,
+      badges.length ? badges : undefined,
     );
   };
 
@@ -170,6 +196,7 @@ export default function RepositoriesPage() {
       selectedSort.sortBy,
       selectedSort.sortDir,
       undefined,
+      badges.length ? badges : undefined,
     );
   };
 
@@ -183,6 +210,7 @@ export default function RepositoriesPage() {
       selectedSort.sortBy,
       selectedSort.sortDir,
       starredOnly || undefined,
+      badges.length ? badges : undefined,
     );
   };
 
@@ -196,6 +224,21 @@ export default function RepositoriesPage() {
       selectedSort.sortBy,
       selectedSort.sortDir,
       next ? true : undefined,
+      badges.length ? badges : undefined,
+    );
+  };
+
+  const handleBadgesChange = (next: BadgeOption[]) => {
+    setBadges(next);
+    fetchRepositories(
+      1,
+      mineOnly || undefined,
+      visibility === "all" ? undefined : visibility,
+      trimmedSearch || undefined,
+      selectedSort.sortBy,
+      selectedSort.sortDir,
+      starredOnly || undefined,
+      next.length ? next : undefined,
     );
   };
 
@@ -209,6 +252,7 @@ export default function RepositoriesPage() {
       option.sortBy,
       option.sortDir,
       starredOnly || undefined,
+      badges.length ? badges : undefined,
     );
   };
 
@@ -225,6 +269,7 @@ export default function RepositoriesPage() {
         selectedSort.sortBy,
         selectedSort.sortDir,
         starredOnly || undefined,
+        badges.length ? badges : undefined,
       );
     }, 300);
   };
@@ -240,6 +285,7 @@ export default function RepositoriesPage() {
       selectedSort.sortBy,
       selectedSort.sortDir,
       starredOnly || undefined,
+      badges.length ? badges : undefined,
     );
   };
 
@@ -253,6 +299,7 @@ export default function RepositoriesPage() {
       selectedSort.sortBy,
       selectedSort.sortDir,
       starredOnly || undefined,
+      badges.length ? badges : undefined,
     );
   };
 
@@ -283,49 +330,56 @@ export default function RepositoriesPage() {
       {/* Toolbar */}
       {!error && (
         <>
-          <div className="flex items-center gap-3 flex-wrap mt-4">
-            <InputField
-              value={search}
-              onChangeRaw={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search repositories..."
-              startIcon={<Search size={14} />}
-              className="flex-1 min-w-50"
-            />
-
-            <label className="flex items-center gap-2 shrink-0 h-10 px-3 rounded-lg bg-bg-elevated border border-border cursor-pointer text-sm text-text-secondary hover:text-text-primary transition-colors select-none">
-              <input
-                type="checkbox"
-                checked={mineOnly}
-                onChange={(e) => handleMineOnlyChange(e.target.checked)}
-                className="rounded border-border text-brand focus:ring-brand focus:ring-offset-0 focus:ring-2 cursor-pointer"
+          <div className="flex flex-col gap-2.5 mt-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <InputField
+                value={search}
+                onChangeRaw={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search repositories..."
+                startIcon={<Search size={14} />}
+                className="flex-1 min-w-50"
               />
-              <span>Mine only</span>
-            </label>
 
-            <select
-              value={selectedSort.label}
-              onChange={(e) =>
-                handleSortChange(
-                  sortOptions.find((o) => o.label === e.target.value)!,
-                )
-              }
-              className="shrink-0 h-10 px-3 rounded-lg bg-bg-elevated border border-border text-sm text-text-primary cursor-pointer focus:outline-none focus:border-border-strong transition-colors"
-            >
-              {sortOptions.map((option) => (
-                <option key={option.label} value={option.label}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              <label className="flex items-center gap-2 shrink-0 h-10 px-3 rounded-lg bg-bg-elevated border border-border cursor-pointer text-sm text-text-secondary hover:text-text-primary transition-colors select-none">
+                <input
+                  type="checkbox"
+                  checked={mineOnly}
+                  onChange={(e) => handleMineOnlyChange(e.target.checked)}
+                  className="rounded border-border text-brand focus:ring-brand focus:ring-offset-0 focus:ring-2 cursor-pointer"
+                />
+                <span>Mine only</span>
+              </label>
 
-            <FilterTabs
-              active={visibility}
-              onChange={handleVisibilityChange}
-              counts={total}
-              starredOnly={starredOnly}
-              onStarredChange={handleStarredChange}
-            />
-            <ViewToggle view={view} onChange={setView} />
+              <select
+                value={selectedSort.label}
+                onChange={(e) =>
+                  handleSortChange(
+                    sortOptions.find((o) => o.label === e.target.value)!,
+                  )
+                }
+                className="shrink-0 h-10 px-3 rounded-lg bg-bg-elevated border border-border text-sm text-text-primary cursor-pointer focus:outline-none focus:border-border-strong transition-colors"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.label} value={option.label}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <FilterTabs
+                active={visibility}
+                onChange={handleVisibilityChange}
+                counts={total}
+                starredOnly={starredOnly}
+                onStarredChange={handleStarredChange}
+              />
+              <ViewToggle view={view} onChange={setView} />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-text-muted shrink-0">Badges</span>
+              <BadgeFilter active={badges} onChange={handleBadgesChange} />
+            </div>
           </div>
 
           {/* Results */}

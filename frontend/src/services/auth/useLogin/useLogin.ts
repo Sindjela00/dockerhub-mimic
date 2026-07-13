@@ -23,13 +23,16 @@ export function useLogin(): UseLoginReturn {
 
     try {
       const { data } = await login(payload);
-      setAuth(data.token, data.role, payload.identifier);
+      setAuth(data.token, data.role, payload.identifier, data.mustChangePassword);
       if (data.token) {
-        const returnTo = searchParams.get("returnTo");
-        console.log("Login successful, navigating to:", returnTo ?? "/");
-        navigate(returnTo ? decodeURIComponent(returnTo) : "/", {
-          replace: true,
-        });
+        if (data.mustChangePassword) {
+          navigate("/change-password?forced=true", { replace: true });
+        } else {
+          const returnTo = searchParams.get("returnTo");
+          navigate(returnTo ? decodeURIComponent(returnTo) : "/", {
+            replace: true,
+          });
+        }
       }
     } catch (err: any) {
       const message =

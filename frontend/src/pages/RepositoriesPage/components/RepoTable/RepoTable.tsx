@@ -4,14 +4,7 @@ import { Edit2, Globe, Lock, Star, Trash2 } from "lucide-react";
 import { Repository } from "@/services/repositories/repositories.api";
 import Table from "@/components/Table/Table";
 import { useState } from "react";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+import { formatDate } from "@/utils/formatDate";
 
 function sortRepos(
   repos: Repository[],
@@ -41,9 +34,26 @@ const REPO_COLUMNS: ColumnDef<Repository>[] = [
           {repo.name.slice(0, 2).toUpperCase()}
         </div>
         <div>
-          <p className="text-sm font-medium text-text-primary">
-            {repo.fullName}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium text-text-primary">
+              {repo.fullName}
+            </p>
+            {repo.isOfficial && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-brand-muted text-brand font-medium">
+                Official
+              </span>
+            )}
+            {repo.isVerifiedPublisher && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-info-muted text-info font-medium">
+                Verified
+              </span>
+            )}
+            {repo.isSponsoredOss && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success-muted text-success font-medium">
+                Sponsored
+              </span>
+            )}
+          </div>
           {repo.description && (
             <p className="text-[11px] text-text-secondary truncate max-w-[240px]">
               {repo.description}

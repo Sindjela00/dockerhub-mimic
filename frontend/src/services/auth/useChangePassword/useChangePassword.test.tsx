@@ -6,15 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../context/AppContext";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
+import type { ChangePasswordResponse } from "../auth.api";
 import { useChangePassword } from "./useChangePassword";
 
 const changePasswordSpy = vi.spyOn(authApi, "changePassword");
-
-const mockNavigate = vi.fn();
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
-});
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <MemoryRouter>
@@ -28,42 +23,49 @@ const payload = {
   newPassword: "NewPass1",
 };
 
+const successResponse: ChangePasswordResponse = {
+  message: "Password changed successfully.",
+  token: "new-token",
+  role: "User",
+  mustChangePassword: false,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
 });
 
 describe("useChangePassword", () => {
-  it("uspesna promena lozinke vraca true", async () => {
-    changePasswordSpy.mockResolvedValueOnce({} as any);
+  it("uspesna promena lozinke vraca response podatke", async () => {
+    changePasswordSpy.mockResolvedValueOnce({ data: successResponse } as any);
 
     const { result } = renderHook(() => useChangePassword(), { wrapper });
 
-    let success = false;
+    let response: ChangePasswordResponse | null = null;
     await act(async () => {
-      success = await result.current.handleChangePassword(payload);
+      response = await result.current.handleChangePassword(payload);
     });
 
-    expect(success).toBe(true);
+    expect(response).toEqual(successResponse);
     expect(result.current.error).toBe("");
   });
 
-  it("neuspesna promena vraca false i postavlja gresku iz response", async () => {
+  it("neuspesna promena vraca null i postavlja gresku iz response", async () => {
     changePasswordSpy.mockRejectedValueOnce({
       response: { data: { message: "Invalid credentials." } },
     });
 
     const { result } = renderHook(() => useChangePassword(), { wrapper });
 
-    let success = true;
+    let response: ChangePasswordResponse | null = successResponse;
     await act(async () => {
-      success = await result.current.handleChangePassword({
+      response = await result.current.handleChangePassword({
         ...payload,
         oldPassword: "wrong",
       });
     });
 
-    expect(success).toBe(false);
+    expect(response).toBeNull();
     expect(result.current.error).toBe("Invalid credentials.");
   });
 
@@ -72,15 +74,15 @@ describe("useChangePassword", () => {
 
     const { result } = renderHook(() => useChangePassword(), { wrapper });
 
-    let success = true;
+    let response: ChangePasswordResponse | null = successResponse;
     await act(async () => {
-      success = await result.current.handleChangePassword({
+      response = await result.current.handleChangePassword({
         ...payload,
         oldPassword: "wrong",
       });
     });
 
-    expect(success).toBe(false);
+    expect(response).toBeNull();
     expect(result.current.error).toBe(
       "Password change failed. Please try again.",
     );
@@ -98,7 +100,7 @@ describe("useChangePassword", () => {
 
     expect(result.current.loading).toBe(false);
 
-    let callPromise: Promise<boolean>;
+    let callPromise: Promise<ChangePasswordResponse | null>;
     act(() => {
       callPromise = result.current.handleChangePassword(payload);
     });
@@ -106,7 +108,7 @@ describe("useChangePassword", () => {
     expect(result.current.loading).toBe(true);
 
     await act(async () => {
-      resolve!({});
+      resolve!({ data: successResponse });
       await callPromise;
     });
 
@@ -116,7 +118,7 @@ describe("useChangePassword", () => {
   it("resetuje error pri sledecoj uspesnoj promeni", async () => {
     changePasswordSpy
       .mockRejectedValueOnce(new Error("greška"))
-      .mockResolvedValueOnce({} as any);
+      .mockResolvedValueOnce({ data: successResponse } as any);
 
     const { result } = renderHook(() => useChangePassword(), { wrapper });
 

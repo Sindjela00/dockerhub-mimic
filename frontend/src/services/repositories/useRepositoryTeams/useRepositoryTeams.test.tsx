@@ -20,11 +20,9 @@ vi.mock("@/services/organizations/organizations.api", () => ({
 const mockTeam = { teamId: 1, teamName: "alpha", permission: "read" };
 const mockTeam2 = { teamId: 2, teamName: "beta", permission: "write" };
 
-function setup(
-  overrides: { repoId?: number; orgName?: string; token?: string } = {},
-) {
-  const { repoId = 10, orgName = "my-org", token = "test-token" } = overrides;
-  return renderHook(() => useRepositoryTeams(repoId, orgName, token));
+function setup(overrides: { repoId?: number; orgName?: string } = {}) {
+  const { repoId = 10, orgName = "my-org" } = overrides;
+  return renderHook(() => useRepositoryTeams(repoId, orgName));
 }
 
 describe("useRepositoryTeams", () => {
@@ -150,28 +148,20 @@ describe("useRepositoryTeams", () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
     });
 
-    it("calls getRepositoryTeams with repoId and token", async () => {
+    it("calls getRepositoryTeams with repoId", async () => {
       (getRepositoryTeams as any).mockResolvedValue({ data: { teams: [] } });
 
-      const { result } = setup({ repoId: 42, token: "my-token" });
+      const { result } = setup({ repoId: 42 });
       act(() => {
         result.current.fetchTeams();
       });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
-      expect(getRepositoryTeams).toHaveBeenCalledWith(42, "my-token");
+      expect(getRepositoryTeams).toHaveBeenCalledWith(42);
     });
 
     it("does nothing when orgName is empty", () => {
       const { result } = setup({ orgName: "" });
-      act(() => {
-        result.current.fetchTeams();
-      });
-      expect(getRepositoryTeams).not.toHaveBeenCalled();
-    });
-
-    it("does nothing when token is empty", () => {
-      const { result } = setup({ token: "" });
       act(() => {
         result.current.fetchTeams();
       });
@@ -215,7 +205,6 @@ describe("useRepositoryTeams", () => {
         "my-org",
         "alpha",
         10,
-        "test-token",
       );
     });
 
@@ -227,19 +216,6 @@ describe("useRepositoryTeams", () => {
       });
 
       expect(result.current.teams).toEqual([mockTeam]);
-    });
-
-    it("does nothing when token is empty", async () => {
-      (getRepositoryTeams as any).mockResolvedValue({
-        data: { teams: [mockTeam] },
-      });
-
-      const { result } = setup({ token: "" });
-      await act(async () => {
-        await result.current.removeTeam(1, "alpha");
-      });
-
-      expect(removeRepositoryFromTeam).not.toHaveBeenCalled();
     });
 
     it("propagates errors from removeRepositoryFromTeam", async () => {
@@ -378,14 +354,5 @@ describe("useRepositoryTeams", () => {
       );
     });
 
-    it("does nothing when token is empty", async () => {
-      const { result } = setup({ token: "" });
-
-      await act(async () => {
-        await result.current.updatePermission(1, "admin");
-      });
-
-      expect(updateRepositoryTeamPermission).not.toHaveBeenCalled();
-    });
   });
 });

@@ -29,6 +29,8 @@ public sealed record RepositoryResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public bool IsOfficial { get; set; }
+    public bool IsVerifiedPublisher { get; set; }
+    public bool IsSponsoredOss { get; set; }
     public int StarCount { get; set; }
     public int PullCount { get; set; }
     public List<string> Tags { get; set; } = new();
@@ -104,17 +106,25 @@ public sealed record RepositoryTeamAccessListResponse
     public int Total { get; set; }
 }
 
+public sealed record UserDashboardStatsResponse
+{
+    public int RepositoryCount { get; set; }
+    public int TotalStars { get; set; }
+    public int TotalPulls { get; set; }
+    public int TeamsCount { get; set; }
+}
+
 // --- Interface ---
 public interface IRepositoriesService
 {
     Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(
         string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir,
-        bool mine, bool starred, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken);
+        bool mine, bool starred, string? badges, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryResponse>> GetRepositoryAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryResponse>> CreateRepositoryAsync(
-        string name, string? description, string visibility, string username, CancellationToken cancellationToken);
+        string name, string? description, string visibility, bool isOfficial, string username, string? userRole, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<RepositoryResponse>> UpdateRepositoryAsync(
         int id, string? name, string? description, string? visibility, string? currentUsername, string? userRole, CancellationToken cancellationToken);
@@ -144,13 +154,14 @@ public interface IRepositoriesService
     Task<RepositoriesResult<RepositoryTeamAccessResponse>> SetRepositoryTeamPermissionAsync(int id, int teamId, string permission, string? currentUsername, string? userRole, CancellationToken cancellationToken);
 
     Task<RepositoriesResult<string>> RemoveRepositoryTeamAsync(int id, int teamId, string? currentUsername, string? userRole, CancellationToken cancellationToken);
+
+    Task<RepositoriesResult<UserDashboardStatsResponse>> GetDashboardStatsAsync(string? currentUsername, CancellationToken cancellationToken);
 }
 
 // --- Implementation ---
 public class RepositoriesService : IRepositoriesService
 {
     private readonly AppDbContext _dbContext;
-    private const string UserModelRoleAdmin = "Administrator";
 
     public RepositoriesService(AppDbContext dbContext)
     {
@@ -159,7 +170,7 @@ public class RepositoriesService : IRepositoriesService
 
     public async Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(
         string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir,
-        bool mine, bool starred, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
+        bool mine, bool starred, string? badges, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
     {
         (page, pageSize) = NormalizePaging(page, pageSize);
         var normalizedCurrentUsername = Normalize(currentUsername ?? string.Empty);
@@ -241,6 +252,25 @@ public class RepositoriesService : IRepositoriesService
         if (minStars.HasValue)
             query = query.Where(r => r.StarCount >= minStars.Value);
 
+        if (!string.IsNullOrWhiteSpace(badges))
+        {
+            var requestedBadges = badges.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(b => b.ToLowerInvariant())
+                .ToHashSet();
+
+            var wantsOfficial = requestedBadges.Contains("official");
+            var wantsVerified = requestedBadges.Contains("verified");
+            var wantsSponsored = requestedBadges.Contains("sponsored");
+
+            if (wantsOfficial || wantsVerified || wantsSponsored)
+            {
+                query = query.Where(r =>
+                    (wantsOfficial && r.IsOfficial)
+                    || (wantsVerified && r.Owner != null && r.Owner.VerifiedPublisher)
+                    || (wantsSponsored && r.Owner != null && r.Owner.SponsoredOSS));
+            }
+        }
+
         query = ApplySorting(query, sortBy, sortDir);
 
         var total = await query.CountAsync(cancellationToken);
@@ -303,7 +333,7 @@ public class RepositoriesService : IRepositoriesService
     }
 
     public async Task<RepositoriesResult<RepositoryResponse>> CreateRepositoryAsync(
-        string name, string? description, string visibility, string username, CancellationToken cancellationToken)
+        string name, string? description, string visibility, bool isOfficial, string username, string? userRole, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(name))
             return new RepositoriesResult<RepositoryResponse>(false, null, "Repository name is required.");
@@ -314,12 +344,19 @@ public class RepositoriesService : IRepositoriesService
         if (!IsValidVisibility(visibility))
             return new RepositoriesResult<RepositoryResponse>(false, null, "Visibility must be 'public' or 'private'.");
 
+        if (isOfficial && !User.IsAdminRole(userRole))
+            return new RepositoriesResult<RepositoryResponse>(false, null, "Only administrators can create official repositories.");
+
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
         if (user == null)
             return new RepositoriesResult<RepositoryResponse>(false, null, "User not found.");
 
         var normalizedName = name.Trim().ToLowerInvariant();
-        var exists = await _dbContext.Repositories.AnyAsync(r => r.OwnerId == user.Id && r.Name == normalizedName, cancellationToken);
+
+        // Official repositories have no owner/org prefix, so their names must be unique globally.
+        var exists = isOfficial
+            ? await _dbContext.Repositories.AnyAsync(r => r.IsOfficial && r.Name == normalizedName, cancellationToken)
+            : await _dbContext.Repositories.AnyAsync(r => r.OwnerId == user.Id && r.Name == normalizedName && !r.IsOfficial, cancellationToken);
         if (exists)
             return new RepositoriesResult<RepositoryResponse>(false, null, "Repository with this name already exists.");
 
@@ -328,8 +365,9 @@ public class RepositoriesService : IRepositoriesService
         {
             Name = normalizedName,
             Description = description ?? string.Empty,
-            Visibility = visibility,
+            Visibility = isOfficial ? "public" : visibility,
             OwnerId = user.Id,
+            IsOfficial = isOfficial,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -601,7 +639,7 @@ public class RepositoriesService : IRepositoriesService
 
         // Viewing team access is restricted to org members and system admins
         var normalized = Normalize(currentUsername ?? string.Empty);
-        var isSystemAdmin = string.Equals(userRole, UserModelRoleAdmin, StringComparison.OrdinalIgnoreCase);
+        var isSystemAdmin = User.IsAdminRole(userRole);
         var isMember = !string.IsNullOrWhiteSpace(normalized)
             && repo.Organization!.Members.Any(m => Normalize(m.User?.Username ?? string.Empty) == normalized);
         if (!isMember && !isSystemAdmin)
@@ -723,7 +761,7 @@ public class RepositoriesService : IRepositoriesService
         var normalized = Normalize(currentUsername ?? string.Empty);
         if (string.IsNullOrWhiteSpace(normalized)) return false;
 
-        var isAdmin = string.Equals(userRole, UserModelRoleAdmin, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(userRole);
         if (isAdmin)
             return true;
 
@@ -812,6 +850,8 @@ public class RepositoriesService : IRepositoriesService
             CreatedAt = repo.CreatedAt,
             UpdatedAt = repo.UpdatedAt,
             IsOfficial = repo.IsOfficial,
+            IsVerifiedPublisher = repo.Owner?.VerifiedPublisher ?? false,
+            IsSponsoredOss = repo.Owner?.SponsoredOSS ?? false,
             StarCount = repo.StarCount,
             PullCount = repo.PullCount,
             Tags = repo.Tags.Select(t => t.Name).ToList(),
@@ -971,6 +1011,37 @@ public class RepositoriesService : IRepositoriesService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new RepositoriesResult<RepositoryResponse>(true, MapDbRepositoryToResponse(repo), null);
+    }
+
+    public async Task<RepositoriesResult<UserDashboardStatsResponse>> GetDashboardStatsAsync(string? currentUsername, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(currentUsername))
+            return new RepositoriesResult<UserDashboardStatsResponse>(false, null, "Unauthorized");
+
+        var normalizedUsername = Normalize(currentUsername);
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Username == normalizedUsername, cancellationToken);
+
+        if (user is null)
+            return new RepositoriesResult<UserDashboardStatsResponse>(false, null, "User not found.");
+
+        var repositories = await _dbContext.Repositories
+            .Where(r => r.OwnerId == user.Id)
+            .Select(r => new { r.StarCount, r.PullCount })
+            .ToListAsync(cancellationToken);
+
+        var teamsCount = await _dbContext.OrganizationMembers
+            .CountAsync(m => m.UserId == user.Id, cancellationToken);
+
+        var stats = new UserDashboardStatsResponse
+        {
+            RepositoryCount = repositories.Count,
+            TotalStars = repositories.Sum(r => r.StarCount),
+            TotalPulls = repositories.Sum(r => r.PullCount),
+            TeamsCount = teamsCount,
+        };
+
+        return new RepositoriesResult<UserDashboardStatsResponse>(true, stats, null);
     }
 
     private static bool IsValidVisibility(string visibility) => visibility == "public" || visibility == "private";

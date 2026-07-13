@@ -44,11 +44,16 @@ services:
       - Email__Password=${EMAIL_PASSWORD}
       - Email__UseSsl=${EMAIL_USE_SSL}
       - App__BaseUrl=${APP_BASE_URL}
+      - Elasticsearch__Uri=http://elasticsearch:9200
     volumes:
       - ./deploy/registry/registry-private.pem:/app/registry-private.pem:ro
       - ./deploy/registry/registry-public.crt:/app/registry-public.crt:ro
+      - ./deploy/secrets:/app/secrets
+      - backend_logs:/app/logs
     depends_on:
       db:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     restart: unless-stopped
 
@@ -87,6 +92,39 @@ services:
       - backend
     restart: unless-stopped
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.0
+    container_name: filebeat
+    user: root
+    command: ["--strict.perms=false"]
+    volumes:
+      - ./deploy/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - backend_logs:/logs:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   registry_data:
+  es_data:
+  backend_logs:

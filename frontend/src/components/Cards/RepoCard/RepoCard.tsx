@@ -3,6 +3,7 @@ import { Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 import { Repository } from "@/services/repositories/repositories.api";
 import { TagComponent } from "@/components/Tag/Tag";
 import { formatDate } from "@/utils/formatDate";
+import { isAdminRole } from "@/context/types/types";
 import { useAuth } from "@/context/AppContext";
 import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 
@@ -92,7 +93,7 @@ export default function RepoCard({
               onEdit?.(repo);
             }}
             className={`p-1 rounded text-text-muted hover:text-brand
-                       hover:bg-bg-elevated transition-colors ${role === "Admin" ? "" : "hidden"}`}
+                       hover:bg-bg-elevated transition-colors ${isAdminRole(role) ? "" : "hidden"}`}
             title="Edit"
           >
             <Edit2 size={13} />
@@ -103,7 +104,7 @@ export default function RepoCard({
               onDelete?.(repo);
             }}
             className={`p-1 rounded text-text-muted hover:text-danger
-                       hover:bg-danger-muted transition-colors ${role === "Admin" ? "" : "hidden"}`}
+                       hover:bg-danger-muted transition-colors ${isAdminRole(role) ? "" : "hidden"}`}
             title="Delete"
           >
             <Trash2 size={13} />
@@ -156,6 +157,12 @@ export default function RepoCard({
         </span>
         {repo.isOfficial && (
           <TagComponent accentClass="brand">Official</TagComponent>
+        )}
+        {repo.isVerifiedPublisher && (
+          <TagComponent accentClass="info">Verified Publisher</TagComponent>
+        )}
+        {repo.isSponsoredOss && (
+          <TagComponent accentClass="success">Sponsored OSS</TagComponent>
         )}
       </div>
     </button>

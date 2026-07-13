@@ -10,7 +10,6 @@ import { RepositoriesTab } from "./components/RepositoriesTab/RepositoriesTab";
 import StatCard from "@/components/Cards/StatCard/StatCard";
 import { TagComponent } from "@/components/Tag/Tag";
 import { formatDate } from "@/utils/formatDate";
-import { useAuth } from "@/context/AppContext";
 import { useParams } from "react-router-dom";
 import { useState } from "react";
 import { useTeam } from "@/services/organizations/useTeam/UseTeam";
@@ -25,7 +24,6 @@ export default function TeamDetailPage() {
     orgName: string;
     teamName: string;
   }>();
-  const { token } = useAuth();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const {
@@ -36,7 +34,7 @@ export default function TeamDetailPage() {
     deleteTeam,
     deleteLoading,
     deleteError,
-  } = useTeam(token || "", orgName || "", teamName || "");
+  } = useTeam(orgName || "", teamName || "");
 
   if (!orgName || !teamName) {
     return (
@@ -148,18 +146,10 @@ export default function TeamDetailPage() {
 
       <div>
         {activeTab === "members" && (
-          <MembersTab
-            orgName={orgName}
-            teamName={teamName}
-            token={token || ""}
-          />
+          <MembersTab orgName={orgName} teamName={teamName} />
         )}
         {activeTab === "repositories" && (
-          <RepositoriesTab
-            orgName={orgName}
-            teamName={teamName}
-            token={token || ""}
-          />
+          <RepositoriesTab orgName={orgName} teamName={teamName} />
         )}
       </div>
 

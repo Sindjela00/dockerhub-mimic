@@ -95,11 +95,7 @@ function setupHooks({
 
 function renderTab(orgRole: "owner" | "admin" | "member" = "owner") {
   return render(
-    <MembersTab
-      orgName="my-org"
-      token="test-token"
-      organization={makeOrg(orgRole)}
-    />,
+    <MembersTab orgName="my-org" organization={makeOrg(orgRole)} />,
   );
 }
 

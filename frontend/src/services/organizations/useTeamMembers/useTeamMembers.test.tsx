@@ -15,7 +15,6 @@ vi.mock("@/services/organizations/organizations.api", () => ({
   removeTeamMember: vi.fn(),
 }));
 
-const TOKEN = "test-token";
 const ORG_NAME = "acme";
 const TEAM_NAME = "eng";
 
@@ -40,7 +39,7 @@ beforeEach(() => {
 describe("initial state", () => {
   it("exposes correct zero values", () => {
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     expect(result.current.members).toEqual([]);
@@ -50,7 +49,7 @@ describe("initial state", () => {
   });
 
   it("does not auto-fetch on mount", () => {
-    renderHook(() => useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME));
+    renderHook(() => useTeamMembers(ORG_NAME, TEAM_NAME));
 
     expect(fetchTeamMembers).not.toHaveBeenCalled();
   });
@@ -64,21 +63,21 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
       await result.current.fetchMembers();
     });
 
-    expect(fetchTeamMembers).toHaveBeenCalledWith(ORG_NAME, TEAM_NAME, TOKEN);
+    expect(fetchTeamMembers).toHaveBeenCalledWith(ORG_NAME, TEAM_NAME);
     expect(result.current.members).toEqual(members);
     expect(result.current.total).toBe(2);
     expect(result.current.error).toBeNull();
   });
 
   it("does nothing when orgName is empty", async () => {
-    const { result } = renderHook(() => useTeamMembers(TOKEN, "", TEAM_NAME));
+    const { result } = renderHook(() => useTeamMembers("", TEAM_NAME));
 
     await act(async () => {
       await result.current.fetchMembers();
@@ -89,7 +88,7 @@ describe("fetchMembers", () => {
   });
 
   it("does nothing when teamName is empty", async () => {
-    const { result } = renderHook(() => useTeamMembers(TOKEN, ORG_NAME, ""));
+    const { result } = renderHook(() => useTeamMembers(ORG_NAME, ""));
 
     await act(async () => {
       await result.current.fetchMembers();
@@ -108,7 +107,7 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     act(() => {
@@ -128,7 +127,7 @@ describe("fetchMembers", () => {
     vi.mocked(fetchTeamMembers).mockRejectedValueOnce(new Error("oops"));
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -144,7 +143,7 @@ describe("fetchMembers", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -162,7 +161,7 @@ describe("fetchMembers", () => {
       .mockResolvedValueOnce(mockMembersResponse([mockMember(1)]));
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -188,7 +187,7 @@ describe("fetchMembers", () => {
       .mockResolvedValueOnce(mockMembersResponse(second));
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -206,34 +205,12 @@ describe("fetchMembers", () => {
     expect(result.current.total).toBe(1);
   });
 
-  it("uses updated token after re-render", async () => {
-    vi.mocked(fetchTeamMembers).mockResolvedValue(mockMembersResponse([]));
-
-    const { result, rerender } = renderHook(
-      ({ token }: { token: string }) =>
-        useTeamMembers(token, ORG_NAME, TEAM_NAME),
-      { initialProps: { token: TOKEN } },
-    );
-
-    rerender({ token: "new-token" });
-
-    await act(async () => {
-      await result.current.fetchMembers();
-    });
-
-    expect(fetchTeamMembers).toHaveBeenCalledWith(
-      ORG_NAME,
-      TEAM_NAME,
-      "new-token",
-    );
-  });
-
   it("uses updated orgName after re-render", async () => {
     vi.mocked(fetchTeamMembers).mockResolvedValue(mockMembersResponse([]));
 
     const { result, rerender } = renderHook(
       ({ orgName }: { orgName: string }) =>
-        useTeamMembers(TOKEN, orgName, TEAM_NAME),
+        useTeamMembers(orgName, TEAM_NAME),
       { initialProps: { orgName: ORG_NAME } },
     );
 
@@ -246,7 +223,6 @@ describe("fetchMembers", () => {
     expect(fetchTeamMembers).toHaveBeenCalledWith(
       "other-org",
       TEAM_NAME,
-      TOKEN,
     );
   });
 
@@ -255,7 +231,7 @@ describe("fetchMembers", () => {
 
     const { result, rerender } = renderHook(
       ({ teamName }: { teamName: string }) =>
-        useTeamMembers(TOKEN, ORG_NAME, teamName),
+        useTeamMembers(ORG_NAME, teamName),
       { initialProps: { teamName: TEAM_NAME } },
     );
 
@@ -265,7 +241,7 @@ describe("fetchMembers", () => {
       await result.current.fetchMembers();
     });
 
-    expect(fetchTeamMembers).toHaveBeenCalledWith(ORG_NAME, "design", TOKEN);
+    expect(fetchTeamMembers).toHaveBeenCalledWith(ORG_NAME, "design");
   });
 });
 
@@ -275,14 +251,14 @@ describe("addMember", () => {
     vi.mocked(fetchTeamMembers).mockResolvedValueOnce(mockMembersResponse([]));
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
       await result.current.addMember(99);
     });
 
-    expect(addTeamMember).toHaveBeenCalledWith(ORG_NAME, TEAM_NAME, 99, TOKEN);
+    expect(addTeamMember).toHaveBeenCalledWith(ORG_NAME, TEAM_NAME, 99);
   });
 
   it("re-fetches members after a successful add", async () => {
@@ -292,7 +268,7 @@ describe("addMember", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -315,7 +291,7 @@ describe("addMember", () => {
     vi.mocked(addTeamMember).mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -338,7 +314,7 @@ describe("addMember", () => {
     );
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await expect(
@@ -359,7 +335,7 @@ describe("removeMember", () => {
     vi.mocked(removeTeamMember).mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -374,7 +350,6 @@ describe("removeMember", () => {
       ORG_NAME,
       TEAM_NAME,
       1,
-      TOKEN,
     );
   });
 
@@ -385,7 +360,7 @@ describe("removeMember", () => {
     vi.mocked(removeTeamMember).mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -407,7 +382,7 @@ describe("removeMember", () => {
     vi.mocked(removeTeamMember).mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -431,7 +406,7 @@ describe("removeMember", () => {
     vi.mocked(removeTeamMember).mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -452,7 +427,7 @@ describe("removeMember", () => {
     vi.mocked(removeTeamMember).mockRejectedValueOnce(new Error("Not found"));
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {
@@ -476,7 +451,7 @@ describe("removeMember", () => {
     vi.mocked(removeTeamMember).mockResolvedValue(undefined);
 
     const { result } = renderHook(() =>
-      useTeamMembers(TOKEN, ORG_NAME, TEAM_NAME),
+      useTeamMembers(ORG_NAME, TEAM_NAME),
     );
 
     await act(async () => {

@@ -11,7 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Services;
 
-public sealed record AuthResult(bool Succeeded, string Message, string? Token = null, string? Role = null);
+public sealed record AuthResult(bool Succeeded, string Message, string? Token = null, string? Role = null, bool MustChangePassword = false);
 
 public interface IAuthService
 {
@@ -96,7 +96,7 @@ public class AuthService : IAuthService
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(jwtExpiresMinutes)
         });
 
-        return new AuthResult(true, "Login successful.", token, user.Role);
+        return new AuthResult(true, "Login successful.", token, user.Role, user.MustChangePassword);
     }
 
     public async Task<AuthResult> ChangePasswordAsync(string email, string oldPassword, string newPassword, CancellationToken cancellationToken)
@@ -117,9 +117,12 @@ public class AuthService : IAuthService
         }
 
         user!.PasswordHash = User.HashPassword(newPassword);
+        user.MustChangePassword = false;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new AuthResult(true, "Password changed successfully.");
+        var token = GenerateToken(user);
+
+        return new AuthResult(true, "Password changed successfully.", token, user.Role, false);
     }
 
     public string GenerateToken(User user)
@@ -139,7 +142,8 @@ public class AuthService : IAuthService
             new(JwtRegisteredClaimNames.Name, user.Username ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Email),
             new(ClaimTypes.Name, user.Username ?? string.Empty),
-            new(ClaimTypes.Role, user.Role)
+            new(ClaimTypes.Role, user.Role),
+            new("must_change_password", user.MustChangePassword ? "true" : "false")
         };
 
         var credentials = new SigningCredentials(

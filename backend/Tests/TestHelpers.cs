@@ -40,7 +40,7 @@ internal static class TestHelpers
             .Build();
     }
 
-    public static async Task<User> AddUserAsync(AppDbContext dbContext, string username, string email, string role = User.RoleUser)
+    public static async Task<User> AddUserAsync(AppDbContext dbContext, string username, string email, string role = User.RoleUser, bool mustChangePassword = false)
     {
         var user = new User
         {
@@ -48,6 +48,7 @@ internal static class TestHelpers
             Email = email,
             PasswordHash = User.HashPassword("Password1"),
             Role = role,
+            MustChangePassword = mustChangePassword,
             CreatedAt = DateTime.UtcNow
         };
 

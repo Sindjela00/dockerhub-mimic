@@ -30,13 +30,12 @@ interface Column<T> {
 
 interface MembersTabProps {
   orgName: string;
-  token: string;
   organization: Organization;
 }
 
 type ActiveTab = "members" | "invites";
 
-function MembersTab({ orgName, token, organization }: MembersTabProps) {
+function MembersTab({ orgName, organization }: MembersTabProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("members");
   const [sortKey, setSortKey] = useState<string>("username");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -64,7 +63,7 @@ function MembersTab({ orgName, token, organization }: MembersTabProps) {
   const isOwner = organization.currentUserRole === "owner";
 
   const { members, total, loading, error, fetchMembers, inviteMember } =
-    useOrganizationMembers(token, orgName);
+    useOrganizationMembers(orgName);
 
   const {
     invites,
@@ -72,7 +71,7 @@ function MembersTab({ orgName, token, organization }: MembersTabProps) {
     error: invitesError,
     fetchInvites,
     cancelInvite,
-  } = useOrganizationInvites(token, orgName);
+  } = useOrganizationInvites(orgName);
 
   const initialFetchDone = useRef(false);
 
@@ -89,7 +88,7 @@ function MembersTab({ orgName, token, organization }: MembersTabProps) {
     setDeleting(true);
     setDeleteError(null);
     try {
-      await removeOrganizationMember(orgName, confirmMember.userId, token);
+      await removeOrganizationMember(orgName, confirmMember.userId);
       setConfirmMember(null);
       fetchMembers("");
     } catch {

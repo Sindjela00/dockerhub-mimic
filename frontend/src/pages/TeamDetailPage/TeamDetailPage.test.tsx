@@ -10,12 +10,6 @@ vi.mock("react-router-dom", () => ({
   }),
 }));
 
-vi.mock("@/context/AppContext", () => ({
-  useAuth: () => ({
-    token: "token",
-  }),
-}));
-
 vi.mock("../ErrorPage/ErrorPage", () => ({
   default: () => <div data-testid="error-page">Error</div>,
 }));

@@ -24,4 +24,21 @@ public sealed class UserModelTests
 
         Assert.AreNotEqual(hash1, hash2);
     }
+
+    [TestMethod]
+    public void IsAdminRole_ReturnsTrueForAdministratorAndSuperAdmin()
+    {
+        Assert.IsTrue(User.IsAdminRole(User.RoleAdministrator));
+        Assert.IsTrue(User.IsAdminRole(User.RoleSuperAdmin));
+        Assert.IsTrue(User.IsAdminRole("administrator"));
+        Assert.IsTrue(User.IsAdminRole("superadmin"));
+    }
+
+    [TestMethod]
+    public void IsAdminRole_ReturnsFalseForUserOrNull()
+    {
+        Assert.IsFalse(User.IsAdminRole(User.RoleUser));
+        Assert.IsFalse(User.IsAdminRole(null));
+        Assert.IsFalse(User.IsAdminRole(""));
+    }
 }

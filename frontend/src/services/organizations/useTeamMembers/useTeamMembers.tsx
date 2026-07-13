@@ -6,11 +6,7 @@ import {
 } from "@/services/organizations/organizations.api";
 import { useCallback, useState } from "react";
 
-export function useTeamMembers(
-  token: string,
-  orgName: string,
-  teamName: string,
-) {
+export function useTeamMembers(orgName: string, teamName: string) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -21,7 +17,7 @@ export function useTeamMembers(
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchTeamMembers(orgName, teamName, token);
+      const data = await fetchTeamMembers(orgName, teamName);
       setMembers(data.members);
       setTotal(data.total);
     } catch {
@@ -29,23 +25,23 @@ export function useTeamMembers(
     } finally {
       setLoading(false);
     }
-  }, [orgName, teamName, token]);
+  }, [orgName, teamName]);
 
   const addMember = useCallback(
     async (userId: number) => {
-      await addTeamMember(orgName, teamName, userId, token);
+      await addTeamMember(orgName, teamName, userId);
       await fetchMembers();
     },
-    [orgName, teamName, token, fetchMembers],
+    [orgName, teamName, fetchMembers],
   );
 
   const removeMember = useCallback(
     async (userId: number) => {
-      await removeTeamMember(orgName, teamName, userId, token);
+      await removeTeamMember(orgName, teamName, userId);
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
       setTotal((prev) => prev - 1);
     },
-    [orgName, teamName, token],
+    [orgName, teamName],
   );
 
   return {

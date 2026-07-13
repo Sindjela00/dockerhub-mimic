@@ -292,7 +292,7 @@ public class RegistryService : IRegistryService
 
         if (repository is null) return Array.Empty<string>();
 
-        var isAdmin = string.Equals(user.Role, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(user.Role);
         var isOwner = repository.OwnerId == user.Id;
         var collaborator = repository.Collaborators.FirstOrDefault(c => c.UserId == user.Id);
         var collaboratorRole = Normalize(collaborator?.Role ?? string.Empty);

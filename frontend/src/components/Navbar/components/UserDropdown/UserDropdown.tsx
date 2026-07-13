@@ -1,4 +1,4 @@
-import { KeyIcon, LogOut, Moon, Sun, User } from "lucide-react";
+import { KeyIcon, LogOut, Moon, Sun } from "lucide-react";
 import { useAppContext, useTheme } from "@/context/AppContext";
 
 import { Role } from "@/context/types/types";
@@ -69,11 +69,6 @@ export default function UserDropdown({
       </div>
 
       <div className="p-1">
-        <DropdownItem
-          icon={<User size={14} />}
-          label="Account"
-          onClick={() => handleNavigate("/account")}
-        />
         <DropdownItem
           icon={theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           label={theme === "dark" ? "Light mode" : "Dark mode"}

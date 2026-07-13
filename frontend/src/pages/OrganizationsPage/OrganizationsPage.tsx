@@ -7,12 +7,10 @@ import InputField from "@/components/InputField/InputField";
 import Loader from "@/components/Loader/Loader";
 import OrganizationCard from "@/components/Cards/OrganizationCard/OrganizationCard";
 import Pagination from "@/components/Pagination/Pagination";
-import { useAuth } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { useOrganizations } from "@/services/organizations/useOrganizations/useOrganizations";
 
 export default function OrganizationsPage() {
-  const { token } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -23,7 +21,7 @@ export default function OrganizationsPage() {
     loading = false,
     error = null,
     fetchOrganizations,
-  } = useOrganizations(token ?? "");
+  } = useOrganizations();
 
   const [search, setSearch] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

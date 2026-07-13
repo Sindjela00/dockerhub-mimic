@@ -50,7 +50,7 @@ describe("useOrganizationRepositories", () => {
   describe("Initial state", () => {
     it("returns correct initial state", () => {
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       expect(result.current.repositories).toEqual([]);
@@ -62,18 +62,9 @@ describe("useOrganizationRepositories", () => {
       expect(result.current.createError).toBeNull();
     });
 
-    it("returns initial state without token", () => {
-      const { result } = renderHook(() =>
-        useOrganizationRepositories(null, "my-org"),
-      );
-
-      expect(result.current.repositories).toEqual([]);
-      expect(result.current.total).toBe(0);
-    });
-
     it("returns initial state without orgName", () => {
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", undefined),
+        useOrganizationRepositories(undefined),
       );
 
       expect(result.current.repositories).toEqual([]);
@@ -90,7 +81,7 @@ describe("useOrganizationRepositories", () => {
       mockFetchRepos.mockResolvedValueOnce(createMockApiResponse(mockRepos, 2));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -107,7 +98,7 @@ describe("useOrganizationRepositories", () => {
       mockFetchRepos.mockResolvedValueOnce(createMockApiResponse([], 0));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -124,7 +115,7 @@ describe("useOrganizationRepositories", () => {
       );
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       act(() => {
@@ -143,7 +134,7 @@ describe("useOrganizationRepositories", () => {
       mockFetchRepos.mockRejectedValueOnce(new Error(errorMessage));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -159,7 +150,7 @@ describe("useOrganizationRepositories", () => {
       mockFetchRepos.mockRejectedValueOnce("String error");
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -173,7 +164,7 @@ describe("useOrganizationRepositories", () => {
       mockFetchRepos.mockRejectedValueOnce({});
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -185,7 +176,7 @@ describe("useOrganizationRepositories", () => {
 
     it("does not fetch when orgName is missing", async () => {
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", undefined),
+        useOrganizationRepositories(undefined),
       );
 
       await act(async () => {
@@ -196,65 +187,53 @@ describe("useOrganizationRepositories", () => {
       expect(result.current.repositories).toEqual([]);
     });
 
-    it("does not fetch when token is missing", async () => {
-      const { result } = renderHook(() =>
-        useOrganizationRepositories(null, "my-org"),
-      );
-
-      await act(async () => {
-        await result.current.fetchRepos();
-      });
-
-      expect(mockFetchRepos).not.toHaveBeenCalled();
-    });
-
     it("fetches with search parameter", async () => {
       mockFetchRepos.mockResolvedValueOnce(createMockApiResponse([], 0));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
         await result.current.fetchRepos("react");
       });
 
-      expect(mockFetchRepos).toHaveBeenCalledWith("my-org", "token", "react");
+      expect(mockFetchRepos).toHaveBeenCalledWith("my-org", "react");
     });
 
     it("fetches with empty string when no search parameter provided", async () => {
       mockFetchRepos.mockResolvedValueOnce(createMockApiResponse([], 0));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
         await result.current.fetchRepos();
       });
 
-      expect(mockFetchRepos).toHaveBeenCalledWith("my-org", "token", "");
+      expect(mockFetchRepos).toHaveBeenCalledWith("my-org", "");
     });
 
     it("fetches with explicit undefined search parameter", async () => {
       mockFetchRepos.mockResolvedValueOnce(createMockApiResponse([], 0));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
         await result.current.fetchRepos(undefined);
       });
 
-      expect(mockFetchRepos).toHaveBeenCalledWith("my-org", "token", "");
+      expect(mockFetchRepos).toHaveBeenCalledWith("my-org", "");
     });
 
     it("clears previous error on successful fetch", async () => {
       mockFetchRepos.mockRejectedValueOnce(new Error("First error"));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -278,7 +257,7 @@ describe("useOrganizationRepositories", () => {
       mockFetchRepos.mockRejectedValueOnce(new Error("First error"));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -306,7 +285,7 @@ describe("useOrganizationRepositories", () => {
         );
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -335,7 +314,7 @@ describe("useOrganizationRepositories", () => {
       } as any);
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       let createdRepo: Repository | null = null;
@@ -355,7 +334,7 @@ describe("useOrganizationRepositories", () => {
       );
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       act(() => {
@@ -381,7 +360,7 @@ describe("useOrganizationRepositories", () => {
       });
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       let createdRepo: Repository | null = null;
@@ -399,7 +378,7 @@ describe("useOrganizationRepositories", () => {
       mockCreateRepo.mockRejectedValueOnce(new Error("Network error"));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       let createdRepo: Repository | null = null;
@@ -418,7 +397,7 @@ describe("useOrganizationRepositories", () => {
       });
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       let createdRepo: Repository | null = null;
@@ -433,7 +412,7 @@ describe("useOrganizationRepositories", () => {
 
     it("returns null when orgName is missing", async () => {
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", undefined),
+        useOrganizationRepositories(undefined),
       );
 
       let createdRepo: Repository | null = null;
@@ -456,7 +435,7 @@ describe("useOrganizationRepositories", () => {
       });
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -483,7 +462,7 @@ describe("useOrganizationRepositories", () => {
       } as any);
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       const payload: CreateRepositoryPayload = {
@@ -505,7 +484,7 @@ describe("useOrganizationRepositories", () => {
       } as any);
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       const minimalPayload: CreateRepositoryPayload = {
@@ -523,7 +502,7 @@ describe("useOrganizationRepositories", () => {
   describe("searchQuery state", () => {
     it("updates searchQuery state", () => {
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       act(() => {
@@ -535,7 +514,7 @@ describe("useOrganizationRepositories", () => {
 
     it("clears searchQuery", () => {
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       act(() => {
@@ -553,32 +532,17 @@ describe("useOrganizationRepositories", () => {
   });
 
   describe("Reactivity to prop changes", () => {
-    it("updates when token changes", () => {
-      const { result, rerender } = renderHook(
-        ({ token, orgName }) => useOrganizationRepositories(token, orgName),
-        {
-          initialProps: { token: "token1", orgName: "org" },
-        },
-      );
-
-      expect(result.current.total).toBe(0);
-
-      rerender({ token: "token2", orgName: "org" });
-
-      expect(result.current.total).toBe(0);
-    });
-
     it("updates when orgName changes", () => {
       const { result, rerender } = renderHook(
-        ({ token, orgName }) => useOrganizationRepositories(token, orgName),
+        ({ orgName }) => useOrganizationRepositories(orgName),
         {
-          initialProps: { token: "token", orgName: "org1" },
+          initialProps: { orgName: "org1" },
         },
       );
 
       expect(result.current.total).toBe(0);
 
-      rerender({ token: "token", orgName: "org2" });
+      rerender({ orgName: "org2" });
 
       expect(result.current.total).toBe(0);
     });
@@ -589,7 +553,7 @@ describe("useOrganizationRepositories", () => {
       );
 
       const { result, rerender } = renderHook(
-        ({ orgName }) => useOrganizationRepositories("token", orgName),
+        ({ orgName }) => useOrganizationRepositories(orgName),
         {
           initialProps: { orgName: "org1" },
         },
@@ -599,7 +563,7 @@ describe("useOrganizationRepositories", () => {
         await result.current.fetchRepos();
       });
 
-      expect(mockFetchRepos).toHaveBeenCalledWith("org1", "token", "");
+      expect(mockFetchRepos).toHaveBeenCalledWith("org1", "");
 
       rerender({ orgName: "org2" });
 
@@ -607,7 +571,7 @@ describe("useOrganizationRepositories", () => {
         await result.current.fetchRepos();
       });
 
-      expect(mockFetchRepos).toHaveBeenCalledWith("org2", "token", "");
+      expect(mockFetchRepos).toHaveBeenCalledWith("org2", "");
     });
 
     it("handleCreate callback updates when orgName changes", async () => {
@@ -616,7 +580,7 @@ describe("useOrganizationRepositories", () => {
       } as any);
 
       const { result, rerender } = renderHook(
-        ({ orgName }) => useOrganizationRepositories("token", orgName),
+        ({ orgName }) => useOrganizationRepositories(orgName),
         {
           initialProps: { orgName: "org1" },
         },
@@ -652,7 +616,7 @@ describe("useOrganizationRepositories", () => {
       } as any);
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -677,7 +641,7 @@ describe("useOrganizationRepositories", () => {
       mockFetchRepos.mockResolvedValueOnce(createMockApiResponse(mockRepos, 1));
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       act(() => {
@@ -690,7 +654,7 @@ describe("useOrganizationRepositories", () => {
         await result.current.fetchRepos(result.current.searchQuery);
       });
 
-      expect(mockFetchRepos).toHaveBeenCalledWith("my-org", "token", "react");
+      expect(mockFetchRepos).toHaveBeenCalledWith("my-org", "react");
     });
 
     it("handles multiple repositories with pagination metadata", async () => {
@@ -703,7 +667,7 @@ describe("useOrganizationRepositories", () => {
       );
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -724,7 +688,7 @@ describe("useOrganizationRepositories", () => {
       });
 
       const { result } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       await act(async () => {
@@ -753,7 +717,7 @@ describe("useOrganizationRepositories", () => {
   describe("Memory management and cleanup", () => {
     it("cleans up on unmount without errors", () => {
       const { unmount } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       expect(() => unmount()).not.toThrow();
@@ -768,7 +732,7 @@ describe("useOrganizationRepositories", () => {
       );
 
       const { result, unmount } = renderHook(() =>
-        useOrganizationRepositories("token", "my-org"),
+        useOrganizationRepositories("my-org"),
       );
 
       const fetchPromise = act(() => result.current.fetchRepos());

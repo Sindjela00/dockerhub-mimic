@@ -1,5 +1,6 @@
 using backend.Models;
 using backend.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace backend.Tests;
@@ -41,6 +42,54 @@ public sealed class AuthServiceTests
         Assert.IsTrue(cache.TryGetValue<(string Username, string Password)>("registry_creds_demo", out var cached));
         Assert.AreEqual("demo", cached.Username);
         Assert.AreEqual("Password1", cached.Password);
+    }
+
+    [TestMethod]
+    public async Task LoginAsync_WhenMustChangePasswordIsTrue_PropagatesFlagInResult()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        dbContext.Users.Add(new User
+        {
+            Email = "locked@example.com",
+            Username = "locked",
+            PasswordHash = User.HashPassword("Password1"),
+            Role = User.RoleSuperAdmin,
+            MustChangePassword = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), new MemoryCache(new MemoryCacheOptions()));
+        var result = await service.LoginAsync("locked", "Password1", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsTrue(result.MustChangePassword);
+    }
+
+    [TestMethod]
+    public async Task ChangePasswordAsync_WithValidRequest_ClearsMustChangePasswordAndIssuesNewToken()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        dbContext.Users.Add(new User
+        {
+            Email = "locked@example.com",
+            Username = "locked",
+            PasswordHash = User.HashPassword("Password1"),
+            Role = User.RoleSuperAdmin,
+            MustChangePassword = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), new MemoryCache(new MemoryCacheOptions()));
+        var result = await service.ChangePasswordAsync("locked@example.com", "Password1", "Newpass1A", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsFalse(result.MustChangePassword);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(result.Token));
+
+        var updatedUser = await dbContext.Users.FirstAsync(u => u.Email == "locked@example.com");
+        Assert.IsFalse(updatedUser.MustChangePassword);
     }
 
     [TestMethod]

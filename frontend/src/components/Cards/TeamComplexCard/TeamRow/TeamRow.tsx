@@ -14,7 +14,6 @@ import {
 } from "@/services/organizations/organizations.api";
 
 import DeleteConfirmModal from "@/components/Modals/DeleteConfirmModal/DeleteConfirmModal";
-import { useAuth } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
@@ -32,7 +31,6 @@ interface TeamRowState {
 }
 
 export function TeamRow({ team, orgName, onDelete }: TeamRowProps) {
-  const { token } = useAuth();
   const navigate = useNavigate();
 
   const [state, setState] = useState<TeamRowState>({
@@ -53,7 +51,7 @@ export function TeamRow({ team, orgName, onDelete }: TeamRowProps) {
     }
     setState((s) => ({ ...s, expanded: true, loading: true, error: null }));
     try {
-      const res = await fetchTeamRepositories(orgName, team.name, token!);
+      const res = await fetchTeamRepositories(orgName, team.name);
       setState((s) => ({ ...s, repos: res.repositories, loading: false }));
     } catch (e: any) {
       setState((s) => ({

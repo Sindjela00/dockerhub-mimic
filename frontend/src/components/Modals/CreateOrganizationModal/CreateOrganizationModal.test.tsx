@@ -7,10 +7,6 @@ const mockAddOrganization = vi.fn();
 const mockOnClose = vi.fn();
 const mockOnSuccess = vi.fn();
 
-vi.mock("@/context/AppContext", () => ({
-  useAuth: () => ({ token: "test-token" }),
-}));
-
 vi.mock("@/services/organizations/useOrganizations/useOrganizations", () => ({
   useOrganizations: () => ({
     addOrganization: mockAddOrganization,

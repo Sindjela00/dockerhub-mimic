@@ -50,7 +50,6 @@ describe("UserDropdown", () => {
 
     it("prikazuje sve stavke menija", () => {
       renderDropdown();
-      expect(screen.getByText("Account")).toBeInTheDocument();
       expect(screen.getByText("Change password")).toBeInTheDocument();
       expect(screen.getByText("Log out")).toBeInTheDocument();
     });
@@ -78,16 +77,6 @@ describe("UserDropdown", () => {
   });
 
   describe("navigacija", () => {
-    it("navigira na /account i zatvara dropdown", () => {
-      const onClose = vi.fn();
-      renderDropdown({ onClose });
-
-      fireEvent.click(screen.getByText("Account"));
-
-      expect(mockNavigate).toHaveBeenCalledWith("/account");
-      expect(onClose).toHaveBeenCalledTimes(1);
-    });
-
     it("navigira na /change-password i zatvara dropdown", () => {
       const onClose = vi.fn();
       renderDropdown({ onClose });
@@ -131,10 +120,12 @@ describe("UserDropdown", () => {
       expect(logoutBtn?.className).toMatch(/hover:bg-danger-muted/);
     });
 
-    it("Account dugme nema danger klase", () => {
+    it("Change password dugme nema danger klase", () => {
       renderDropdown();
-      const accountBtn = screen.getByText("Account").closest("button");
-      expect(accountBtn?.className).not.toMatch(/text-danger/);
+      const changePasswordBtn = screen
+        .getByText("Change password")
+        .closest("button");
+      expect(changePasswordBtn?.className).not.toMatch(/text-danger/);
     });
   });
 });

@@ -38,9 +38,6 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-const TOKEN = "test-token";
-const AUTH_HEADER = { headers: { Authorization: `Bearer ${TOKEN}` } };
-
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -113,11 +110,10 @@ describe("fetchMembersInvites", () => {
   it("returns the list of invites for an org", async () => {
     vi.mocked(api.get).mockResolvedValueOnce({ data: [mockInvite] });
 
-    const result = await fetchMembersInvites("acme", TOKEN);
+    const result = await fetchMembersInvites("acme");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/invites",
-      AUTH_HEADER,
     );
     expect(result).toEqual([mockInvite]);
   });
@@ -127,11 +123,10 @@ describe("cancelMemberInvite", () => {
   it("calls DELETE on the specific invite", async () => {
     vi.mocked(api.delete).mockResolvedValueOnce({});
 
-    await cancelMemberInvite(5, "acme", TOKEN);
+    await cancelMemberInvite(5, "acme");
 
     expect(api.delete).toHaveBeenCalledWith(
       "/api/organizations/acme/invites/5",
-      AUTH_HEADER,
     );
   });
 });
@@ -140,11 +135,10 @@ describe("removeTeamMember", () => {
   it("deletes the correct team member URL", async () => {
     vi.mocked(api.delete).mockResolvedValueOnce({});
 
-    await removeTeamMember("acme", "eng", 99, TOKEN);
+    await removeTeamMember("acme", "eng", 99);
 
     expect(api.delete).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng/members/99",
-      AUTH_HEADER,
     );
   });
 });
@@ -153,11 +147,10 @@ describe("deleteOrganization", () => {
   it("calls DELETE on the org endpoint", async () => {
     vi.mocked(api.delete).mockResolvedValueOnce({});
 
-    await deleteOrganization("acme", TOKEN);
+    await deleteOrganization("acme");
 
     expect(api.delete).toHaveBeenCalledWith(
       "/api/organizations/acme",
-      AUTH_HEADER,
     );
   });
 });
@@ -166,12 +159,11 @@ describe("addTeamMember", () => {
   it("posts userId to the team members endpoint", async () => {
     vi.mocked(api.post).mockResolvedValueOnce({});
 
-    await addTeamMember("acme", "eng", 99, TOKEN);
+    await addTeamMember("acme", "eng", 99);
 
     expect(api.post).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng/members",
       { userId: 99 },
-      AUTH_HEADER,
     );
   });
 });
@@ -193,11 +185,10 @@ describe("fetchTeamMembers", () => {
     };
     vi.mocked(api.get).mockResolvedValueOnce({ data: mockResponse });
 
-    const result = await fetchTeamMembers("acme", "eng", TOKEN);
+    const result = await fetchTeamMembers("acme", "eng");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng/members",
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -209,11 +200,10 @@ describe("removeOrganizationMember", () => {
       data: { message: "removed" },
     });
 
-    const result = await removeOrganizationMember("acme", 99, TOKEN);
+    const result = await removeOrganizationMember("acme", 99);
 
     expect(api.delete).toHaveBeenCalledWith(
       "/api/organizations/acme/members/99",
-      AUTH_HEADER,
     );
     expect(result).toEqual({ data: { message: "removed" } });
   });
@@ -223,11 +213,10 @@ describe("removeRepositoryFromTeam", () => {
   it("calls DELETE on the team repository endpoint", async () => {
     vi.mocked(api.delete).mockResolvedValueOnce({});
 
-    await removeRepositoryFromTeam("acme", "eng", 7, TOKEN);
+    await removeRepositoryFromTeam("acme", "eng", 7);
 
     expect(api.delete).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng/repositories/7",
-      AUTH_HEADER,
     );
   });
 });
@@ -242,11 +231,10 @@ describe("fetchTeamRepositories", () => {
     };
     vi.mocked(api.get).mockResolvedValueOnce({ data: mockResponse });
 
-    const result = await fetchTeamRepositories("acme", "eng", TOKEN);
+    const result = await fetchTeamRepositories("acme", "eng");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng/repositories",
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -258,12 +246,11 @@ describe("addTeamRepository", () => {
     const mockResponse = { message: "added", teamRepository: mockTeamRepo };
     vi.mocked(api.post).mockResolvedValueOnce({ data: mockResponse });
 
-    const result = await addTeamRepository("acme", "eng", payload, TOKEN);
+    const result = await addTeamRepository("acme", "eng", payload);
 
     expect(api.post).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng/repositories",
       payload,
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -273,11 +260,10 @@ describe("deleteTeam", () => {
   it("calls DELETE on the team endpoint", async () => {
     vi.mocked(api.delete).mockResolvedValueOnce({});
 
-    await deleteTeam("acme", "eng", TOKEN);
+    await deleteTeam("acme", "eng");
 
     expect(api.delete).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng",
-      AUTH_HEADER,
     );
   });
 });
@@ -289,12 +275,11 @@ describe("updateTeam", () => {
       data: { ...mockTeam, ...payload },
     });
 
-    const result = await updateTeam("acme", "eng", payload, TOKEN);
+    const result = await updateTeam("acme", "eng", payload);
 
     expect(api.put).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng",
       payload,
-      AUTH_HEADER,
     );
     expect(result.name).toBe("engineering");
   });
@@ -304,11 +289,10 @@ describe("fetchTeam", () => {
   it("returns a single team", async () => {
     vi.mocked(api.get).mockResolvedValueOnce({ data: mockTeam });
 
-    const result = await fetchTeam("acme", "eng", TOKEN);
+    const result = await fetchTeam("acme", "eng");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/teams/eng",
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockTeam);
   });
@@ -323,11 +307,10 @@ describe("fetchOrganizationMembers", () => {
     };
     vi.mocked(api.get).mockResolvedValueOnce({ data: mockResponse });
 
-    const result = await fetchOrganizationMembers("acme", TOKEN);
+    const result = await fetchOrganizationMembers("acme");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/members",
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -337,11 +320,10 @@ describe("fetchOrganizationMembers", () => {
       data: { organizationName: "acme", members: [], total: 0 },
     });
 
-    await fetchOrganizationMembers("acme", TOKEN, "bob");
+    await fetchOrganizationMembers("acme", "bob");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/members?search=bob",
-      AUTH_HEADER,
     );
   });
 
@@ -350,11 +332,10 @@ describe("fetchOrganizationMembers", () => {
       data: { organizationName: "acme", members: [], total: 0 },
     });
 
-    await fetchOrganizationMembers("acme", TOKEN, "   ");
+    await fetchOrganizationMembers("acme", "   ");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/members",
-      AUTH_HEADER,
     );
   });
 });
@@ -364,12 +345,11 @@ describe("inviteOrganizationMember", () => {
     const payload = { email: "carol@example.com", role: "member" };
     vi.mocked(api.post).mockResolvedValueOnce({ data: mockMember });
 
-    const result = await inviteOrganizationMember("acme", payload, TOKEN);
+    const result = await inviteOrganizationMember("acme", payload);
 
     expect(api.post).toHaveBeenCalledWith(
       "/api/organizations/acme/invites",
       payload,
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockMember);
   });
@@ -380,12 +360,11 @@ describe("createOrganizationTeam", () => {
     const payload = { name: "eng", description: "Engineering" };
     vi.mocked(api.post).mockResolvedValueOnce({ data: mockTeam });
 
-    const result = await createOrganizationTeam("acme", payload, TOKEN);
+    const result = await createOrganizationTeam("acme", payload);
 
     expect(api.post).toHaveBeenCalledWith(
       "/api/organizations/acme/teams",
       payload,
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockTeam);
   });
@@ -401,11 +380,10 @@ describe("fetchOrganizations", () => {
     };
     vi.mocked(api.get).mockResolvedValueOnce({ data: mockResponse });
 
-    const result = await fetchOrganizations({ token: TOKEN });
+    const result = await fetchOrganizations({});
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations?page=1&pageSize=12",
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -415,7 +393,7 @@ describe("fetchOrganizations", () => {
       data: { organizations: [], total: 0, page: 1, pageSize: 12 },
     });
 
-    await fetchOrganizations({ token: TOKEN, search: "acme" });
+    await fetchOrganizations({ search: "acme" });
 
     const callArg = vi.mocked(api.get).mock.calls[0][0] as string;
     expect(callArg).toContain("search=acme");
@@ -426,7 +404,7 @@ describe("fetchOrganizations", () => {
       data: { organizations: [], total: 0, page: 2, pageSize: 5 },
     });
 
-    await fetchOrganizations({ token: TOKEN, page: 2, pageSize: 5 });
+    await fetchOrganizations({ page: 2, pageSize: 5 });
 
     const callArg = vi.mocked(api.get).mock.calls[0][0] as string;
     expect(callArg).toContain("page=2");
@@ -443,12 +421,11 @@ describe("createOrganization", () => {
     };
     vi.mocked(api.post).mockResolvedValueOnce({ data: mockOrganization });
 
-    const result = await createOrganization(payload, TOKEN);
+    const result = await createOrganization(payload);
 
     expect(api.post).toHaveBeenCalledWith(
       "/api/organizations",
       payload,
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockOrganization);
   });
@@ -458,11 +435,10 @@ describe("fetchOrganization", () => {
   it("fetches a single organization by name", async () => {
     vi.mocked(api.get).mockResolvedValueOnce({ data: mockOrganization });
 
-    const result = await fetchOrganization("acme", TOKEN);
+    const result = await fetchOrganization("acme");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme",
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockOrganization);
   });
@@ -475,12 +451,11 @@ describe("updateOrganization", () => {
       data: { ...mockOrganization, ...payload },
     });
 
-    const result = await updateOrganization("acme", payload, TOKEN);
+    const result = await updateOrganization("acme", payload);
 
     expect(api.patch).toHaveBeenCalledWith(
       "/api/organizations/acme",
       payload,
-      AUTH_HEADER,
     );
     expect(result.displayName).toBe("Acme Ltd");
   });
@@ -491,11 +466,10 @@ describe("fetchOrganizationRepositories", () => {
     const mockResponse = { repositories: [], total: 0 };
     vi.mocked(api.get).mockResolvedValueOnce({ data: mockResponse });
 
-    const result = await fetchOrganizationRepositories("acme", TOKEN);
+    const result = await fetchOrganizationRepositories("acme");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/repositories",
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -505,7 +479,7 @@ describe("fetchOrganizationRepositories", () => {
       data: { repositories: [], total: 0 },
     });
 
-    await fetchOrganizationRepositories("acme", TOKEN, "api");
+    await fetchOrganizationRepositories("acme", "api");
 
     const callArg = vi.mocked(api.get).mock.calls[0][0] as string;
     expect(callArg).toContain("search=api");
@@ -541,11 +515,10 @@ describe("fetchOrganizationTeams", () => {
     };
     vi.mocked(api.get).mockResolvedValueOnce({ data: mockResponse });
 
-    const result = await fetchOrganizationTeams("acme", TOKEN);
+    const result = await fetchOrganizationTeams("acme");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/teams",
-      AUTH_HEADER,
     );
     expect(result).toEqual(mockResponse);
   });
@@ -555,7 +528,7 @@ describe("fetchOrganizationTeams", () => {
       data: { organizationName: "acme", teams: [], total: 0 },
     });
 
-    await fetchOrganizationTeams("acme", TOKEN, "eng");
+    await fetchOrganizationTeams("acme", "eng");
 
     const callArg = vi.mocked(api.get).mock.calls[0][0] as string;
     expect(callArg).toContain("search=eng");
@@ -566,11 +539,10 @@ describe("fetchOrganizationTeams", () => {
       data: { organizationName: "acme", teams: [], total: 0 },
     });
 
-    await fetchOrganizationTeams("acme", TOKEN, "   ");
+    await fetchOrganizationTeams("acme", "   ");
 
     expect(api.get).toHaveBeenCalledWith(
       "/api/organizations/acme/teams",
-      AUTH_HEADER,
     );
   });
 });

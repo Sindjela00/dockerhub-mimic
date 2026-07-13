@@ -8,10 +8,7 @@ import {
 } from "../organizations.api";
 import { useCallback, useState } from "react";
 
-export function useOrganizationRepositories(
-  token?: string | null,
-  orgName?: string,
-) {
+export function useOrganizationRepositories(orgName?: string) {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -23,18 +20,14 @@ export function useOrganizationRepositories(
 
   const fetchRepos = useCallback(
     async (search?: string) => {
-      if (!orgName || !token) return;
+      if (!orgName) return;
 
       setLoading(true);
       setError(null);
 
       try {
         const searchTerm = search !== undefined ? search : "";
-        const data = await fetchOrganizationRepositories(
-          orgName,
-          token,
-          searchTerm,
-        );
+        const data = await fetchOrganizationRepositories(orgName, searchTerm);
         setRepositories(data.repositories);
         setTotal(data.total);
       } catch (err) {
@@ -43,7 +36,7 @@ export function useOrganizationRepositories(
         setLoading(false);
       }
     },
-    [orgName, token],
+    [orgName],
   );
 
   const handleCreate = useCallback(

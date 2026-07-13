@@ -20,12 +20,20 @@ export interface LoginResponse {
   token: string;
   role: string;
   username: string;
+  mustChangePassword: boolean;
 }
 
 export interface ChangePasswordPayload {
   email: string;
   oldPassword: string;
   newPassword: string;
+}
+
+export interface ChangePasswordResponse {
+  message: string;
+  token: string;
+  role: string;
+  mustChangePassword: boolean;
 }
 
 export const register = (payload: RegisterPayload) =>
@@ -35,4 +43,4 @@ export const login = (payload: LoginPayload) =>
   api.post<LoginResponse>("/api/auth/login", payload);
 
 export const changePassword = (payload: ChangePasswordPayload) =>
-  api.post("/api/auth/change_password", payload);
+  api.post<ChangePasswordResponse>("/api/auth/change_password", payload);

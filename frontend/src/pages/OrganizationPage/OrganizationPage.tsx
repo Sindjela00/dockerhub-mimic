@@ -13,7 +13,6 @@ import { Repository } from "@/services/repositories/repositories.api";
 import StatCard from "@/components/Cards/StatCard/StatCard";
 import { TagComponent } from "@/components/Tag/Tag";
 import { TeamsTab } from "./components/TeamTab/TeamTab";
-import { useAuth } from "../../context/AppContext";
 import { useOrganization } from "@/services/organizations/useOrganization/useOrganization";
 import { useOrganizationRepositories } from "@/services/organizations/useOrganizationRepositories/useOrganizationRepositories";
 
@@ -25,7 +24,6 @@ export default function OrganizationDetailPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const { orgName } = useParams<{ orgName: string }>();
-  const { token } = useAuth();
 
   const {
     organization,
@@ -35,7 +33,7 @@ export default function OrganizationDetailPage() {
     remove: deleteOrganization,
     deleteLoading,
     deleteError,
-  } = useOrganization(token || "", orgName || "");
+  } = useOrganization(orgName || "");
 
   const {
     repositories,
@@ -43,7 +41,7 @@ export default function OrganizationDetailPage() {
     fetchRepos,
     searchQuery: reposSearchQuery,
     setSearchQuery: setReposSearchQuery,
-  } = useOrganizationRepositories(token || "", orgName);
+  } = useOrganizationRepositories(orgName);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialFetchDone = useRef(false);
@@ -237,16 +235,11 @@ export default function OrganizationDetailPage() {
             />
           )}
           {activeTab === "teams" && (
-            <TeamsTab
-              orgName={organization.name}
-              token={token || ""}
-              organization={organization}
-            />
+            <TeamsTab orgName={organization.name} organization={organization} />
           )}
           {activeTab === "members" && (
             <MembersTab
               orgName={organization.name}
-              token={token || ""}
               organization={organization}
             />
           )}

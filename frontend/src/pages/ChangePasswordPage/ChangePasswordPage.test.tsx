@@ -1,19 +1,22 @@
 import * as authApi from "../../services/auth/auth.api";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 
+import { AppProvider } from "../../context/AppContext";
 import ChangePasswordPage from "./ChangePasswordPage";
+import { MemoryRouter } from "react-router-dom";
 import { renderWithProviders } from "../../test/test.utils";
 import userEvent from "@testing-library/user-event";
 
 const changePasswordSpy = vi.spyOn(authApi, "changePassword");
 
-const mockNavigate = vi.fn();
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
-});
+const successResponse = {
+  message: "Password changed successfully.",
+  token: "new-token",
+  role: "User",
+  mustChangePassword: false,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -47,7 +50,7 @@ describe("ChangePasswordPage", () => {
   });
 
   it("ne prikazuje email gresku za validan email", async () => {
-    changePasswordSpy.mockResolvedValueOnce({} as any);
+    changePasswordSpy.mockResolvedValueOnce({ data: successResponse } as any);
     await fillAndSubmit("test@test.com", "OldPass1", "NewPass1");
     expect(screen.queryByText(/enter a valid email address/i)).toBeNull();
   });
@@ -59,7 +62,7 @@ describe("ChangePasswordPage", () => {
   });
 
   it("ne prikazuje oldPassword gresku kada je popunjen", async () => {
-    changePasswordSpy.mockResolvedValueOnce({} as any);
+    changePasswordSpy.mockResolvedValueOnce({ data: successResponse } as any);
     await fillAndSubmit("test@test.com", "OldPass1", "NewPass1");
     expect(screen.queryByText(/old password is required/i)).toBeNull();
   });
@@ -89,7 +92,7 @@ describe("ChangePasswordPage", () => {
   });
 
   it("prikazuje success screen nakon uspešne promene", async () => {
-    changePasswordSpy.mockResolvedValueOnce({} as any);
+    changePasswordSpy.mockResolvedValueOnce({ data: successResponse } as any);
     await fillAndSubmit("test@test.com", "OldPass1", "NewPass1");
 
     await waitFor(() =>
@@ -100,7 +103,7 @@ describe("ChangePasswordPage", () => {
   });
 
   it("sakriva formu i prikazuje success view nakon submit-a", async () => {
-    changePasswordSpy.mockResolvedValueOnce({} as any);
+    changePasswordSpy.mockResolvedValueOnce({ data: successResponse } as any);
     await fillAndSubmit("test@test.com", "OldPass1", "NewPass1");
 
     await waitFor(() =>
@@ -135,5 +138,60 @@ describe("ChangePasswordPage", () => {
   it("ne poziva API kada validacija ne prođe", async () => {
     await fillAndSubmit("bad-email", "", "weak");
     expect(changePasswordSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("ChangePasswordPage — forced mode", () => {
+  function fakeJwt(email: string): string {
+    const payload = btoa(JSON.stringify({ email }));
+    return `header.${payload}.signature`;
+  }
+
+  function renderForced() {
+    localStorage.setItem("token", fakeJwt("superadmin@example.com"));
+    localStorage.setItem("role", "SuperAdmin");
+    localStorage.setItem("username", "superadmin");
+    localStorage.setItem("mustChangePassword", "true");
+
+    return render(
+      <MemoryRouter initialEntries={["/change-password?forced=true"]}>
+        <AppProvider>
+          <ChangePasswordPage />
+        </AppProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  it("ne prikazuje polje za email i prikazuje forced poruku", () => {
+    renderForced();
+
+    expect(
+      screen.getByText(/you must change your password/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^email$/i)).toBeNull();
+  });
+
+  it("nakon uspesne promene odmah pristupa aplikaciji bez success ekrana", async () => {
+    changePasswordSpy.mockResolvedValueOnce({
+      data: {
+        message: "Password changed successfully.",
+        token: "fresh-token",
+        role: "SuperAdmin",
+        mustChangePassword: false,
+      },
+    } as any);
+
+    const user = userEvent.setup();
+    renderForced();
+
+    await user.type(screen.getByLabelText(/old password/i), "TempPass1");
+    await user.type(screen.getByLabelText(/new password/i), "NewPass1");
+    await user.click(screen.getByRole("button", { name: /change password/i }));
+
+    await waitFor(() =>
+      expect(localStorage.getItem("mustChangePassword")).toBe("false"),
+    );
+    expect(localStorage.getItem("token")).toBe("fresh-token");
+    expect(screen.queryByText(/back to sign in/i)).toBeNull();
   });
 });

@@ -9,8 +9,6 @@ vi.mock("../organizations.api", () => ({
   createOrganization: vi.fn(),
 }));
 
-const TOKEN = "test-token";
-
 const mockOrg = (id: number) => ({
   id,
   name: `org-${id}`,
@@ -48,7 +46,7 @@ beforeEach(() => {
 
 describe("initial state", () => {
   it("exposes correct zero values", () => {
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     expect(result.current.orgs).toEqual([]);
     expect(result.current.total).toBe(0);
@@ -60,7 +58,7 @@ describe("initial state", () => {
   });
 
   it("does not auto-fetch on mount", () => {
-    renderHook(() => useOrganizations(TOKEN));
+    renderHook(() => useOrganizations());
 
     expect(fetchOrganizations).not.toHaveBeenCalled();
   });
@@ -72,7 +70,7 @@ describe("fetchOrganizations", () => {
       mockOrgsResponse([mockOrg(1)]),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations();
@@ -82,7 +80,6 @@ describe("fetchOrganizations", () => {
       page: 1,
       pageSize: 12,
       search: undefined,
-      token: TOKEN,
     });
   });
 
@@ -91,7 +88,7 @@ describe("fetchOrganizations", () => {
       mockOrgsResponse([], 2, 6),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations(2, "acme", 6);
@@ -101,7 +98,6 @@ describe("fetchOrganizations", () => {
       page: 2,
       pageSize: 6,
       search: "acme",
-      token: TOKEN,
     });
   });
 
@@ -111,7 +107,7 @@ describe("fetchOrganizations", () => {
       mockOrgsResponse(orgs, 2, 6),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations(2, undefined, 6);
@@ -132,7 +128,7 @@ describe("fetchOrganizations", () => {
       }),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     act(() => {
       result.current.fetchOrganizations();
@@ -152,7 +148,7 @@ describe("fetchOrganizations", () => {
       .mockRejectedValueOnce(new Error("First failure"))
       .mockResolvedValueOnce(mockOrgsResponse([mockOrg(1)]));
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations();
@@ -172,7 +168,7 @@ describe("fetchOrganizations", () => {
       new Error("Network error"),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations();
@@ -185,7 +181,7 @@ describe("fetchOrganizations", () => {
   it("sets 'Unknown error' for non-Error rejections", async () => {
     vi.mocked(fetchOrganizations).mockRejectedValueOnce("something bad");
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations();
@@ -202,7 +198,7 @@ describe("fetchOrganizations", () => {
       .mockResolvedValueOnce(mockOrgsResponse(first))
       .mockResolvedValueOnce(mockOrgsResponse(second));
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations();
@@ -217,39 +213,20 @@ describe("fetchOrganizations", () => {
     expect(result.current.orgs).toEqual(second);
     expect(result.current.total).toBe(1);
   });
-
-  it("uses updated token after re-render", async () => {
-    vi.mocked(fetchOrganizations).mockResolvedValue(mockOrgsResponse([]));
-
-    const { result, rerender } = renderHook(
-      ({ token }: { token: string }) => useOrganizations(token),
-      { initialProps: { token: TOKEN } },
-    );
-
-    rerender({ token: "new-token" });
-
-    await act(async () => {
-      await result.current.fetchOrganizations();
-    });
-
-    expect(fetchOrganizations).toHaveBeenCalledWith(
-      expect.objectContaining({ token: "new-token" }),
-    );
-  });
 });
 
 describe("addOrganization", () => {
-  it("calls createOrganization with the payload and token", async () => {
+  it("calls createOrganization with the payload", async () => {
     vi.mocked(createOrganization).mockResolvedValueOnce(mockOrg(10));
     vi.mocked(fetchOrganizations).mockResolvedValueOnce(mockOrgsResponse([]));
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.addOrganization(createPayload);
     });
 
-    expect(createOrganization).toHaveBeenCalledWith(createPayload, TOKEN);
+    expect(createOrganization).toHaveBeenCalledWith(createPayload);
   });
 
   it("returns { success: true, data } on success", async () => {
@@ -257,7 +234,7 @@ describe("addOrganization", () => {
     vi.mocked(createOrganization).mockResolvedValueOnce(created);
     vi.mocked(fetchOrganizations).mockResolvedValueOnce(mockOrgsResponse([]));
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     let response: Awaited<ReturnType<typeof result.current.addOrganization>>;
     await act(async () => {
@@ -273,7 +250,7 @@ describe("addOrganization", () => {
       mockOrgsResponse([mockOrg(10)]),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.addOrganization(createPayload);
@@ -291,7 +268,7 @@ describe("addOrganization", () => {
       .mockResolvedValueOnce(mockOrgsResponse([]));
     vi.mocked(createOrganization).mockResolvedValueOnce(mockOrg(10));
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations(2, undefined, 6);
@@ -315,7 +292,7 @@ describe("addOrganization", () => {
     );
     vi.mocked(fetchOrganizations).mockResolvedValue(mockOrgsResponse([]));
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     act(() => {
       result.current.addOrganization(createPayload);
@@ -335,7 +312,7 @@ describe("addOrganization", () => {
       new Error("Stale error"),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.fetchOrganizations();
@@ -358,7 +335,7 @@ describe("addOrganization", () => {
       new Error("Duplicate name"),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     let response: Awaited<ReturnType<typeof result.current.addOrganization>>;
     await act(async () => {
@@ -373,7 +350,7 @@ describe("addOrganization", () => {
   it("returns 'Failed to create organization' for non-Error rejections", async () => {
     vi.mocked(createOrganization).mockRejectedValueOnce("unknown");
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     let response: Awaited<ReturnType<typeof result.current.addOrganization>>;
     await act(async () => {
@@ -392,7 +369,7 @@ describe("addOrganization", () => {
       new Error("Server error"),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.addOrganization(createPayload);
@@ -406,7 +383,7 @@ describe("addOrganization", () => {
       new Error("Server error"),
     );
 
-    const { result } = renderHook(() => useOrganizations(TOKEN));
+    const { result } = renderHook(() => useOrganizations());
 
     await act(async () => {
       await result.current.addOrganization(createPayload);

@@ -13,7 +13,6 @@ vi.mock("../organizations.api", () => ({
   cancelMemberInvite: vi.fn(),
 }));
 
-const TOKEN = "test-token";
 const ORG_NAME = "acme";
 
 const mockInvite = (id: number): OrganizationInvite => ({
@@ -36,7 +35,7 @@ describe("initial state", () => {
     vi.mocked(fetchMembersInvites).mockResolvedValue([]);
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     expect(result.current.invites).toEqual([]);
@@ -45,7 +44,7 @@ describe("initial state", () => {
   });
 
   it("does not auto-fetch on mount", () => {
-    renderHook(() => useOrganizationInvites(TOKEN, ORG_NAME));
+    renderHook(() => useOrganizationInvites(ORG_NAME));
 
     expect(fetchMembersInvites).not.toHaveBeenCalled();
   });
@@ -57,14 +56,14 @@ describe("fetchInvites", () => {
     vi.mocked(fetchMembersInvites).mockResolvedValueOnce(invites);
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await act(async () => {
       await result.current.fetchInvites();
     });
 
-    expect(fetchMembersInvites).toHaveBeenCalledWith(ORG_NAME, TOKEN);
+    expect(fetchMembersInvites).toHaveBeenCalledWith(ORG_NAME);
     expect(result.current.invites).toEqual(invites);
     expect(result.current.error).toBeNull();
   });
@@ -78,7 +77,7 @@ describe("fetchInvites", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     act(() => {
@@ -98,7 +97,7 @@ describe("fetchInvites", () => {
     vi.mocked(fetchMembersInvites).mockRejectedValueOnce(new Error("oops"));
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await act(async () => {
@@ -114,7 +113,7 @@ describe("fetchInvites", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await act(async () => {
@@ -131,7 +130,7 @@ describe("fetchInvites", () => {
       .mockResolvedValueOnce([mockInvite(1)]);
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await act(async () => {
@@ -157,7 +156,7 @@ describe("fetchInvites", () => {
       .mockResolvedValueOnce(second);
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await act(async () => {
@@ -180,14 +179,14 @@ describe("cancelInvite", () => {
     vi.mocked(fetchMembersInvites).mockResolvedValue([]);
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await act(async () => {
       await result.current.cancelInvite(5);
     });
 
-    expect(cancelMemberInvite).toHaveBeenCalledWith(5, ORG_NAME, TOKEN);
+    expect(cancelMemberInvite).toHaveBeenCalledWith(5, ORG_NAME);
   });
 
   it("re-fetches invites after cancellation", async () => {
@@ -195,7 +194,7 @@ describe("cancelInvite", () => {
     vi.mocked(fetchMembersInvites).mockResolvedValue([mockInvite(2)]);
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await act(async () => {
@@ -216,7 +215,7 @@ describe("cancelInvite", () => {
     vi.mocked(cancelMemberInvite).mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await act(async () => {
@@ -238,7 +237,7 @@ describe("cancelInvite", () => {
     );
 
     const { result } = renderHook(() =>
-      useOrganizationInvites(TOKEN, ORG_NAME),
+      useOrganizationInvites(ORG_NAME),
     );
 
     await expect(
@@ -252,29 +251,12 @@ describe("cancelInvite", () => {
 });
 
 describe("dependency changes", () => {
-  it("uses updated token when fetchInvites is called after token change", async () => {
-    vi.mocked(fetchMembersInvites).mockResolvedValue([]);
-
-    const { result, rerender } = renderHook(
-      ({ token }: { token: string }) => useOrganizationInvites(token, ORG_NAME),
-      { initialProps: { token: TOKEN } },
-    );
-
-    rerender({ token: "new-token" });
-
-    await act(async () => {
-      await result.current.fetchInvites();
-    });
-
-    expect(fetchMembersInvites).toHaveBeenCalledWith(ORG_NAME, "new-token");
-  });
-
   it("uses updated orgName when fetchInvites is called after orgName change", async () => {
     vi.mocked(fetchMembersInvites).mockResolvedValue([]);
 
     const { result, rerender } = renderHook(
       ({ orgName }: { orgName: string }) =>
-        useOrganizationInvites(TOKEN, orgName),
+        useOrganizationInvites(orgName),
       { initialProps: { orgName: ORG_NAME } },
     );
 
@@ -284,6 +266,6 @@ describe("dependency changes", () => {
       await result.current.fetchInvites();
     });
 
-    expect(fetchMembersInvites).toHaveBeenCalledWith("other-org", TOKEN);
+    expect(fetchMembersInvites).toHaveBeenCalledWith("other-org");
   });
 });

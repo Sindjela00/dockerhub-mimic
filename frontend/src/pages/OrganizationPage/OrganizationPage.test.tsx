@@ -18,10 +18,6 @@ vi.mock("react-router-dom", () => ({
   useParams: () => ({ orgName: "acme" }),
 }));
 
-vi.mock("../../context/AppContext", () => ({
-  useAuth: () => ({ token: "test-token" }),
-}));
-
 const mockRefetch = vi.fn();
 const mockDeleteOrganization = vi.fn();
 const mockFetchRepos = vi.fn();

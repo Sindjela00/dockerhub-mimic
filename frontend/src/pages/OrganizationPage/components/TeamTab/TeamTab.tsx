@@ -12,15 +12,14 @@ import { useOrganizationTeams } from "@/services/organizations/useOrganizationsT
 
 interface TeamsTabProps {
   orgName: string;
-  token: string;
   organization: Organization;
 }
 
-export function TeamsTab({ orgName, token, organization }: TeamsTabProps) {
+export function TeamsTab({ orgName, organization }: TeamsTabProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { teams, total, loading, error, fetchTeams, createTeam } =
-    useOrganizationTeams(token, orgName);
+    useOrganizationTeams(orgName);
 
   const initialFetchDone = useRef(false);
 
@@ -33,7 +32,7 @@ export function TeamsTab({ orgName, token, organization }: TeamsTabProps) {
 
   const handleDeleteTeam = async (teamName: string) => {
     try {
-      await deleteTeam(orgName, teamName, token);
+      await deleteTeam(orgName, teamName);
       fetchTeams("");
     } catch {
       // error

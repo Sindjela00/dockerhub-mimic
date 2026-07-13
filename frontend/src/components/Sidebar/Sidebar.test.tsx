@@ -9,6 +9,10 @@ import userEvent from "@testing-library/user-event";
 
 const mockNavigate = vi.fn();
 const mockClearAuth = vi.fn();
+const mockUseAppContext = vi.fn(() => ({
+  clearAuth: mockClearAuth,
+  auth: { role: null as string | null },
+}));
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -19,9 +23,7 @@ vi.mock("../../context/AppContext", async () => {
   const actual = await vi.importActual("../../context/AppContext");
   return {
     ...actual,
-    useAppContext: () => ({
-      clearAuth: mockClearAuth,
-    }),
+    useAppContext: () => mockUseAppContext(),
   };
 });
 
@@ -235,6 +237,47 @@ describe("Sidebar", () => {
 
       window.innerWidth = 1024;
       window.dispatchEvent(new Event("resize"));
+    });
+  });
+
+  describe("Role-based navigation", () => {
+    it("ne prikazuje Administrators link za obicnog korisnika", () => {
+      renderSidebar();
+      expect(screen.queryByText("Administrators")).toBeNull();
+    });
+
+    it("prikazuje Administrators link za super-admina", () => {
+      mockUseAppContext.mockReturnValueOnce({
+        clearAuth: mockClearAuth,
+        auth: { role: "SuperAdmin" },
+      });
+      renderSidebar();
+      expect(screen.getByText("Administrators")).toBeInTheDocument();
+    });
+
+    it("ne prikazuje Analytics link za obicnog korisnika", () => {
+      renderSidebar();
+      expect(screen.queryByText("Analytics")).toBeNull();
+    });
+
+    it("prikazuje Analytics link za administratora", () => {
+      mockUseAppContext.mockReturnValueOnce({
+        clearAuth: mockClearAuth,
+        auth: { role: "Administrator" },
+      });
+      renderSidebar();
+      expect(screen.getByText("Analytics")).toBeInTheDocument();
+      expect(screen.queryByText("Administrators")).toBeNull();
+    });
+
+    it("prikazuje i Analytics i Administrators link za super-admina", () => {
+      mockUseAppContext.mockReturnValueOnce({
+        clearAuth: mockClearAuth,
+        auth: { role: "SuperAdmin" },
+      });
+      renderSidebar();
+      expect(screen.getByText("Analytics")).toBeInTheDocument();
+      expect(screen.getByText("Administrators")).toBeInTheDocument();
     });
   });
 

@@ -155,6 +155,25 @@ public sealed class RegistryServiceTests
     }
 
     [TestMethod]
+    public async Task GetRegistryTokenAsync_SuperAdminOnSomeoneElsesPrivateRepo_GrantsPushAndPull()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var superAdmin = await TestHelpers.AddUserAsync(dbContext, "superadmin", "superadmin@example.com", User.RoleSuperAdmin);
+        await TestHelpers.AddRepositoryAsync(dbContext, owner, "sample", "private", pullCount: 0);
+
+        var service = CreateService(dbContext);
+        var authHeader = $"Basic {Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("superadmin:Password1"))}";
+
+        var result = await service.GetRegistryTokenAsync(authHeader, "superadmin", "registry", null,
+            ["repository:owner/sample:push,pull"], CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        var actions = ParseGrantedActions(result.Token!);
+        CollectionAssert.AreEquivalent(new[] { "push", "pull" }, actions);
+    }
+
+    [TestMethod]
     public async Task GetRegistryTokenAsync_OrgAdminOnPrivateOrgRepo_GrantsPushAndPull()
     {
         using var dbContext = TestHelpers.CreateDbContext();

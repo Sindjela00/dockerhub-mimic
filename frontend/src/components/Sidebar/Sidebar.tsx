@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, LogOut, Menu } from "lucide-react";
 
 import Button from "../Button/Button";
 import Logo from "../Logo/Logo";
-import { NAV_SECTIONS } from "./types/sidebarConfig";
+import { getNavSections } from "./types/sidebarConfig";
 import { Plan } from "./types/types";
 import { useAppContext } from "../../context/AppContext";
 import { useState } from "react";
@@ -20,7 +20,11 @@ export default function Sidebar({
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { clearAuth } = useAppContext();
+  const {
+    clearAuth,
+    auth: { role },
+  } = useAppContext();
+  const navSections = getNavSections(role);
 
   const handleNavigate = (path: string) => {
     onNavigate?.(path);
@@ -97,7 +101,7 @@ export default function Sidebar({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 flex flex-col gap-1">
-          {NAV_SECTIONS.map((section) => (
+          {navSections.map((section) => (
             <div key={section.title} className="px-2">
               <p
                 className="text-[10px] font-medium tracking-widest uppercase px-2 py-1.5

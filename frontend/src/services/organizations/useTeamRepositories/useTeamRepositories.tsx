@@ -10,11 +10,7 @@ import { Repository } from "@/services/repositories/repositories.api";
 import { fetchOrganizationRepositories } from "@/services/organizations/organizations.api";
 import { removeRepositoryFromTeam } from "@/services/organizations/organizations.api";
 
-export function useTeamRepositories(
-  token: string,
-  orgName: string,
-  teamName: string,
-) {
+export function useTeamRepositories(orgName: string, teamName: string) {
   const [repositories, setRepositories] = useState<TeamRepository[]>([]);
   const [orgRepositories, setOrgRepositories] = useState<Repository[]>([]);
   const [total, setTotal] = useState(0);
@@ -27,8 +23,8 @@ export function useTeamRepositories(
     setError(null);
     try {
       const [teamData, orgData] = await Promise.all([
-        fetchTeamRepositories(orgName, teamName, token),
-        fetchOrganizationRepositories(orgName, token),
+        fetchTeamRepositories(orgName, teamName),
+        fetchOrganizationRepositories(orgName),
       ]);
       setRepositories(teamData.repositories);
       setTotal(teamData.total);
@@ -38,22 +34,22 @@ export function useTeamRepositories(
     } finally {
       setLoading(false);
     }
-  }, [orgName, teamName, token]);
+  }, [orgName, teamName]);
 
   const addRepository = useCallback(
     async (payload: AddTeamRepositoryPayload) => {
-      await addTeamRepository(orgName, teamName, payload, token);
+      await addTeamRepository(orgName, teamName, payload);
       await fetchRepos();
     },
-    [orgName, teamName, token, fetchRepos],
+    [orgName, teamName, fetchRepos],
   );
 
   const removeRepository = useCallback(
     async (repositoryId: number) => {
-      await removeRepositoryFromTeam(orgName, teamName, repositoryId, token);
+      await removeRepositoryFromTeam(orgName, teamName, repositoryId);
       await fetchRepos();
     },
-    [orgName, teamName, token, fetchRepos],
+    [orgName, teamName, fetchRepos],
   );
 
   return {

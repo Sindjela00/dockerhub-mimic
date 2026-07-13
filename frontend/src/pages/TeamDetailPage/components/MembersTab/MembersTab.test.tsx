@@ -73,7 +73,7 @@ describe("MembersTab", () => {
   });
 
   it("renders members count and table", () => {
-    render(<MembersTab orgName="org" teamName="team" token="token" />);
+    render(<MembersTab orgName="org" teamName="team" />);
 
     expect(screen.getByText("1 members")).toBeInTheDocument();
     expect(screen.getByTestId("table")).toBeInTheDocument();
@@ -81,14 +81,14 @@ describe("MembersTab", () => {
   });
 
   it("calls fetchMembers and fetchOrgMembers on mount", () => {
-    render(<MembersTab orgName="org" teamName="team" token="token" />);
+    render(<MembersTab orgName="org" teamName="team" />);
 
     expect(fetchMembersMock).toHaveBeenCalledTimes(1);
     expect(fetchOrgMembersMock).toHaveBeenCalledWith("");
   });
 
   it("opens modal when clicking Add member", () => {
-    render(<MembersTab orgName="org" teamName="team" token="token" />);
+    render(<MembersTab orgName="org" teamName="team" />);
 
     fireEvent.click(screen.getByText(/add member/i));
 

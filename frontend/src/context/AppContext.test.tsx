@@ -23,33 +23,53 @@ describe("AppContext — auth", () => {
   it("setAuth postavlja token i uloguje korisnika", () => {
     const { result } = renderHook(() => useAppContext(), { wrapper });
 
-    act(() => result.current.setAuth("test-token", "User"));
+    act(() =>
+      result.current.setAuth("test-token", "User", "testuser", false),
+    );
 
     expect(result.current.auth.isLoggedIn).toBe(true);
     expect(result.current.auth.token).toBe("test-token");
     expect(result.current.auth.role).toBe("User");
+    expect(result.current.auth.mustChangePassword).toBe(false);
     expect(localStorage.getItem("token")).toBe("test-token");
+  });
+
+  it("setAuth postavlja mustChangePassword kada je true", () => {
+    const { result } = renderHook(() => useAppContext(), { wrapper });
+
+    act(() =>
+      result.current.setAuth("test-token", "SuperAdmin", "superadmin", true),
+    );
+
+    expect(result.current.auth.mustChangePassword).toBe(true);
+    expect(localStorage.getItem("mustChangePassword")).toBe("true");
   });
 
   it("clearAuth odjavljuje korisnika i brise localStorage", () => {
     const { result } = renderHook(() => useAppContext(), { wrapper });
 
-    act(() => result.current.setAuth("test-token", "User"));
+    act(() =>
+      result.current.setAuth("test-token", "User", "testuser", true),
+    );
     act(() => result.current.clearAuth());
 
     expect(result.current.auth.isLoggedIn).toBe(false);
     expect(result.current.auth.token).toBeNull();
+    expect(result.current.auth.mustChangePassword).toBe(false);
     expect(localStorage.getItem("token")).toBeNull();
+    expect(localStorage.getItem("mustChangePassword")).toBeNull();
   });
 
   it("cita token iz localStorage na inicijalizaciji", () => {
     localStorage.setItem("token", "existing-token");
-    localStorage.setItem("role", "Admin");
+    localStorage.setItem("role", "Administrator");
+    localStorage.setItem("mustChangePassword", "true");
 
     const { result } = renderHook(() => useAppContext(), { wrapper });
 
     expect(result.current.auth.isLoggedIn).toBe(true);
     expect(result.current.auth.token).toBe("existing-token");
+    expect(result.current.auth.mustChangePassword).toBe(true);
   });
 });
 

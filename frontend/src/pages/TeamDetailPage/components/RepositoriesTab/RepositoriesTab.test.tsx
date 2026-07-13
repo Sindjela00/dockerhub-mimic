@@ -86,14 +86,14 @@ describe("RepositoriesTab", () => {
   });
 
   it("calls fetch on mount", () => {
-    render(<RepositoriesTab orgName="org" teamName="team" token="token" />);
+    render(<RepositoriesTab orgName="org" teamName="team" />);
 
     expect(fetchReposMock).toHaveBeenCalledTimes(1);
     expect(fetchOrgReposMock).toHaveBeenCalledWith("");
   });
 
   it("renders repository list", () => {
-    render(<RepositoriesTab orgName="org" teamName="team" token="token" />);
+    render(<RepositoriesTab orgName="org" teamName="team" />);
 
     expect(screen.getByText("repo-1")).toBeInTheDocument();
     expect(screen.getByText("org/repo-1")).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe("RepositoriesTab", () => {
   });
 
   it("navigates on repo click", () => {
-    render(<RepositoriesTab orgName="org" teamName="team" token="token" />);
+    render(<RepositoriesTab orgName="org" teamName="team" />);
 
     fireEvent.click(screen.getByText("repo-1"));
 
@@ -109,7 +109,7 @@ describe("RepositoriesTab", () => {
   });
 
   it("opens add modal", () => {
-    render(<RepositoriesTab orgName="org" teamName="team" token="token" />);
+    render(<RepositoriesTab orgName="org" teamName="team" />);
 
     fireEvent.click(screen.getByText(/add repository/i));
 
@@ -117,7 +117,7 @@ describe("RepositoriesTab", () => {
   });
 
   it("opens delete modal", () => {
-    render(<RepositoriesTab orgName="org" teamName="team" token="token" />);
+    render(<RepositoriesTab orgName="org" teamName="team" />);
 
     fireEvent.click(screen.getByTitle("Remove from team"));
 
@@ -127,7 +127,7 @@ describe("RepositoriesTab", () => {
   it("handles successful delete", async () => {
     removeRepositoryMock.mockResolvedValueOnce(undefined);
 
-    render(<RepositoriesTab orgName="org" teamName="team" token="token" />);
+    render(<RepositoriesTab orgName="org" teamName="team" />);
 
     fireEvent.click(screen.getByTitle("Remove from team"));
     fireEvent.click(screen.getByText("confirm-delete"));
@@ -140,7 +140,7 @@ describe("RepositoriesTab", () => {
   it("handles delete error", async () => {
     removeRepositoryMock.mockRejectedValueOnce(new Error("fail"));
 
-    render(<RepositoriesTab orgName="org" teamName="team" token="token" />);
+    render(<RepositoriesTab orgName="org" teamName="team" />);
 
     fireEvent.click(screen.getByTitle("Remove from team"));
     fireEvent.click(screen.getByText("confirm-delete"));
