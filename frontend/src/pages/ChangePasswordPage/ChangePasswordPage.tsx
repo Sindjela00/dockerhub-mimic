@@ -1,8 +1,9 @@
 import Button from "../../components/Button/Button";
 import InputField from "../../components/InputField/InputField";
 import { KeyRound } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Logo from "../../components/Logo/Logo";
+import { useAppContext } from "../../context/AppContext";
 import { useChangePassword } from "../../services/auth/useChangePassword/useChangePassword";
 import { useState } from "react";
 
@@ -13,8 +14,16 @@ interface FormState {
 }
 
 export default function ChangePasswordPage() {
+  const [searchParams] = useSearchParams();
+  const forced = searchParams.get("forced") === "true";
+  const navigate = useNavigate();
+  const {
+    auth: { email: currentEmail, username },
+    setAuth,
+  } = useAppContext();
+
   const [form, setForm] = useState<FormState>({
-    email: "",
+    email: forced ? currentEmail : "",
     oldPassword: "",
     newPassword: "",
   });
@@ -41,13 +50,20 @@ export default function ChangePasswordPage() {
     e.preventDefault();
     if (!validate()) return;
 
-    const success = await handleChangePassword({
+    const response = await handleChangePassword({
       email: form.email,
       oldPassword: form.oldPassword,
       newPassword: form.newPassword,
     });
 
-    if (success) setSubmitted(true);
+    if (!response) return;
+
+    if (forced) {
+      setAuth(response.token, response.role, username, false);
+      navigate("/", { replace: true });
+    } else {
+      setSubmitted(true);
+    }
   };
 
   return (
@@ -82,21 +98,25 @@ export default function ChangePasswordPage() {
           ) : (
             <>
               <h1 className="text-lg font-semibold text-text-primary mb-1">
-                Change password
+                {forced ? "You must change your password" : "Change password"}
               </h1>
               <p className="text-sm text-text-muted mb-6">
-                Enter your email and current password to set a new one.
+                {forced
+                  ? "This is your first login with a temporary password. Set a new password to continue."
+                  : "Enter your email and current password to set a new one."}
               </p>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <InputField
-                  label="Email"
-                  type="email"
-                  value={form.email}
-                  onChange={(v) => setForm((f) => ({ ...f, email: v }))}
-                  placeholder="you@example.com"
-                  error={errors.email}
-                />
+                {!forced && (
+                  <InputField
+                    label="Email"
+                    type="email"
+                    value={form.email}
+                    onChange={(v) => setForm((f) => ({ ...f, email: v }))}
+                    placeholder="you@example.com"
+                    error={errors.email}
+                  />
+                )}
                 <InputField
                   label="Old password"
                   type="password"

@@ -29,9 +29,13 @@ import { formatDate } from "@/utils/formatDate";
 import TagsTab from "./components/TabsContent/TabsContent";
 import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 import ErrorPage from "../ErrorPage/ErrorPage";
+import { useAuth } from "@/context/AppContext";
+import { isAdminRole } from "@/context/types/types";
+import TeamsTab from "./components/TeamsTab/TeamsTab";
 
 export default function RepositoryDetailPage() {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const { id } = useParams<{ id: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -90,6 +94,8 @@ export default function RepositoryDetailPage() {
   }
 
   const cmd = `docker pull ${repo.fullName}:latest`;
+
+  const orgName = repo.organization?.name ?? null;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(cmd);
@@ -158,16 +164,20 @@ export default function RepositoryDetailPage() {
             loading={starLoading}
             onToggle={toggleStar}
           />
-          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil size={13} /> Edit
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => setDeleteOpen(true)}
+          <div
+            className={`${isAdminRole(role) ? "" : "hidden"} flex items-center gap-2`}
           >
-            <Trash2 size={13} /> Delete
-          </Button>
+            <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil size={13} /> Edit
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 size={13} /> Delete
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -243,6 +253,17 @@ export default function RepositoryDetailPage() {
             {...sharedTagsTabProps}
           />
         )}
+
+        {activeTab === "teams" &&
+          (orgName ? (
+            <TeamsTab orgName={orgName} repoId={repo?.id} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-secondary">
+              <p className="text-sm">
+                This repository is not part of an organization.
+              </p>
+            </div>
+          ))}
       </div>
 
       <EditRepositoryModal

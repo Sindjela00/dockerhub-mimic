@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using backend.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -61,6 +62,7 @@ public sealed class ProgramIntegrationTests
                 configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["SkipDatabaseSeeding"] = "true",
+                    ["SkipElasticsearchInit"] = "true",
                     ["Jwt:Key"] = "unit-test-secret-key-unit-test-secret-key-123456",
                     ["Jwt:Issuer"] = "unit-tests",
                     ["Jwt:Audience"] = "unit-tests-client",
@@ -76,6 +78,9 @@ public sealed class ProgramIntegrationTests
                 services.RemoveAll<IRepositoriesService>();
                 services.AddScoped<IAuthService, StubAuthService>();
                 services.AddScoped<IRepositoriesService, StubRepositoriesService>();
+
+                services.RemoveAll<IDistributedCache>();
+                services.AddSingleton<IDistributedCache, FakeDistributedCache>();
             });
         }
     }
@@ -96,13 +101,13 @@ public sealed class ProgramIntegrationTests
 
     private sealed class StubRepositoriesService : IRepositoriesService
     {
-        public Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir, bool mine, bool starred, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
+        public Task<RepositoriesResult<RepositoryListResponse>> ExploreRepositoriesAsync(string? search, string? owner, string? visibility, int? minStars, string? sortBy, string? sortDir, bool mine, bool starred, string? badges, int page, int pageSize, string? currentUsername, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<RepositoryListResponse>(true, new RepositoryListResponse { Page = page, PageSize = pageSize, Total = 0 }, null));
 
         public Task<RepositoriesResult<RepositoryResponse>> GetRepositoryAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<RepositoryResponse>(true, new RepositoryResponse { Id = id, Name = "repo" }, null));
 
-        public Task<RepositoriesResult<RepositoryResponse>> CreateRepositoryAsync(string name, string? description, string visibility, string username, CancellationToken cancellationToken)
+        public Task<RepositoriesResult<RepositoryResponse>> CreateRepositoryAsync(string name, string? description, string visibility, bool isOfficial, string username, string? userRole, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<RepositoryResponse>(true, new RepositoryResponse { Id = 1, Name = name }, null));
 
         public Task<RepositoriesResult<RepositoryResponse>> UpdateRepositoryAsync(int id, string? name, string? description, string? visibility, string? currentUsername, string? userRole, CancellationToken cancellationToken)
@@ -131,5 +136,17 @@ public sealed class ProgramIntegrationTests
 
         public Task<RepositoriesResult<RepositoryResponse>> UnstarRepositoryAsync(int id, string? currentUsername, CancellationToken cancellationToken)
             => Task.FromResult(new RepositoriesResult<RepositoryResponse>(true, new RepositoryResponse { Id = id, Name = "repo", StarCount = 0 }, null));
+
+        public Task<RepositoriesResult<RepositoryTeamAccessListResponse>> GetRepositoryTeamsAsync(int id, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<RepositoryTeamAccessListResponse>(true, new RepositoryTeamAccessListResponse { RepositoryId = id }, null));
+
+        public Task<RepositoriesResult<RepositoryTeamAccessResponse>> SetRepositoryTeamPermissionAsync(int id, int teamId, string permission, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<RepositoryTeamAccessResponse>(true, new RepositoryTeamAccessResponse { TeamId = teamId }, null));
+
+        public Task<RepositoriesResult<string>> RemoveRepositoryTeamAsync(int id, int teamId, string? currentUsername, string? userRole, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<string>(true, "removed", null));
+
+        public Task<RepositoriesResult<UserDashboardStatsResponse>> GetDashboardStatsAsync(string? currentUsername, CancellationToken cancellationToken)
+            => Task.FromResult(new RepositoriesResult<UserDashboardStatsResponse>(true, new UserDashboardStatsResponse(), null));
     }
 }

@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 using backend.Data;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Services;
@@ -55,10 +55,10 @@ public interface IRegistryService
 public class RegistryService : IRegistryService
 {
     private readonly AppDbContext _dbContext;
-    private readonly IMemoryCache _cache;
+    private readonly IDistributedCache _cache;
     private readonly IConfiguration _configuration;
 
-    public RegistryService(AppDbContext dbContext, IMemoryCache cache, IConfiguration configuration)
+    public RegistryService(AppDbContext dbContext, IDistributedCache cache, IConfiguration configuration)
     {
         _dbContext = dbContext;
         _cache = cache;
@@ -81,10 +81,13 @@ public class RegistryService : IRegistryService
             username = Normalize(basicUsername);
             password = basicPassword;
         }
-        else if (!string.IsNullOrWhiteSpace(username)
-                 && _cache.TryGetValue<(string Username, string Password)>($"registry_creds_{username}", out var cachedCreds))
+        else if (!string.IsNullOrWhiteSpace(username))
         {
-            password = cachedCreds.Password;
+            var cachedPassword = await _cache.GetStringAsync($"registry_creds_{username}", cancellationToken);
+            if (cachedPassword is null)
+                return new RegistryTokenResult(false, null, 0, "Missing or invalid credentials for registry token.");
+
+            password = cachedPassword;
         }
         else
         {
@@ -135,10 +138,16 @@ public class RegistryService : IRegistryService
             if (string.IsNullOrWhiteSpace(namespacePart) || string.IsNullOrWhiteSpace(repoName)) continue;
 
             var owner = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == namespacePart, cancellationToken);
-            if (owner is null) continue;
+            var organization = owner is null
+                ? await _dbContext.Organizations.FirstOrDefaultAsync(o => o.Name == namespacePart, cancellationToken)
+                : null;
 
-            var existing = await _dbContext.Repositories
-                .FirstOrDefaultAsync(r => r.OwnerId == owner.Id && r.Name == repoName, cancellationToken);
+            if (owner is null && organization is null)
+                continue;
+
+            var existing = organization is null
+                ? await _dbContext.Repositories.FirstOrDefaultAsync(r => r.OrganizationId == null && r.OwnerId == owner!.Id && r.Name == repoName, cancellationToken)
+                : await _dbContext.Repositories.FirstOrDefaultAsync(r => r.OrganizationId == organization.Id && r.Name == repoName, cancellationToken);
 
             Repository repo;
             if (existing is null)
@@ -148,7 +157,8 @@ public class RegistryService : IRegistryService
                     Name = repoName,
                     Description = "Synced from Docker Registry push event.",
                     Visibility = "private",
-                    OwnerId = owner.Id,
+                    OwnerId = organization?.OwnerId ?? owner!.Id,
+                    OrganizationId = organization?.Id,
                     CreatedAt = now,
                     UpdatedAt = now,
                     IsOfficial = false,
@@ -243,10 +253,10 @@ public class RegistryService : IRegistryService
 
         var slashIndex = normalized.IndexOf('/');
         string repoName;
-        string? ownerUsername = null;
+        string? namespaceSegment = null;
         if (slashIndex > 0 && slashIndex < normalized.Length - 1)
         {
-            ownerUsername = normalized[..slashIndex];
+            namespaceSegment = normalized[..slashIndex];
             repoName = normalized[(slashIndex + 1)..];
         }
         else
@@ -254,27 +264,62 @@ public class RegistryService : IRegistryService
             repoName = normalized;
         }
 
-        var query = _dbContext.Repositories
+        // Base query with all necessary includes for permission evaluation
+        var baseQuery = _dbContext.Repositories
             .Include(r => r.Owner)
             .Include(r => r.Collaborators)
+            .Include(r => r.Organization)
+            .ThenInclude(o => o!.Members)
+            .Include(r => r.TeamRepositories)
+            .ThenInclude(tr => tr.Team)
+            .ThenInclude(t => t!.TeamMembers)
             .AsQueryable();
 
-        query = !string.IsNullOrWhiteSpace(ownerUsername)
-            ? query.Where(r => r.Owner != null && r.Owner.Username == ownerUsername && r.Name == repoName)
-            : query.Where(r => r.IsOfficial && r.Name == repoName);
+        Repository? repository;
+        if (!string.IsNullOrWhiteSpace(namespaceSegment))
+        {
+            // Resolve namespace to org ID first to avoid navigation-property access in WHERE
+            var orgId = await _dbContext.Organizations
+                .Where(o => o.Name == namespaceSegment)
+                .Select(o => (int?)o.Id)
+                .FirstOrDefaultAsync(cancellationToken);
 
-        var repository = await query.FirstOrDefaultAsync(cancellationToken);
+            repository = orgId.HasValue
+                ? await baseQuery.FirstOrDefaultAsync(r => r.Name == repoName && r.OrganizationId == orgId.Value, cancellationToken)
+                : await baseQuery.FirstOrDefaultAsync(r => r.Name == repoName && r.OrganizationId == null && r.Owner != null && r.Owner.Username == namespaceSegment, cancellationToken);
+        }
+        else
+        {
+            repository = await baseQuery.FirstOrDefaultAsync(r => r.IsOfficial && r.Name == repoName, cancellationToken);
+        }
+
         if (repository is null) return Array.Empty<string>();
 
-        var isAdmin = string.Equals(user.Role, User.RoleAdministrator, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = User.IsAdminRole(user.Role);
         var isOwner = repository.OwnerId == user.Id;
         var collaborator = repository.Collaborators.FirstOrDefault(c => c.UserId == user.Id);
         var collaboratorRole = Normalize(collaborator?.Role ?? string.Empty);
-        var canPushAsCollaborator = repository.Visibility == "public"
+        // Collaborators only apply to personal (non-org) repos; org repos use team-based permissions
+        var canPushAsCollaborator = repository.OrganizationId == null
+            && repository.Visibility == "public"
             && (collaboratorRole == "write" || collaboratorRole == "admin");
 
-        var canPull = repository.Visibility == "public" || isOwner || isAdmin;
-        var canPush = isOwner || isAdmin || canPushAsCollaborator;
+        var organizationMembership = repository.Organization?.Members.FirstOrDefault(m => m.UserId == user.Id);
+        var organizationRole = Normalize(organizationMembership?.Role ?? string.Empty);
+        var isOrganizationMember = organizationMembership is not null;
+        var canPushAsOrganizationMember = organizationRole == OrganizationMember.RoleOwner || organizationRole == OrganizationMember.RoleAdmin;
+
+        // Check team-based permissions for this specific repository
+        var teamPermission = repository.TeamRepositories
+            .Where(tr => tr.Team != null && tr.Team.TeamMembers.Any(tm => tm.UserId == user.Id))
+            .Select(tr => tr.Permission)
+            .FirstOrDefault();
+        var canPushViaTeam = teamPermission == OrganizationTeamRepository.PermissionReadWrite
+                             || teamPermission == OrganizationTeamRepository.PermissionAdmin;
+        var canPullViaTeam = teamPermission is not null;
+
+        var canPull = repository.Visibility == "public" || isOwner || isAdmin || isOrganizationMember || canPullViaTeam;
+        var canPush = isOwner || isAdmin || canPushAsCollaborator || canPushAsOrganizationMember || canPushViaTeam;
 
         return requestedActions
             .Select(Normalize)

@@ -1,4 +1,4 @@
-import { QUICK_LINKS, STATS } from "./types/HomePageConfig";
+import { QUICK_LINKS } from "./types/HomePageConfig";
 
 import Button from "../../components/Button/Button";
 import CreateRepositoryModal from "@/components/Modals/CreateRepositoryModal/CreateRepositoryModal";
@@ -6,12 +6,35 @@ import QuickLink from "@/components/Cards/QuickLink/QuickLink";
 import StatCard from "@/components/Cards/StatCard/StatCard";
 import { useAuth } from "@/context/AppContext";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  DashboardStats,
+  getDashboardStats,
+} from "@/services/repositories/repositories.api";
 
 export default function HomePage() {
   const [modalOpen, setModalOpen] = useState(false);
+  const [stats, setStats] = useState<DashboardStats>({
+    repositoryCount: 0,
+    totalStars: 0,
+    totalPulls: 0,
+    teamsCount: 0,
+  });
   const { username } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    getDashboardStats()
+      .then(({ data }) => setStats(data))
+      .catch(() => {});
+  }, []);
+
+  const statCards = [
+    { label: "Repositories", value: String(stats.repositoryCount) },
+    { label: "Total pulls", value: String(stats.totalPulls) },
+    { label: "Stars", value: String(stats.totalStars) },
+    { label: "Teams", value: String(stats.teamsCount) },
+  ];
 
   return (
     <div className="page-wrapper">
@@ -55,13 +78,6 @@ export default function HomePage() {
             >
               Create repository
             </Button>
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => navigate("/repositories")}
-            >
-              Explore images
-            </Button>
           </div>
         </div>
       </div>
@@ -71,7 +87,7 @@ export default function HomePage() {
           Overview
         </h2>
         <div className="card-grid grid-cols-2 sm:grid-cols-4">
-          {STATS.map((stat) => (
+          {statCards.map((stat) => (
             <StatCard key={stat.label} {...stat} />
           ))}
         </div>

@@ -63,6 +63,55 @@ public sealed class DatabaseSeederTests
     }
 
     [TestMethod]
+    public async Task EnsureSuperAdminAsync_CreatesExactlyOneSuperAdminWithMustChangePasswordTrue()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var passwordFilePath = Path.Combine(Path.GetTempPath(), $"super-admin-password-{Guid.NewGuid():N}.txt");
+        var seeder = CreateSeeder(dbContext, new Dictionary<string, string?>
+        {
+            ["Seed:SuperAdminPasswordFilePath"] = passwordFilePath
+        });
+
+        try
+        {
+            await InvokePrivateAsync<object?>(seeder, "EnsureSuperAdminAsync", CancellationToken.None);
+
+            var superAdmins = dbContext.Users.Where(user => user.Role == User.RoleSuperAdmin).ToList();
+            Assert.AreEqual(1, superAdmins.Count);
+            Assert.IsTrue(superAdmins[0].MustChangePassword);
+
+            Assert.IsTrue(File.Exists(passwordFilePath));
+            var generatedPassword = await File.ReadAllTextAsync(passwordFilePath);
+            Assert.IsTrue(User.VerifyPassword(generatedPassword, superAdmins[0].PasswordHash));
+        }
+        finally
+        {
+            if (File.Exists(passwordFilePath))
+                File.Delete(passwordFilePath);
+        }
+    }
+
+    [TestMethod]
+    public async Task EnsureSuperAdminAsync_WhenSuperAdminAlreadyExists_DoesNotRegeneratePasswordOrFile()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var existingSuperAdmin = await TestHelpers.AddUserAsync(dbContext, "superadmin", "superadmin@example.com", User.RoleSuperAdmin, mustChangePassword: false);
+        var originalHash = existingSuperAdmin.PasswordHash;
+
+        var passwordFilePath = Path.Combine(Path.GetTempPath(), $"super-admin-password-{Guid.NewGuid():N}.txt");
+        var seeder = CreateSeeder(dbContext, new Dictionary<string, string?>
+        {
+            ["Seed:SuperAdminPasswordFilePath"] = passwordFilePath
+        });
+
+        await InvokePrivateAsync<object?>(seeder, "EnsureSuperAdminAsync", CancellationToken.None);
+
+        Assert.AreEqual(1, dbContext.Users.Count(user => user.Role == User.RoleSuperAdmin));
+        Assert.AreEqual(originalHash, existingSuperAdmin.PasswordHash);
+        Assert.IsFalse(File.Exists(passwordFilePath));
+    }
+
+    [TestMethod]
     public void NormalizeHelpers_TrimAndLowercaseValues()
     {
         var normalizeEmail = typeof(DatabaseSeeder).GetMethod("NormalizeEmail", BindingFlags.Static | BindingFlags.NonPublic);
@@ -76,6 +125,9 @@ public sealed class DatabaseSeederTests
 
     private static DatabaseSeeder CreateSeeder(AppDbContext dbContext)
         => new(dbContext, TestHelpers.CreateConfiguration(), NullLogger<DatabaseSeeder>.Instance);
+
+    private static DatabaseSeeder CreateSeeder(AppDbContext dbContext, IEnumerable<KeyValuePair<string, string?>> configOverrides)
+        => new(dbContext, TestHelpers.CreateConfiguration(configOverrides), NullLogger<DatabaseSeeder>.Instance);
 
     private static async Task<T> InvokePrivateAsync<T>(object instance, string methodName, params object?[] arguments)
     {

@@ -1,33 +1,37 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { changePassword, type ChangePasswordPayload } from "../auth.api";
+import {
+  changePassword,
+  type ChangePasswordPayload,
+  type ChangePasswordResponse,
+} from "../auth.api";
 
 interface UseChangePasswordReturn {
   loading: boolean;
   error: string;
-  handleChangePassword: (payload: ChangePasswordPayload) => Promise<boolean>;
+  handleChangePassword: (
+    payload: ChangePasswordPayload,
+  ) => Promise<ChangePasswordResponse | null>;
 }
 
 export function useChangePassword(): UseChangePasswordReturn {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleChangePassword = async (
     payload: ChangePasswordPayload,
-  ): Promise<boolean> => {
+  ): Promise<ChangePasswordResponse | null> => {
     setLoading(true);
     setError("");
 
     try {
-      await changePassword(payload);
-      return true;
+      const { data } = await changePassword(payload);
+      return data;
     } catch (err: any) {
       const message =
         err.response?.data?.message ??
         "Password change failed. Please try again.";
       setError(message);
-      return false;
+      return null;
     } finally {
       setLoading(false);
     }

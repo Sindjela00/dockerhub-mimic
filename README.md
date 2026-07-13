@@ -1,5 +1,9 @@
 # dockerhub-mimic
 
+## First-time setup
+
+On first startup (when no super-administrator account exists yet), the backend generates one and writes its initial password to `./deploy/secrets/super-admin-password.txt` on the host machine. Log in with username `superadmin` and that password — you will be required to change it before you can use the rest of the system. The password file is only regenerated if the super-administrator account does not yet exist in the database.
+
 Container orchestration includes the required containers:
 - `app` (web application)
 - `db` (PostgreSQL)

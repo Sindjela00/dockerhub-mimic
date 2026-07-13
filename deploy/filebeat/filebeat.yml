@@ -1,0 +1,19 @@
+filebeat.inputs:
+  - type: filestream
+    id: backend-logs
+    paths:
+      - /logs/backend-*.json
+    parsers:
+      - ndjson:
+          keys_under_root: true
+          overwrite_keys: true
+          add_error_key: true
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  index: "app-logs-%{+yyyy.MM.dd}"
+
+setup.template.enabled: false
+setup.ilm.enabled: false
+
+logging.level: info

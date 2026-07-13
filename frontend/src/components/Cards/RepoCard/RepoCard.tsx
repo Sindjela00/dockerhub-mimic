@@ -1,6 +1,10 @@
 import { Edit2, Globe, Lock, Star, Tag, Trash2 } from "lucide-react";
 
 import { Repository } from "@/services/repositories/repositories.api";
+import { TagComponent } from "@/components/Tag/Tag";
+import { formatDate } from "@/utils/formatDate";
+import { isAdminRole } from "@/context/types/types";
+import { useAuth } from "@/context/AppContext";
 import { useStarRepository } from "@/services/repositories/useStarRepository/useStarRepository";
 
 interface RepoCardProps {
@@ -10,20 +14,13 @@ interface RepoCardProps {
   onDelete?: (repo: Repository) => void;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 export default function RepoCard({
   repo,
   onClick,
   onEdit,
   onDelete,
 }: RepoCardProps) {
+  const { role } = useAuth();
   const { starred, count, loading, toggle } = useStarRepository(
     repo.id,
     repo.isStarredByCurrentUser ?? false,
@@ -33,13 +30,13 @@ export default function RepoCard({
   return (
     <button
       onClick={() => onClick?.(repo)}
-      className="w-full text-left group flex flex-col gap-3 p-5
+      className="w-full text-left group flex flex-col gap-2 p-4
                  bg-bg-surface border border-border rounded-xl
                  hover:border-border-strong hover:bg-bg-elevated
                  transition-colors duration-150"
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 overflow-hidden">
           <div
             className="w-8 h-8 min-w-[32px] rounded-md bg-bg-elevated
@@ -52,20 +49,15 @@ export default function RepoCard({
             <p className="text-sm font-medium text-text-primary truncate">
               {repo.fullName}
             </p>
-            <p className="text-[11px] text-text-secondary">
+            <p className="text-[11px] text-text-muted">
               Updated {formatDate(repo.updatedAt)}
             </p>
           </div>
         </div>
 
         {/* Visibility badge */}
-        <span
-          className={[
-            "flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap",
-            repo.visibility === "public"
-              ? "bg-success-muted text-success"
-              : "bg-bg-elevated text-text-secondary border border-border",
-          ].join(" ")}
+        <TagComponent
+          accentClass={repo.visibility === "public" ? "success" : "ghost"}
         >
           {repo.visibility === "public" ? (
             <Globe size={10} />
@@ -73,11 +65,10 @@ export default function RepoCard({
             <Lock size={10} />
           )}
           {repo.visibility}
-        </span>
+        </TagComponent>
 
         {/* Actions */}
         <div className="flex items-center gap-1 ml-auto">
-          {/* ⭐ Star dugme */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -101,8 +92,8 @@ export default function RepoCard({
               e.stopPropagation();
               onEdit?.(repo);
             }}
-            className="p-1 rounded text-text-muted hover:text-brand
-                       hover:bg-bg-elevated transition-colors"
+            className={`p-1 rounded text-text-muted hover:text-brand
+                       hover:bg-bg-elevated transition-colors ${isAdminRole(role) ? "" : "hidden"}`}
             title="Edit"
           >
             <Edit2 size={13} />
@@ -112,8 +103,8 @@ export default function RepoCard({
               e.stopPropagation();
               onDelete?.(repo);
             }}
-            className="p-1 rounded text-text-muted hover:text-danger
-                       hover:bg-danger-muted transition-colors"
+            className={`p-1 rounded text-text-muted hover:text-danger
+                       hover:bg-danger-muted transition-colors ${isAdminRole(role) ? "" : "hidden"}`}
             title="Delete"
           >
             <Trash2 size={13} />
@@ -151,7 +142,7 @@ export default function RepoCard({
         ) : (
           <div className="mt-auto flex items-center gap-1.5 flex-wrap">
             <Tag size={11} className="text-text-secondary" />
-            <span className="text-[10px] text-text-secondary">
+            <span className="text-[10px] text-text-muted">
               There are no tags
             </span>
           </div>
@@ -165,13 +156,13 @@ export default function RepoCard({
           {count}
         </span>
         {repo.isOfficial && (
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full
-                           bg-brand-muted text-brand border border-brand/20
-                           font-medium"
-          >
-            Official
-          </span>
+          <TagComponent accentClass="brand">Official</TagComponent>
+        )}
+        {repo.isVerifiedPublisher && (
+          <TagComponent accentClass="info">Verified Publisher</TagComponent>
+        )}
+        {repo.isSponsoredOss && (
+          <TagComponent accentClass="success">Sponsored OSS</TagComponent>
         )}
       </div>
     </button>

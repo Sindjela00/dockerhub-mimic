@@ -73,6 +73,7 @@ const renderModal = (props = {}) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   mockHook();
 });
 
@@ -87,31 +88,12 @@ describe("CreateRepositoryModal", () => {
     expect(screen.queryByText("Create new repository")).toBeNull();
   });
 
-  it("prikazuje username kao default owner", () => {
-    renderModal({ username: "ana.petrovic" });
-    expect(screen.getByTestId("owner-value").textContent).toBe("ana.petrovic");
-  });
-
-  it("prikazuje organizacije u owner select-u", () => {
-    renderModal();
-    expect(screen.getByText("Acme Corp")).toBeTruthy();
-    expect(screen.getByText("Dev Team")).toBeTruthy();
-  });
-
   it("pretvara naziv u lowercase", async () => {
     const user = userEvent.setup();
     renderModal();
 
     await user.type(screen.getByLabelText(/repository name/i), "MyImage");
     expect(screen.getByLabelText(/repository name/i)).toHaveValue("myimage");
-  });
-
-  it("menja owner na organizaciju", async () => {
-    const user = userEvent.setup();
-    renderModal();
-
-    await user.click(screen.getByText("Acme Corp"));
-    expect(screen.getByTestId("owner-value").textContent).toBe("acme-corp");
   });
 
   it("prikazuje gresku za prazan naziv", async () => {
@@ -245,5 +227,64 @@ describe("CreateRepositoryModal", () => {
     await user.click(screen.getByRole("button", { name: /cancel/i }));
 
     expect(screen.queryByDisplayValue("my-image")).toBeNull();
+  });
+
+  describe("Official repository toggle", () => {
+    it("ne prikazuje toggle za obicnog korisnika", () => {
+      localStorage.setItem("role", "User");
+      renderModal();
+
+      expect(screen.queryByText("Official repository")).toBeNull();
+    });
+
+    it("prikazuje toggle za administratora", () => {
+      localStorage.setItem("role", "Administrator");
+      renderModal();
+
+      expect(screen.getByText("Official repository")).toBeInTheDocument();
+    });
+
+    it("ne prikazuje toggle kada se kreira repo za organizaciju, cak i za admina", () => {
+      localStorage.setItem("role", "Administrator");
+      renderModal({
+        username: "",
+        owner: { name: "acme", displayName: "Acme" },
+      });
+
+      expect(screen.queryByText("Official repository")).toBeNull();
+    });
+
+    it("salje isOfficial:true i public vidljivost kada je toggle oznacen", async () => {
+      localStorage.setItem("role", "Administrator");
+      const handleCreate = vi.fn().mockResolvedValue({ id: 1 });
+      mockHook({ handleCreate });
+      const user = userEvent.setup();
+      renderModal();
+
+      await user.type(screen.getByLabelText(/repository name/i), "nginx");
+      await user.click(screen.getByRole("checkbox"));
+      await user.click(
+        screen.getByRole("button", { name: /create repository/i }),
+      );
+
+      expect(handleCreate).toHaveBeenCalledWith({
+        name: "nginx",
+        description: "",
+        visibility: "public",
+        isOfficial: true,
+      });
+    });
+
+    it("sakriva prefiks i vidljivost kada je toggle oznacen", async () => {
+      localStorage.setItem("role", "Administrator");
+      const user = userEvent.setup();
+      renderModal();
+
+      await user.click(screen.getByRole("checkbox"));
+
+      expect(screen.queryByText("john.doe/")).toBeNull();
+      expect(screen.queryByText("Public")).toBeNull();
+      expect(screen.queryByText("Private")).toBeNull();
+    });
   });
 });

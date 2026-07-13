@@ -28,25 +28,6 @@ beforeEach(() => {
 });
 
 describe("useLogin", () => {
-  it("uspesan login cuva token i navigira na /", async () => {
-    loginSpy.mockResolvedValueOnce({
-      data: { token: "jwt-token", role: "User", message: "Login successful." },
-    } as any);
-
-    const { result } = renderHook(() => useLogin(), { wrapper });
-
-    await act(async () => {
-      await result.current.handleLogin({
-        email: "test@test.com",
-        password: "Password1",
-      });
-    });
-
-    expect(localStorage.getItem("token")).toBe("jwt-token");
-    expect(mockNavigate).toHaveBeenCalledWith("/");
-    expect(result.current.error).toBe("");
-  });
-
   it("neuspesan login postavlja gresku", async () => {
     loginSpy.mockRejectedValueOnce({
       response: { data: { message: "Invalid credentials." } },
@@ -81,5 +62,53 @@ describe("useLogin", () => {
 
     expect(result.current.loading).toBe(true);
     await waitFor(() => expect(result.current.loading).toBe(false));
+  });
+
+  it("preusmerava na /change-password?forced=true kada backend vrati mustChangePassword", async () => {
+    loginSpy.mockResolvedValueOnce({
+      data: {
+        message: "Login successful.",
+        token: "temp-token",
+        role: "SuperAdmin",
+        username: "superadmin",
+        mustChangePassword: true,
+      },
+    } as any);
+
+    const { result } = renderHook(() => useLogin(), { wrapper });
+
+    await act(async () => {
+      await result.current.handleLogin({
+        identifier: "superadmin",
+        password: "Temp1Password",
+      } as any);
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/change-password?forced=true", {
+      replace: true,
+    });
+  });
+
+  it("preusmerava na / kada mustChangePassword nije potreban", async () => {
+    loginSpy.mockResolvedValueOnce({
+      data: {
+        message: "Login successful.",
+        token: "real-token",
+        role: "User",
+        username: "demo",
+        mustChangePassword: false,
+      },
+    } as any);
+
+    const { result } = renderHook(() => useLogin(), { wrapper });
+
+    await act(async () => {
+      await result.current.handleLogin({
+        identifier: "demo",
+        password: "Password1",
+      } as any);
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
   });
 });

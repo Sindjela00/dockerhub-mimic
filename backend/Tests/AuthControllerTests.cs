@@ -4,7 +4,6 @@ using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 
 namespace backend.Tests;
@@ -140,10 +139,40 @@ public sealed class AuthControllerTests
             new AuthController.ChangePasswordRequest("user@example.com", "Password1", "Newpass1A"),
             CancellationToken.None);
 
-        Assert.IsInstanceOfType<OkObjectResult>(result);
+        var okResult = result as OkObjectResult;
+        Assert.IsNotNull(okResult);
+        Assert.IsNotNull(okResult.Value);
+        Assert.IsFalse(GetProperty<bool>(okResult.Value, "mustChangePassword"));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(GetProperty<string>(okResult.Value, "token")));
 
         var updatedHash = (await dbContext.Users.FirstAsync()).PasswordHash;
         Assert.AreNotEqual(oldHash, updatedHash);
+    }
+
+    [TestMethod]
+    public async Task ChangePassword_WhenMustChangePasswordWasTrue_ClearsFlag()
+    {
+        using var dbContext = CreateDbContext();
+        dbContext.Users.Add(new User
+        {
+            Email = "locked@example.com",
+            Username = "locked",
+            PasswordHash = User.HashPassword("Password1"),
+            Role = User.RoleSuperAdmin,
+            MustChangePassword = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var controller = CreateController(dbContext);
+        var result = await controller.ChangePassword(
+            new AuthController.ChangePasswordRequest("locked@example.com", "Password1", "Newpass1A"),
+            CancellationToken.None);
+
+        Assert.IsInstanceOfType<OkObjectResult>(result);
+
+        var updatedUser = await dbContext.Users.FirstAsync(u => u.Email == "locked@example.com");
+        Assert.IsFalse(updatedUser.MustChangePassword);
     }
 
     [TestMethod]
@@ -190,7 +219,7 @@ public sealed class AuthControllerTests
             })
             .Build();
 
-        var tokenService = new AuthService(dbContext, config, new MemoryCache(new MemoryCacheOptions()));
+        var tokenService = new AuthService(dbContext, config, TestHelpers.CreateCache());
         return new AuthController(tokenService);
     }
 

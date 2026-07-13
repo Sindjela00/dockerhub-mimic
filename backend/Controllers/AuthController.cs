@@ -25,7 +25,7 @@ public class AuthController : ControllerBase
                 ? Conflict(new { message = result.Message })
                 : BadRequest(new { message = result.Message });
         }
-        return Ok(new { message = result.Message, token = result.Token, role = result.Role });
+        return Ok(new { message = result.Message, token = result.Token, role = result.Role, mustChangePassword = result.MustChangePassword });
     }
 
     [HttpPost("login")]
@@ -36,7 +36,7 @@ public class AuthController : ControllerBase
         {
             return Unauthorized(new { message = result.Message });
         }
-        return Ok(new { message = result.Message, token = result.Token, role = result.Role });
+        return Ok(new { message = result.Message, token = result.Token, role = result.Role, mustChangePassword = result.MustChangePassword });
     }
 
     [HttpPost("change_password")]
@@ -49,7 +49,7 @@ public class AuthController : ControllerBase
                 ? Unauthorized(new { message = result.Message })
                 : BadRequest(new { message = result.Message });
         }
-        return Ok(new { message = result.Message });
+        return Ok(new { message = result.Message, token = result.Token, role = result.Role, mustChangePassword = result.MustChangePassword });
     }
 
     public sealed record RegisterRequest(

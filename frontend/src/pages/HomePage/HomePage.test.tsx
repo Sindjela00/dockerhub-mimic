@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import HomePage from "./HomePage";
 
@@ -10,6 +10,11 @@ vi.mock("react-router-dom", () => ({
 
 vi.mock("@/context/AppContext", () => ({
   useAuth: () => ({ username: "john" }),
+}));
+
+const mockGetDashboardStats = vi.fn();
+vi.mock("@/services/repositories/repositories.api", () => ({
+  getDashboardStats: () => mockGetDashboardStats(),
 }));
 
 vi.mock(
@@ -37,10 +42,6 @@ vi.mock(
 );
 
 vi.mock("./types/HomePageConfig", () => ({
-  STATS: [
-    { label: "Repositories", value: 12 },
-    { label: "Pulls", value: 340 },
-  ],
   QUICK_LINKS: [
     { label: "Browse images", href: "/repositories" },
     { label: "Documentation", href: "/docs" },
@@ -73,6 +74,14 @@ vi.mock("../../components/Button/Button", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetDashboardStats.mockResolvedValue({
+    data: {
+      repositoryCount: 12,
+      totalPulls: 340,
+      totalStars: 5,
+      teamsCount: 1,
+    },
+  });
 });
 
 describe("HomePage — renderovanje", () => {
@@ -100,13 +109,6 @@ describe("HomePage — renderovanje", () => {
     ).toBeInTheDocument();
   });
 
-  it("renderuje 'Explore images' dugme", () => {
-    render(<HomePage />);
-    expect(
-      screen.getByRole("button", { name: "Explore images" }),
-    ).toBeInTheDocument();
-  });
-
   it("renderuje Overview sekciju", () => {
     render(<HomePage />);
     expect(screen.getByText("Overview")).toBeInTheDocument();
@@ -117,11 +119,15 @@ describe("HomePage — renderovanje", () => {
     expect(screen.getByText("Quick actions")).toBeInTheDocument();
   });
 
-  it("renderuje sve StatCard komponente iz STATS konfiguracije", () => {
+  it("renderuje sve StatCard komponente sa podacima iz dashboard statistike", async () => {
     render(<HomePage />);
-    expect(screen.getAllByTestId("stat-card")).toHaveLength(2);
-    expect(screen.getByText("Repositories: 12")).toBeInTheDocument();
-    expect(screen.getByText("Pulls: 340")).toBeInTheDocument();
+    expect(screen.getAllByTestId("stat-card")).toHaveLength(4);
+    await waitFor(() => {
+      expect(screen.getByText("Repositories: 12")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Total pulls: 340")).toBeInTheDocument();
+    expect(screen.getByText("Stars: 5")).toBeInTheDocument();
+    expect(screen.getByText("Teams: 1")).toBeInTheDocument();
   });
 
   it("renderuje sve QuickLink komponente iz QUICK_LINKS konfiguracije", () => {
@@ -187,12 +193,6 @@ describe("HomePage — CreateRepositoryModal", () => {
 });
 
 describe("HomePage — navigacija", () => {
-  it("klik na 'Explore images' naviguje na /repositories", () => {
-    render(<HomePage />);
-    fireEvent.click(screen.getByRole("button", { name: "Explore images" }));
-    expect(mockNavigate).toHaveBeenCalledWith("/repositories");
-  });
-
   it("navigate se ne poziva pri inicijalnom renderovanju", () => {
     render(<HomePage />);
     expect(mockNavigate).not.toHaveBeenCalled();

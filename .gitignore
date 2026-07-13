@@ -44,4 +44,6 @@ dist-ssr
 
 !env.local
 deploy/registry/registry-private.pem
+deploy/secrets/*
+!deploy/secrets/.gitkeep
 /tests

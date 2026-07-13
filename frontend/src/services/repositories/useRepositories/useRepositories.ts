@@ -20,6 +20,7 @@ interface UseRepositoriesReturn extends UseRepositoriesState {
     sortBy?: "createdAt" | "stars",
     sortDir?: "asc" | "desc",
     starred?: boolean,
+    badges?: string[],
   ) => Promise<void>;
 }
 
@@ -42,6 +43,7 @@ export function useRepositories(initialPageSize = 9): UseRepositoriesReturn {
       sortBy?: "createdAt" | "stars",
       sortDir?: "asc" | "desc",
       starred?: boolean,
+      badges?: string[],
     ) => {
       setState((s) => ({ ...s, loading: true, error: "" }));
 
@@ -55,6 +57,7 @@ export function useRepositories(initialPageSize = 9): UseRepositoriesReturn {
           ...(sortBy ? { sortBy } : {}),
           ...(sortDir ? { sortDir } : {}),
           ...(starred !== undefined ? { starred } : {}),
+          ...(badges?.length ? { badges } : {}),
         });
 
         setState({

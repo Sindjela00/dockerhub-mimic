@@ -18,6 +18,17 @@ public class RepositoriesController : ControllerBase
         _repositoriesService = repositoriesService;
     }
 
+    [HttpGet("stats")]
+    [Authorize]
+    public async Task<IActionResult> GetDashboardStats(CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var result = await _repositoriesService.GetDashboardStatsAsync(currentUsername, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage == "Unauthorized" ? Unauthorized() : BadRequest(new { message = result.ErrorMessage });
+        return Ok(result.Data);
+    }
+
     [HttpGet("explore")]
     public async Task<IActionResult> ExploreRepositories(
         [FromQuery] string? search,
@@ -28,13 +39,14 @@ public class RepositoriesController : ControllerBase
         [FromQuery] string? sortDir,
         [FromQuery] bool mine = false,
         [FromQuery] bool starred = false,
+        [FromQuery] string? badges = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         var currentUsername = GetCurrentUsername();
         var result = await _repositoriesService.ExploreRepositoriesAsync(
-            search, owner, visibility, minStars, sortBy, sortDir, mine, starred, page, pageSize, currentUsername, cancellationToken);
+            search, owner, visibility, minStars, sortBy, sortDir, mine, starred, badges, page, pageSize, currentUsername, cancellationToken);
         if (!result.Succeeded)
             return result.ErrorMessage == "Unauthorized" ? Unauthorized() : BadRequest(new { message = result.ErrorMessage });
         return Ok(result.Data);
@@ -58,14 +70,19 @@ public class RepositoriesController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var username = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
         if (string.IsNullOrEmpty(username))
             return Unauthorized();
 
-        var result = await _repositoriesService.CreateRepositoryAsync(request.Name, request.Description, request.Visibility, username, cancellationToken);
+        var result = await _repositoriesService.CreateRepositoryAsync(
+            request.Name, request.Description, request.Visibility, request.IsOfficial, username, userRole, cancellationToken);
         if (!result.Succeeded)
-            return result.ErrorMessage == "Repository with this name already exists."
-                ? Conflict(new { message = result.ErrorMessage })
-                : BadRequest(new { message = result.ErrorMessage });
+            return result.ErrorMessage switch
+            {
+                "Repository with this name already exists." => Conflict(new { message = result.ErrorMessage }),
+                "Only administrators can create official repositories." => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
         return StatusCode(201, new { message = "Repository created successfully.", repository = result.Data });
     }
 
@@ -220,6 +237,44 @@ public class RepositoriesController : ControllerBase
         return Ok(new { message = "Repository unstarred successfully.", repository = result.Data });
     }
 
+    [HttpGet("{id:int}/teams")]
+    [Authorize]
+    public async Task<IActionResult> GetRepositoryTeams(int id, CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
+        var result = await _repositoriesService.GetRepositoryTeamsAsync(id, currentUsername, userRole, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Repository not found." => NotFound(new { message = result.ErrorMessage }),
+                "Forbidden" => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(result.Data);
+    }
+
+    [HttpPost("{id:int}/teams")]
+    [Authorize]
+    public async Task<IActionResult> SetRepositoryTeamPermission(
+        int id,
+        [FromBody] SetRepositoryTeamPermissionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var currentUsername = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
+        var result = await _repositoriesService.SetRepositoryTeamPermissionAsync(id, request.TeamId, request.Permission, currentUsername, userRole, cancellationToken);
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Repository not found." => NotFound(new { message = result.ErrorMessage }),
+                "Team not found in this organization." => NotFound(new { message = result.ErrorMessage }),
+                "Forbidden" => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+        return Ok(new { message = "Team permission updated.", teamAccess = result.Data });
+    }
+
     private string? GetCurrentUsername()
     {
         return User.FindFirst(ClaimTypes.Name)?.Value ?? User.FindFirst(JwtRegisteredClaimNames.Name)?.Value;
@@ -233,7 +288,8 @@ public class RepositoriesController : ControllerBase
     public sealed record CreateRepositoryRequest(
         [param: Required, MaxLength(100)] string Name,
         [param: MaxLength(500)] string? Description,
-        [param: Required] string Visibility);
+        [param: Required] string Visibility,
+        bool IsOfficial = false);
 
     public sealed record UpdateRepositoryRequest(
         [param: MaxLength(100)] string? Name,
@@ -243,4 +299,8 @@ public class RepositoriesController : ControllerBase
     public sealed record AddRepositoryCollaboratorRequest(
         [param: Required] string Identifier,
         string? Role);
+
+    public sealed record SetRepositoryTeamPermissionRequest(
+        [param: Required] int TeamId,
+        [param: Required] string Permission);
 }
