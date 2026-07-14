@@ -519,6 +519,32 @@ public sealed class OrganizationsServiceTests
     }
 
     [TestMethod]
+    public async Task DeleteOrganizationAsync_AsOrgAdminNotOwner_ReturnsForbidden()
+    {
+        // Deactivation is owner-only, unlike other management actions which also allow org admins.
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var orgAdmin = await TestHelpers.AddUserAsync(dbContext, "orgadmin", "orgadmin@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        dbContext.OrganizationMembers.Add(new OrganizationMember
+        {
+            OrganizationId = org.Id,
+            UserId = orgAdmin.Id,
+            Role = OrganizationMember.RoleAdmin,
+            AddedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.DeleteOrganizationAsync("acme", orgAdmin.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Forbidden", result.ErrorMessage);
+        Assert.AreEqual(1, await dbContext.Organizations.CountAsync());
+    }
+
+    [TestMethod]
     public async Task DeleteOrganizationAsync_NonExistentOrg_Fails()
     {
         using var dbContext = TestHelpers.CreateDbContext();
