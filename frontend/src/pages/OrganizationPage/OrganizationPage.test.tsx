@@ -20,6 +20,7 @@ vi.mock("react-router-dom", () => ({
 
 const mockRefetch = vi.fn();
 const mockDeleteOrganization = vi.fn();
+const mockUpdate = vi.fn();
 const mockFetchRepos = vi.fn();
 const mockSetReposSearchQuery = vi.fn();
 
@@ -44,6 +45,9 @@ vi.mock("@/services/organizations/useOrganization/useOrganization", () => ({
     remove: mockDeleteOrganization,
     deleteLoading: false,
     deleteError: null,
+    update: mockUpdate,
+    updateLoading: false,
+    updateError: null,
   }),
 }));
 
@@ -124,7 +128,11 @@ vi.mock(
           <button onClick={onClose}>Close edit</button>
           <button
             onClick={() =>
-              onSave({ displayName: "Updated", description: "", avatarUrl: "" })
+              onSave({
+                displayName: "Updated",
+                description: "",
+                avatarFile: null,
+              })
             }
           >
             Save
@@ -200,6 +208,9 @@ function withOrgHook(overrides: object) {
       remove: mockDeleteOrganization,
       deleteLoading: false,
       deleteError: null,
+      update: mockUpdate,
+      updateLoading: false,
+      updateError: null,
       ...overrides,
     }),
   }));
@@ -211,6 +222,7 @@ describe("OrganizationDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockDeleteOrganization.mockResolvedValue(undefined);
+    mockUpdate.mockResolvedValue({ success: true });
   });
 
   describe("rendering", () => {
@@ -318,14 +330,17 @@ describe("OrganizationDetailPage", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("calls refetch when edit form is saved", async () => {
+    it("calls update when edit form is saved", async () => {
       renderPage();
       fireEvent.click(
         screen.getByRole("button", { name: /edit organization/i }),
       );
       fireEvent.click(screen.getByRole("button", { name: /save/i }));
       await waitFor(() => {
-        expect(mockRefetch).toHaveBeenCalled();
+        expect(mockUpdate).toHaveBeenCalledWith(
+          { displayName: "Updated", description: "" },
+          null,
+        );
       });
     });
   });

@@ -1,9 +1,14 @@
 import { Building2 } from "lucide-react";
+import { useState } from "react";
+
 import Button from "@/components/Button/Button";
 import InputField from "@/components/InputField/InputField";
 import Modal from "../Modal";
+import OrganizationIconPicker, {
+  OrganizationAvatarInput,
+} from "../OrganizationIconPicker/OrganizationIconPicker";
 import { useOrganizations } from "@/services/organizations/useOrganizations/useOrganizations";
-import { useState } from "react";
+import { uploadOrganizationAvatar } from "@/services/organizations/organizations.api";
 
 interface AddOrganizationModalProps {
   isOpen: boolean;
@@ -37,6 +42,14 @@ export default function CreateOrganizationModal({
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [avatarInput, setAvatarInput] = useState<OrganizationAvatarInput>({
+    file: null,
+    url: undefined,
+  });
+  const [avatarUploadError, setAvatarUploadError] = useState<
+    string | undefined
+  >();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -74,6 +87,13 @@ export default function CreateOrganizationModal({
     }
   };
 
+  const resetForm = () => {
+    setFormData({ name: "", displayName: "", description: "" });
+    setErrors({});
+    setAvatarInput({ file: null, url: undefined });
+    setAvatarUploadError(undefined);
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
@@ -81,32 +101,41 @@ export default function CreateOrganizationModal({
       name: formData.name.trim(),
       displayName: formData.displayName.trim(),
       description: formData.description.trim(),
+      avatarUrl: avatarInput.url,
     });
 
-    if (result.success) {
-      // Reset form
-      setFormData({
-        name: "",
-        displayName: "",
-        description: "",
-      });
-      setErrors({});
+    if (!result.success) return;
 
-      onSuccess?.();
-      onClose();
+    onSuccess?.();
+
+    if (avatarInput.file) {
+      setUploadingAvatar(true);
+      try {
+        await uploadOrganizationAvatar(formData.name.trim(), avatarInput.file);
+        onSuccess?.();
+      } catch (err) {
+        setUploadingAvatar(false);
+        setAvatarUploadError(
+          err instanceof Error
+            ? err.message
+            : "Organization created, but the icon failed to upload. You can add it later from Edit organization.",
+        );
+        return;
+      }
+      setUploadingAvatar(false);
     }
+
+    resetForm();
+    onClose();
   };
 
   const handleClose = () => {
-    if (creating) return; // Prevent closing while creating
-    setFormData({
-      name: "",
-      displayName: "",
-      description: "",
-    });
-    setErrors({});
+    if (creating || uploadingAvatar) return; // Prevent closing while creating
+    resetForm();
     onClose();
   };
+
+  const busy = creating || uploadingAvatar;
 
   return (
     <Modal
@@ -120,6 +149,14 @@ export default function CreateOrganizationModal({
           Organizations allow you to manage teams, repositories, and access
           control.
         </div>
+
+        <OrganizationIconPicker
+          disabled={busy}
+          onChange={setAvatarInput}
+        />
+        {avatarUploadError && (
+          <p className="text-xs text-error">{avatarUploadError}</p>
+        )}
 
         <InputField
           label="Organization name *"
@@ -152,7 +189,7 @@ export default function CreateOrganizationModal({
             size="sm"
             type="button"
             onClick={handleClose}
-            disabled={creating}
+            disabled={busy}
           >
             Cancel
           </Button>
@@ -160,10 +197,14 @@ export default function CreateOrganizationModal({
             variant="primary"
             size="sm"
             onClick={handleSubmit}
-            disabled={creating}
+            disabled={busy}
             type="submit"
           >
-            {creating ? "Creating..." : "Create organization"}
+            {uploadingAvatar
+              ? "Uploading icon..."
+              : creating
+                ? "Creating..."
+                : "Create organization"}
           </Button>
         </div>
       </div>

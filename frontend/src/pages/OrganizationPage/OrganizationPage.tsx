@@ -24,16 +24,19 @@ export default function OrganizationDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("repositories");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const { orgName } = useParams<{ orgName: string }>();
 
   const {
     organization,
     loading,
     error,
-    refetch,
     remove: deleteOrganization,
     deleteLoading,
     deleteError,
+    update: updateOrganization,
+    updateLoading,
+    updateError,
   } = useOrganization(orgName || "");
 
   const {
@@ -48,6 +51,10 @@ export default function OrganizationDetailPage() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialFetchDone = useRef(false);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [organization?.avatarUrl]);
 
   useEffect(() => {
     if (organization && !initialFetchDone.current) {
@@ -76,13 +83,20 @@ export default function OrganizationDetailPage() {
     fetchRepos(reposSearchQuery);
   }, [fetchRepos, reposSearchQuery]);
 
-  const handleEditOrganization = async (data: {
+  const handleEditOrganization = (data: {
     displayName: string;
     description: string;
-    avatarUrl: string;
-  }) => {
-    await refetch();
-  };
+    avatarFile: File | null;
+    avatarUrl?: string;
+  }) =>
+    updateOrganization(
+      {
+        displayName: data.displayName,
+        description: data.description,
+        avatarUrl: data.avatarUrl,
+      },
+      data.avatarFile,
+    );
 
   if (!orgName) {
     return (
@@ -148,10 +162,19 @@ export default function OrganizationDetailPage() {
         <div className="flex items-start gap-4">
           <div
             className="w-14 h-14 min-w-[56px] rounded-2xl bg-brand-muted border border-brand/30
-                         flex items-center justify-center text-xl font-bold text-brand font-mono"
+                         flex items-center justify-center text-xl font-bold text-brand font-mono overflow-hidden"
           >
-            {organization.displayName?.slice(0, 2).toUpperCase() ||
-              organization.name.slice(0, 2).toUpperCase()}
+            {organization.avatarUrl && !avatarFailed ? (
+              <img
+                src={organization.avatarUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              organization.displayName?.slice(0, 2).toUpperCase() ||
+              organization.name.slice(0, 2).toUpperCase()
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -256,6 +279,9 @@ export default function OrganizationDetailPage() {
           description: organization.description || "",
           avatarUrl: organization.avatarUrl || "",
         }}
+        isOwner={isOwner}
+        saving={updateLoading}
+        error={updateError}
         onSave={handleEditOrganization}
       />
       <DeleteConfirmModal
