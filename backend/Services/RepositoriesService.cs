@@ -1011,6 +1011,17 @@ public class RepositoriesService : IRepositoriesService
         if (user is null)
             return new RepositoriesResult<RepositoryResponse>(false, null, "User not found.");
 
+        // Starring is only for repos that aren't your own and don't belong to an org you're a member of.
+        if (repo.OrganizationId is null)
+        {
+            if (Normalize(repo.Owner?.Username ?? string.Empty) == normalizedUsername)
+                return new RepositoriesResult<RepositoryResponse>(false, null, "You cannot star your own repository.");
+        }
+        else if (repo.Organization?.Members.Any(m => Normalize(m.User?.Username ?? string.Empty) == normalizedUsername) == true)
+        {
+            return new RepositoriesResult<RepositoryResponse>(false, null, "You cannot star a repository that belongs to an organization you are a member of.");
+        }
+
         // Check if already starred
         var alreadyStarred = await _dbContext.RepositoryStars
             .AnyAsync(s => s.RepositoryId == id && s.UserId == user.Id, cancellationToken);
