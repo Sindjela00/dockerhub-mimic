@@ -15,6 +15,7 @@ import { TagComponent } from "@/components/Tag/Tag";
 import { TeamsTab } from "./components/TeamTab/TeamTab";
 import { useOrganization } from "@/services/organizations/useOrganization/useOrganization";
 import { useOrganizationRepositories } from "@/services/organizations/useOrganizationRepositories/useOrganizationRepositories";
+import { useOrgRole } from "@/services/organizations/useOrgRole/useOrgRole";
 
 type Tab = "repositories" | "teams" | "members";
 
@@ -42,6 +43,8 @@ export default function OrganizationDetailPage() {
     searchQuery: reposSearchQuery,
     setSearchQuery: setReposSearchQuery,
   } = useOrganizationRepositories(orgName);
+
+  const { isOwner, isPrivileged } = useOrgRole(organization);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialFetchDone = useRef(false);
@@ -178,8 +181,7 @@ export default function OrganizationDetailPage() {
             </div>
           </div>
 
-          {(organization.currentUserRole === "owner" ||
-            organization.currentUserRole === "admin") && (
+          {isPrivileged && (
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -188,7 +190,7 @@ export default function OrganizationDetailPage() {
               >
                 <Pencil size={13} /> Edit organization
               </Button>
-              {organization.currentUserRole === "owner" && (
+              {isOwner && (
                 <Button
                   variant="danger"
                   size="sm"
