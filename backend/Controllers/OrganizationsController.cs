@@ -77,6 +77,32 @@ public class OrganizationsController : ControllerBase
         return Ok(new { message = "Organization updated successfully.", organization = result.Data });
     }
 
+    [HttpPost("{name}/avatar")]
+    [Authorize]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> UploadOrganizationAvatar(string name, IFormFile? file, CancellationToken cancellationToken = default)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "An image file is required." });
+
+        var currentUsername = GetCurrentUsername();
+        var userRole = GetCurrentUserRole();
+
+        await using var stream = file.OpenReadStream();
+        var result = await _organizationsService.UploadOrganizationAvatarAsync(
+            name, stream, file.ContentType, file.Length, currentUsername, userRole, cancellationToken);
+
+        if (!result.Succeeded)
+            return result.ErrorMessage switch
+            {
+                "Organization not found." => NotFound(new { message = result.ErrorMessage }),
+                "Forbidden" => Forbid(),
+                _ => BadRequest(new { message = result.ErrorMessage })
+            };
+
+        return Ok(new { message = "Avatar uploaded successfully.", organization = result.Data });
+    }
+
     [HttpDelete("{name}")]
     [Authorize]
     public async Task<IActionResult> DeleteOrganization(string name, CancellationToken cancellationToken = default)
