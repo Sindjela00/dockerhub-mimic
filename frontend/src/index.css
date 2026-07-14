@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #0ea5e9; /* sky-500 — primary akcija, linkovi       */
+  --color-brand-hover: #0284c7; /* sky-600 — hover stanje                  */
+  --color-brand-muted: #0c3a52; /* tamni teal — badge bg, highlight        */
+  --color-brand-subtle: #082d40; /* jos tamniji — active nav bg             */
+
+  --color-bg-base: #0d1117; /* najdublja pozadina — body               */
+  --color-bg-surface: #161b22; /* kartice, sidebar                        */
+  --color-bg-elevated: #1c2128; /* hover stanja, dropdown-ovi              */
+  --color-bg-overlay: #21262d; /* modali, tooltip-i                       */
+
+  --color-text-primary: #e6edf3; /* naslovi, vazan tekst                  */
+  --color-text-secondary: #8b949e; /* opisi, labele                         */
+  --color-text-muted: #484f58; /* placeholder, disabled                 */
+  --color-text-inverse: #0d1117; /* tekst na svetloj pozadini             */
+
+  --color-border: rgba(240, 246, 252, 0.1); /* default             */
+  --color-border-strong: rgba(240, 246, 252, 0.2); /* hover, focus        */
+
+  --color-scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+
+  --color-success: #3fb950; /* zelena — verified, active             */
+  --color-success-muted: #0d3320; /* bg za success badge                   */
+  --color-warning: #d29922; /* zuta — deprecated, limit              */
+  --color-warning-muted: #2f2108; /* bg za warning badge                   */
+  --color-danger: #f85149; /* crvena — error, delete                */
+  --color-danger-muted: #3a0c0b; /* bg za danger badge                    */
+  --color-info: #58a6ff; /* plava — info, link                    */
+  --color-info-muted: #051d36; /* bg za info badge                      */
+
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "Cascadia Code", monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+}
+
+:root[data-theme="light"] {
+  --color-brand: #0ea5e9; /* sky-500 — ista brend boja u oba rezima  */
+  --color-brand-hover: #0284c7; /* sky-600 — hover stanje                  */
+  --color-brand-muted: #e0f2fe; /* sky-100 — badge bg, highlight           */
+  --color-brand-subtle: #f0f9ff; /* sky-50 — active nav bg                 */
+
+  --color-bg-base: #f6f8fa; /* najsvetlija pozadina — body             */
+  --color-bg-surface: #ffffff; /* kartice, sidebar                        */
+  --color-bg-elevated: #eef1f4; /* hover stanja, dropdown-ovi              */
+  --color-bg-overlay: #ffffff; /* modali, tooltip-i                       */
+
+  --color-text-primary: #1f2328; /* naslovi, vazan tekst                  */
+  --color-text-secondary: #59636e; /* opisi, labele                         */
+  --color-text-muted: #8c959f; /* placeholder, disabled                 */
+  --color-text-inverse: #ffffff; /* tekst na tamnoj/brend pozadini        */
+
+  --color-border: rgba(31, 35, 40, 0.15); /* default             */
+  --color-border-strong: rgba(31, 35, 40, 0.3); /* hover, focus        */
+
+  --color-scrollbar-thumb: rgba(31, 35, 40, 0.15);
+  --color-scrollbar-thumb-hover: rgba(31, 35, 40, 0.3);
+
+  --color-success: #1a7f37; /* zelena — verified, active             */
+  --color-success-muted: #dafbe1; /* bg za success badge                   */
+  --color-warning: #9a6700; /* zuta — deprecated, limit              */
+  --color-warning-muted: #fff8c5; /* bg za warning badge                   */
+  --color-danger: #cf222e; /* crvena — error, delete                */
+  --color-danger-muted: #ffebe9; /* bg za danger badge                    */
+  --color-info: #0969da; /* plava — info, link                    */
+  --color-info-muted: #ddf4ff; /* bg za info badge                      */
+}
+
+@layer components {
+  .page-wrapper {
+    min-height: 90%;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    margin-bottom: 1rem;
+    overflow-y: auto;
+  }
+
+  .card-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+}
+
+button {
+  cursor: pointer;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  h2 {
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  h3 {
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  h4 {
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  a {
+    color: var(--color-brand);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-brand-hover);
+    text-decoration: underline;
+  }
+
+  code,
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background-color: var(--color-bg-elevated);
+    border: 0.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px 5px;
+    color: var(--color-text-primary);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-scrollbar-thumb);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-scrollbar-thumb-hover);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+}
+
+.filterElements {
+  height: 38px;
+}

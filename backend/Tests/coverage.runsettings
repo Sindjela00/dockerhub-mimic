@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <ExcludeByFile>**/Program.cs,**/OpenApiXmlCommentSupport*.cs,**/DatabaseSeeder*.cs</ExcludeByFile>
+          <Exclude>[*]Microsoft.AspNetCore.OpenApi.Generated.*,[*]OpenApiXmlCommentSupport*,[*]System.Runtime.CompilerServices.*,[*]backend.Data.DatabaseSeeder*</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

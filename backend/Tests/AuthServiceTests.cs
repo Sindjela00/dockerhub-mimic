@@ -1,0 +1,128 @@
+using backend.Models;
+using backend.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+
+namespace backend.Tests;
+
+[TestClass]
+public sealed class AuthServiceTests
+{
+    [TestMethod]
+    public async Task RegisterAsync_WithInvalidUsername_ReturnsValidationError()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), TestHelpers.CreateCache());
+
+        var result = await service.RegisterAsync("!", "user@example.com", "Password1", CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        StringAssert.Contains(result.Message, "Username");
+    }
+
+    [TestMethod]
+    public async Task LoginAsync_WithNormalizedEmail_CachesRegistryCredentials()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var cache = TestHelpers.CreateCache();
+        dbContext.Users.Add(new User
+        {
+            Email = "user@example.com",
+            Username = "demo",
+            PasswordHash = User.HashPassword("Password1"),
+            Role = User.RoleUser,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), cache);
+        var result = await service.LoginAsync(" USER@EXAMPLE.COM ", "Password1", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        var cachedPassword = await cache.GetStringAsync("registry_creds_demo");
+        Assert.AreEqual("Password1", cachedPassword);
+    }
+
+    [TestMethod]
+    public async Task LoginAsync_WhenMustChangePasswordIsTrue_PropagatesFlagInResult()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        dbContext.Users.Add(new User
+        {
+            Email = "locked@example.com",
+            Username = "locked",
+            PasswordHash = User.HashPassword("Password1"),
+            Role = User.RoleSuperAdmin,
+            MustChangePassword = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), TestHelpers.CreateCache());
+        var result = await service.LoginAsync("locked", "Password1", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsTrue(result.MustChangePassword);
+    }
+
+    [TestMethod]
+    public async Task ChangePasswordAsync_WithValidRequest_ClearsMustChangePasswordAndIssuesNewToken()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        dbContext.Users.Add(new User
+        {
+            Email = "locked@example.com",
+            Username = "locked",
+            PasswordHash = User.HashPassword("Password1"),
+            Role = User.RoleSuperAdmin,
+            MustChangePassword = true,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), TestHelpers.CreateCache());
+        var result = await service.ChangePasswordAsync("locked@example.com", "Password1", "Newpass1A", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsFalse(result.MustChangePassword);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(result.Token));
+
+        var updatedUser = await dbContext.Users.FirstAsync(u => u.Email == "locked@example.com");
+        Assert.IsFalse(updatedUser.MustChangePassword);
+    }
+
+    [TestMethod]
+    public async Task ChangePasswordAsync_WithWrongOldPassword_ReturnsUnauthorizedResult()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        dbContext.Users.Add(new User
+        {
+            Email = "user@example.com",
+            Username = "demo",
+            PasswordHash = User.HashPassword("Password1"),
+            Role = User.RoleUser,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new AuthService(dbContext, TestHelpers.CreateConfiguration(), TestHelpers.CreateCache());
+        var result = await service.ChangePasswordAsync("user@example.com", "wrong", "Password2", CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Invalid email or password.", result.Message);
+    }
+
+    [TestMethod]
+    public void HelperMethods_NormalizeAndValidateInputs()
+    {
+        Assert.AreEqual("user@example.com", AuthService.NormalizeEmail(" USER@EXAMPLE.COM "));
+        Assert.AreEqual("demo-user", AuthService.NormalizeUsername(" Demo-User "));
+        Assert.AreEqual("demo", AuthService.NormalizeIdentifier(" DEMO "));
+        Assert.IsTrue(AuthService.IsValidUsername("demo.user_01"));
+        Assert.IsFalse(AuthService.IsValidUsername("ab"));
+        Assert.IsTrue(AuthService.IsValidPassword("Password1"));
+        Assert.IsFalse(AuthService.IsValidPassword("weak"));
+        Assert.IsTrue(AuthService.VerifyPassword("Password1", User.HashPassword("Password1")));
+        Assert.IsFalse(AuthService.VerifyPassword("Password1", "invalid"));
+    }
+}
