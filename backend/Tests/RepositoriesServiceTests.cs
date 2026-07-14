@@ -555,6 +555,60 @@ public sealed class RepositoriesServiceTests
     }
 
     [TestMethod]
+    public async Task StarRepositoryAsync_OwnRepository_ReturnsError()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "demo", "demo@example.com");
+        var repository = await AddRepositoryAsync(dbContext, owner, "awesome-repo", "public", pullCount: 0);
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.StarRepositoryAsync(repository.Id, "demo", CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("You cannot star your own repository.", result.ErrorMessage);
+        Assert.AreEqual(0, await dbContext.RepositoryStars.CountAsync());
+    }
+
+    [TestMethod]
+    public async Task StarRepositoryAsync_RepositoryBelongsToOwnOrganization_ReturnsError()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var member = await AddUserAsync(dbContext, "member", "member@example.com");
+        var (org, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+        dbContext.OrganizationMembers.Add(new OrganizationMember
+        {
+            OrganizationId = org.Id,
+            UserId = member.Id,
+            Role = OrganizationMember.RoleMember,
+            AddedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.StarRepositoryAsync(repo.Id, "member", CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("You cannot star a repository that belongs to an organization you are a member of.", result.ErrorMessage);
+        Assert.AreEqual(0, await dbContext.RepositoryStars.CountAsync());
+    }
+
+    [TestMethod]
+    public async Task StarRepositoryAsync_UnrelatedPublicRepository_StillSucceeds()
+    {
+        using var dbContext = CreateDbContext();
+        var owner = await AddUserAsync(dbContext, "owner", "owner@example.com");
+        var outsider = await AddUserAsync(dbContext, "outsider", "outsider@example.com");
+        var (_, repo) = await SetupOrgRepo(dbContext, owner, "acme", "api", "public");
+
+        var service = new RepositoriesService(dbContext);
+        var result = await service.StarRepositoryAsync(repo.Id, "outsider", CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual(1, await dbContext.RepositoryStars.CountAsync());
+    }
+
+    [TestMethod]
     public async Task UnstarRepositoryAsync_WithValidStar_UnstarsRepository()
     {
         using var dbContext = CreateDbContext();
