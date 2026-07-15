@@ -13,6 +13,8 @@ import { Repository } from "@/services/repositories/repositories.api";
 import StatCard from "@/components/Cards/StatCard/StatCard";
 import { TagComponent } from "@/components/Tag/Tag";
 import { TeamsTab } from "./components/TeamTab/TeamTab";
+import { useAuth } from "@/context/AppContext";
+import { isAdminRole } from "@/context/types/types";
 import { useOrganization } from "@/services/organizations/useOrganization/useOrganization";
 import { useOrganizationRepositories } from "@/services/organizations/useOrganizationRepositories/useOrganizationRepositories";
 import { useOrgRole } from "@/services/organizations/useOrgRole/useOrgRole";
@@ -48,6 +50,8 @@ export default function OrganizationDetailPage() {
   } = useOrganizationRepositories(orgName);
 
   const { isOwner, isPrivileged } = useOrgRole(organization);
+  const { role } = useAuth();
+  const canDelete = isOwner || isAdminRole(role);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialFetchDone = useRef(false);
@@ -204,16 +208,18 @@ export default function OrganizationDetailPage() {
             </div>
           </div>
 
-          {isPrivileged && (
+          {(isPrivileged || canDelete) && (
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditModalOpen(true)}
-              >
-                <Pencil size={13} /> Edit organization
-              </Button>
-              {isOwner && (
+              {isPrivileged && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditModalOpen(true)}
+                >
+                  <Pencil size={13} /> Edit organization
+                </Button>
+              )}
+              {canDelete && (
                 <Button
                   variant="danger"
                   size="sm"

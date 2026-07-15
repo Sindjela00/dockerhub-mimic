@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useAuth } from "@/context/AppContext";
 import OrganizationDetailPage from "./OrganizationPage";
 
 // --- Mocks ---
@@ -17,6 +18,8 @@ vi.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
   useParams: () => ({ orgName: "acme" }),
 }));
+
+vi.mock("@/context/AppContext", () => ({ useAuth: vi.fn() }));
 
 const mockRefetch = vi.fn();
 const mockDeleteOrganization = vi.fn();
@@ -199,6 +202,7 @@ function renderPage() {
 }
 
 function withOrgHook(overrides: object) {
+  vi.resetModules();
   vi.doMock("@/services/organizations/useOrganization/useOrganization", () => ({
     useOrganization: () => ({
       organization: defaultOrganization,
@@ -223,6 +227,7 @@ describe("OrganizationDetailPage", () => {
     vi.clearAllMocks();
     mockDeleteOrganization.mockResolvedValue(undefined);
     mockUpdate.mockResolvedValue({ success: true });
+    (useAuth as any).mockReturnValue({ role: "User" });
   });
 
   describe("rendering", () => {
@@ -284,6 +289,33 @@ describe("OrganizationDetailPage", () => {
       expect(
         screen.getByRole("button", { name: /delete/i }),
       ).toBeInTheDocument();
+    });
+
+    it("shows Delete button for a superadmin who is not an org member", async () => {
+      (useAuth as any).mockReturnValue({ role: "SuperAdmin" });
+      withOrgHook({
+        organization: { ...defaultOrganization, currentUserRole: null },
+      });
+      const { default: Page } = await import("./OrganizationPage");
+      render(<Page />);
+      expect(
+        screen.getByRole("button", { name: /^delete$/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /edit organization/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("hides Delete button for a plain member who is not owner or admin", async () => {
+      (useAuth as any).mockReturnValue({ role: "User" });
+      withOrgHook({
+        organization: { ...defaultOrganization, currentUserRole: "member" },
+      });
+      const { default: Page } = await import("./OrganizationPage");
+      render(<Page />);
+      expect(
+        screen.queryByRole("button", { name: /^delete$/i }),
+      ).not.toBeInTheDocument();
     });
   });
 
