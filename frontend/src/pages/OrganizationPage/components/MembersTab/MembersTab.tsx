@@ -17,6 +17,7 @@ import { getInitials } from "@/utils/getInitials";
 import { getRoleAccent } from "@/utils/accentStyle";
 import { useOrganizationInvites } from "@/services/organizations/useOrganizationInvites/useOrganizationInvites";
 import { useOrganizationMembers } from "@/services/organizations/useOrganizationMembers/useOrganizationMembers";
+import { useOrgRole } from "@/services/organizations/useOrgRole/useOrgRole";
 
 interface Column<T> {
   key: string;
@@ -57,10 +58,7 @@ function MembersTab({ orgName, organization }: MembersTabProps) {
     null,
   );
 
-  const isPrivileged =
-    organization.currentUserRole === "owner" ||
-    organization.currentUserRole === "admin";
-  const isOwner = organization.currentUserRole === "owner";
+  const { isOwner, isPrivileged } = useOrgRole(organization);
 
   const { members, total, loading, error, fetchMembers, inviteMember } =
     useOrganizationMembers(orgName);
