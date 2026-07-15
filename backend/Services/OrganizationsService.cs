@@ -427,6 +427,9 @@ public class OrganizationsService : IOrganizationsService
         _ => ".bin"
     };
 
+    // Deactivating an organization is irreversible (removes members, deletes all repositories
+    // and org info), so — unlike other management actions — it's restricted to the owner only,
+    // not org admins.
     public async Task<OrganizationsResult<string>> DeleteOrganizationAsync(string name, string? currentUsername, string? userRole, CancellationToken cancellationToken)
     {
         var normalizedName = Normalize(name);
@@ -437,13 +440,13 @@ public class OrganizationsService : IOrganizationsService
             return new OrganizationsResult<string>(false, null, "Organization not found.");
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
-        var canManage = await CanManageOrganizationAsync(organization, currentUser, userRole, cancellationToken);
-        if (!canManage)
+        var canDeactivate = await IsOrganizationOwnerAsync(organization, currentUser, userRole, cancellationToken);
+        if (!canDeactivate)
             return new OrganizationsResult<string>(false, null, "Forbidden");
 
         _dbContext.Organizations.Remove(organization);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return new OrganizationsResult<string>(true, "Organization deleted successfully.", null);
+        return new OrganizationsResult<string>(true, "Organization deactivated successfully.", null);
     }
 
     public async Task<OrganizationsResult<OrganizationMemberListResponse>> GetOrganizationMembersAsync(string name, string? currentUsername, string? userRole, CancellationToken cancellationToken)
@@ -1329,6 +1332,20 @@ public class OrganizationsService : IOrganizationsService
 
         var normalizedRole = Normalize(member.Role);
         return normalizedRole == OrganizationMember.RoleOwner || normalizedRole == OrganizationMember.RoleAdmin;
+    }
+
+    private async Task<bool> IsOrganizationOwnerAsync(Organization organization, User? currentUser, string? currentUserRole, CancellationToken cancellationToken)
+    {
+        if (currentUser is null)
+            return false;
+
+        if (User.IsAdminRole(currentUserRole))
+            return true;
+
+        var member = await _dbContext.OrganizationMembers
+            .FirstOrDefaultAsync(m => m.OrganizationId == organization.Id && m.UserId == currentUser.Id, cancellationToken);
+
+        return member is not null && Normalize(member.Role) == OrganizationMember.RoleOwner;
     }
 
     private static bool IsValidMemberRole(string role)
