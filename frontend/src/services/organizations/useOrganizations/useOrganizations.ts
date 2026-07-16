@@ -66,7 +66,7 @@ export function useOrganizations() {
         | "currentUserRole"
         | "ownerUsername"
         | "avatarUrl"
-      >,
+      > & { avatarUrl?: string },
     ) => {
       setState((prev) => ({ ...prev, creating: true, error: null }));
       try {
