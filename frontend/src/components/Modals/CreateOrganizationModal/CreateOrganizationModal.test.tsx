@@ -6,12 +6,18 @@ import CreateOrganizationModal from "./CreateOrganizationModal";
 const mockAddOrganization = vi.fn();
 const mockOnClose = vi.fn();
 const mockOnSuccess = vi.fn();
+const mockUploadOrganizationAvatar = vi.fn();
 
 vi.mock("@/services/organizations/useOrganizations/useOrganizations", () => ({
   useOrganizations: () => ({
     addOrganization: mockAddOrganization,
     creating: false,
   }),
+}));
+
+vi.mock("@/services/organizations/organizations.api", () => ({
+  uploadOrganizationAvatar: (...args: unknown[]) =>
+    mockUploadOrganizationAvatar(...args),
 }));
 
 vi.mock("../Modal", () => ({
@@ -109,6 +115,7 @@ describe("CreateOrganizationModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAddOrganization.mockResolvedValue({ success: true });
+    mockUploadOrganizationAvatar.mockResolvedValue({});
   });
 
   describe("rendering", () => {
@@ -342,6 +349,102 @@ describe("CreateOrganizationModal", () => {
         screen.getByRole("button", { name: /create organization/i }),
       );
       expect(mockAddOrganization).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("icon upload", () => {
+    it("creates the org without uploading when no icon is chosen", async () => {
+      renderModal();
+      fillForm();
+      fireEvent.click(
+        screen.getByRole("button", { name: /create organization/i }),
+      );
+
+      await waitFor(() => {
+        expect(mockAddOrganization).toHaveBeenCalled();
+      });
+      expect(mockUploadOrganizationAvatar).not.toHaveBeenCalled();
+    });
+
+    it("uploads the chosen icon under the new org name after creation", async () => {
+      const { container } = renderModal();
+      fillForm({ name: "my-org", displayName: "My Org" });
+
+      const file = new File(["icon"], "icon.png", { type: "image/png" });
+      const input = container.querySelector(
+        "input[type=file]",
+      ) as HTMLInputElement;
+      fireEvent.change(input, { target: { files: [file] } });
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /create organization/i }),
+      );
+
+      await waitFor(() => {
+        expect(mockUploadOrganizationAvatar).toHaveBeenCalledWith(
+          "my-org",
+          file,
+        );
+      });
+      expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it("passes a pasted url directly on create instead of uploading a file", async () => {
+      renderModal();
+      fillForm({ name: "my-org", displayName: "My Org" });
+
+      fireEvent.click(screen.getByRole("button", { name: /paste url/i }));
+      fireEvent.change(screen.getByPlaceholderText(/https:\/\//i), {
+        target: { value: "https://example.com/icon.png" },
+      });
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /create organization/i }),
+      );
+
+      await waitFor(() => {
+        expect(mockAddOrganization).toHaveBeenCalledWith({
+          name: "my-org",
+          displayName: "My Org",
+          description: "",
+          avatarUrl: "https://example.com/icon.png",
+        });
+      });
+      expect(mockUploadOrganizationAvatar).not.toHaveBeenCalled();
+    });
+
+    it("rejects an oversized icon without calling uploadOrganizationAvatar", () => {
+      const { container } = renderModal();
+
+      const bigFile = new File(["x"], "big.png", { type: "image/png" });
+      Object.defineProperty(bigFile, "size", { value: 6 * 1024 * 1024 });
+      const input = container.querySelector(
+        "input[type=file]",
+      ) as HTMLInputElement;
+      fireEvent.change(input, { target: { files: [bigFile] } });
+
+      expect(screen.getByText(/must not exceed 5 mb/i)).toBeInTheDocument();
+    });
+
+    it("keeps the modal open and shows an error when the icon upload fails", async () => {
+      mockUploadOrganizationAvatar.mockRejectedValueOnce(
+        new Error("Upload failed"),
+      );
+      const { container } = renderModal();
+      fillForm({ name: "my-org", displayName: "My Org" });
+
+      const file = new File(["icon"], "icon.png", { type: "image/png" });
+      const input = container.querySelector(
+        "input[type=file]",
+      ) as HTMLInputElement;
+      fireEvent.change(input, { target: { files: [file] } });
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /create organization/i }),
+      );
+
+      expect(await screen.findByText("Upload failed")).toBeInTheDocument();
+      expect(mockOnClose).not.toHaveBeenCalled();
     });
   });
 

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Serilog;
@@ -134,6 +135,15 @@ if (!isRunningInContainer)
 }
 
 app.UseCors("AllowFrontend");
+
+var uploadsRoot = Path.GetFullPath(builder.Configuration.GetValue<string>("Uploads:RootDirectory")
+    ?? (isRunningInContainer ? Path.Combine("/app", "uploads") : Path.Combine(AppContext.BaseDirectory, "uploads")));
+Directory.CreateDirectory(uploadsRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsRoot),
+    RequestPath = "/api/uploads"
+});
 
 app.UseAuthentication();
 app.UseAuthorization();

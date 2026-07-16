@@ -2,6 +2,7 @@ using backend.Data;
 using backend.Models;
 using backend.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace backend.Tests;
 
@@ -25,6 +26,36 @@ public sealed class OrganizationsServiceTests
         var storedOrg = await dbContext.Organizations.SingleAsync();
         var ownerMember = await dbContext.OrganizationMembers.SingleAsync(m => m.OrganizationId == storedOrg.Id && m.UserId == owner.Id);
         Assert.AreEqual(OrganizationMember.RoleOwner, ownerMember.Role);
+    }
+
+    [TestMethod]
+    public async Task CreateOrganizationAsync_WithValidAvatarUrl_SavesAvatarUrl()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.CreateOrganizationAsync("acme", "Acme", "Acme org", "https://example.com/logo.png", owner.Username, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.AreEqual("https://example.com/logo.png", result.Data!.AvatarUrl);
+    }
+
+    [TestMethod]
+    [DataRow("not-a-url")]
+    [DataRow("javascript:alert(1)")]
+    [DataRow("ftp://example.com/logo.png")]
+    public async Task CreateOrganizationAsync_WithInvalidAvatarUrl_ReturnsError(string invalidUrl)
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.CreateOrganizationAsync("acme", "Acme", "Acme org", invalidUrl, owner.Username, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Avatar URL must be a valid http or https URL.", result.ErrorMessage);
+        Assert.AreEqual(0, await dbContext.Organizations.CountAsync());
     }
 
     [TestMethod]
@@ -461,6 +492,42 @@ public sealed class OrganizationsServiceTests
     }
 
     [TestMethod]
+    [DataRow("not-a-url")]
+    [DataRow("javascript:alert(1)")]
+    [DataRow("ftp://example.com/logo.png")]
+    public async Task UpdateOrganizationAsync_WithInvalidAvatarUrl_ReturnsError(string invalidUrl)
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.UpdateOrganizationAsync("acme", null, null, invalidUrl, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Avatar URL must be a valid http or https URL.", result.ErrorMessage);
+
+        var stored = await dbContext.Organizations.SingleAsync();
+        Assert.IsNull(stored.AvatarUrl);
+    }
+
+    [TestMethod]
+    public async Task UpdateOrganizationAsync_ClearingAvatarUrl_SetsToNull()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var organization = await AddOrganizationAsync(dbContext, owner, "acme");
+        organization.AvatarUrl = "https://example.com/logo.png";
+        await dbContext.SaveChangesAsync();
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.UpdateOrganizationAsync("acme", null, null, "", owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        Assert.IsNull(result.Data!.AvatarUrl);
+    }
+
+    [TestMethod]
     public async Task UpdateOrganizationAsync_AsOutsider_ReturnsForbidden()
     {
         using var dbContext = TestHelpers.CreateDbContext();
@@ -486,6 +553,157 @@ public sealed class OrganizationsServiceTests
         Assert.IsFalse(result.Succeeded);
         Assert.AreEqual("Organization not found.", result.ErrorMessage);
     }
+
+    // ---- UploadOrganizationAvatar ----
+
+    [TestMethod]
+    public async Task UploadOrganizationAvatarAsync_WithOwnerAndValidPng_SavesFileAndUpdatesAvatarUrl()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var uploadsDir = CreateTempUploadsDir();
+        var service = new OrganizationsService(dbContext, null, UploadsConfiguration(uploadsDir));
+
+        using var stream = new MemoryStream(ValidPngBytes());
+        var result = await service.UploadOrganizationAvatarAsync(
+            "acme", stream, "image/png", stream.Length, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsTrue(result.Succeeded);
+        StringAssert.StartsWith(result.Data!.AvatarUrl, "http://localhost:3000/api/uploads/avatars/");
+        StringAssert.EndsWith(result.Data.AvatarUrl, ".png");
+
+        var savedFiles = Directory.GetFiles(Path.Combine(uploadsDir, "avatars"));
+        Assert.AreEqual(1, savedFiles.Length);
+    }
+
+    [TestMethod]
+    public async Task UploadOrganizationAvatarAsync_AsOutsider_ReturnsForbidden()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var outsider = await TestHelpers.AddUserAsync(dbContext, "outsider", "outsider@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext, null, UploadsConfiguration(CreateTempUploadsDir()));
+
+        using var stream = new MemoryStream(ValidPngBytes());
+        var result = await service.UploadOrganizationAvatarAsync(
+            "acme", stream, "image/png", stream.Length, outsider.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Forbidden", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task UploadOrganizationAvatarAsync_NonExistentOrg_Fails()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var service = new OrganizationsService(dbContext, null, UploadsConfiguration(CreateTempUploadsDir()));
+
+        using var stream = new MemoryStream(ValidPngBytes());
+        var result = await service.UploadOrganizationAvatarAsync(
+            "nosuchorg", stream, "image/png", stream.Length, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Organization not found.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task UploadOrganizationAvatarAsync_ExceedsMaxSize_ReturnsError()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext, null, UploadsConfiguration(CreateTempUploadsDir()));
+
+        using var stream = new MemoryStream(ValidPngBytes());
+        const long tooLarge = 5 * 1024 * 1024 + 1;
+        var result = await service.UploadOrganizationAvatarAsync(
+            "acme", stream, "image/png", tooLarge, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Avatar image must not exceed 5 MB.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    [DataRow("application/pdf")]
+    [DataRow("text/html")]
+    [DataRow("image/svg+xml")]
+    public async Task UploadOrganizationAvatarAsync_DisallowedContentType_ReturnsError(string contentType)
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext, null, UploadsConfiguration(CreateTempUploadsDir()));
+
+        using var stream = new MemoryStream(ValidPngBytes());
+        var result = await service.UploadOrganizationAvatarAsync(
+            "acme", stream, contentType, stream.Length, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Avatar must be a PNG, JPEG, GIF, or WEBP image.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task UploadOrganizationAvatarAsync_ContentTypeMismatchesBytes_ReturnsError()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var service = new OrganizationsService(dbContext, null, UploadsConfiguration(CreateTempUploadsDir()));
+
+        // Claims to be PNG but the bytes don't carry the PNG signature.
+        using var stream = new MemoryStream([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+        var result = await service.UploadOrganizationAvatarAsync(
+            "acme", stream, "image/png", stream.Length, owner.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("File content does not match a valid image format.", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task UploadOrganizationAvatarAsync_ReplacingPreviousUpload_DeletesOldFile()
+    {
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        await AddOrganizationAsync(dbContext, owner, "acme");
+
+        var uploadsDir = CreateTempUploadsDir();
+        var service = new OrganizationsService(dbContext, null, UploadsConfiguration(uploadsDir));
+
+        using (var firstStream = new MemoryStream(ValidPngBytes()))
+        {
+            await service.UploadOrganizationAvatarAsync(
+                "acme", firstStream, "image/png", firstStream.Length, owner.Username, User.RoleUser, CancellationToken.None);
+        }
+
+        Assert.AreEqual(1, Directory.GetFiles(Path.Combine(uploadsDir, "avatars")).Length);
+
+        using (var secondStream = new MemoryStream(ValidPngBytes()))
+        {
+            var result = await service.UploadOrganizationAvatarAsync(
+                "acme", secondStream, "image/png", secondStream.Length, owner.Username, User.RoleUser, CancellationToken.None);
+            Assert.IsTrue(result.Succeeded);
+        }
+
+        // The first uploaded file should have been cleaned up, leaving only the newest one.
+        Assert.AreEqual(1, Directory.GetFiles(Path.Combine(uploadsDir, "avatars")).Length);
+    }
+
+    private static string CreateTempUploadsDir()
+        => Path.Combine(Path.GetTempPath(), "dockerhub-mimic-tests", Guid.NewGuid().ToString("N"));
+
+    private static IConfiguration UploadsConfiguration(string uploadsRoot)
+        => TestHelpers.CreateConfiguration([new KeyValuePair<string, string?>("Uploads:RootDirectory", uploadsRoot)]);
+
+    private static byte[] ValidPngBytes() =>
+        [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D];
 
     // ---- DeleteOrganization ----
 
@@ -516,6 +734,32 @@ public sealed class OrganizationsServiceTests
 
         Assert.IsFalse(result.Succeeded);
         Assert.AreEqual("Forbidden", result.ErrorMessage);
+    }
+
+    [TestMethod]
+    public async Task DeleteOrganizationAsync_AsOrgAdminNotOwner_ReturnsForbidden()
+    {
+        // Deactivation is owner-only, unlike other management actions which also allow org admins.
+        using var dbContext = TestHelpers.CreateDbContext();
+        var owner = await TestHelpers.AddUserAsync(dbContext, "owner", "owner@example.com");
+        var orgAdmin = await TestHelpers.AddUserAsync(dbContext, "orgadmin", "orgadmin@example.com");
+        var org = await AddOrganizationAsync(dbContext, owner, "acme");
+
+        dbContext.OrganizationMembers.Add(new OrganizationMember
+        {
+            OrganizationId = org.Id,
+            UserId = orgAdmin.Id,
+            Role = OrganizationMember.RoleAdmin,
+            AddedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new OrganizationsService(dbContext);
+        var result = await service.DeleteOrganizationAsync("acme", orgAdmin.Username, User.RoleUser, CancellationToken.None);
+
+        Assert.IsFalse(result.Succeeded);
+        Assert.AreEqual("Forbidden", result.ErrorMessage);
+        Assert.AreEqual(1, await dbContext.Organizations.CountAsync());
     }
 
     [TestMethod]
