@@ -21,6 +21,8 @@ admin analytics console for searching application logs.
 
 ## Architecture
 
+![Architecture diagram](architecture.svg)
+
 Eight containers, orchestrated by a single `docker-compose.yml`:
 
 | Container | Role |
@@ -120,9 +122,12 @@ Two GitHub Actions workflows under `.github/workflows/`:
 ## Project layout
 
 ```
-backend/    ASP.NET Core API — see backend/README.md
-frontend/   React + Vite SPA — see frontend/README.md
-deploy/     Reverse proxy, database, registry, and log-shipping config — see deploy/README.md
-docker-compose.yml   Orchestrates all 8 containers
-run_env.py            Day-to-day Docker Compose wrapper
+backend/       ASP.NET Core API — see backend/README.md
+frontend/      React + Vite SPA — see frontend/README.md
+deploy/        Reverse proxy, database, registry, and log-shipping config — see deploy/README.md
+docker-compose.yml  Orchestrates all 8 containers
+run_env.py          Day-to-day Docker Compose wrapper
+model.drawio        UML class diagram of the data model — open with diagrams.net or the
+                     VS Code Draw.io Integration extension
+architecture.svg    Container architecture diagram, shown above
 ```
