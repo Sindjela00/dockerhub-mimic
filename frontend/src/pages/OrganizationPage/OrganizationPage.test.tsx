@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useAuth } from "@/context/AppContext";
 import OrganizationDetailPage from "./OrganizationPage";
 
 // --- Mocks ---
@@ -18,8 +19,11 @@ vi.mock("react-router-dom", () => ({
   useParams: () => ({ orgName: "acme" }),
 }));
 
+vi.mock("@/context/AppContext", () => ({ useAuth: vi.fn() }));
+
 const mockRefetch = vi.fn();
 const mockDeleteOrganization = vi.fn();
+const mockUpdate = vi.fn();
 const mockFetchRepos = vi.fn();
 const mockSetReposSearchQuery = vi.fn();
 
@@ -44,6 +48,9 @@ vi.mock("@/services/organizations/useOrganization/useOrganization", () => ({
     remove: mockDeleteOrganization,
     deleteLoading: false,
     deleteError: null,
+    update: mockUpdate,
+    updateLoading: false,
+    updateError: null,
   }),
 }));
 
@@ -124,7 +131,11 @@ vi.mock(
           <button onClick={onClose}>Close edit</button>
           <button
             onClick={() =>
-              onSave({ displayName: "Updated", description: "", avatarUrl: "" })
+              onSave({
+                displayName: "Updated",
+                description: "",
+                avatarFile: null,
+              })
             }
           >
             Save
@@ -191,6 +202,7 @@ function renderPage() {
 }
 
 function withOrgHook(overrides: object) {
+  vi.resetModules();
   vi.doMock("@/services/organizations/useOrganization/useOrganization", () => ({
     useOrganization: () => ({
       organization: defaultOrganization,
@@ -200,6 +212,9 @@ function withOrgHook(overrides: object) {
       remove: mockDeleteOrganization,
       deleteLoading: false,
       deleteError: null,
+      update: mockUpdate,
+      updateLoading: false,
+      updateError: null,
       ...overrides,
     }),
   }));
@@ -211,6 +226,8 @@ describe("OrganizationDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockDeleteOrganization.mockResolvedValue(undefined);
+    mockUpdate.mockResolvedValue({ success: true });
+    (useAuth as any).mockReturnValue({ role: "User" });
   });
 
   describe("rendering", () => {
@@ -273,6 +290,33 @@ describe("OrganizationDetailPage", () => {
         screen.getByRole("button", { name: /delete/i }),
       ).toBeInTheDocument();
     });
+
+    it("shows Delete button for a superadmin who is not an org member", async () => {
+      (useAuth as any).mockReturnValue({ role: "SuperAdmin" });
+      withOrgHook({
+        organization: { ...defaultOrganization, currentUserRole: null },
+      });
+      const { default: Page } = await import("./OrganizationPage");
+      render(<Page />);
+      expect(
+        screen.getByRole("button", { name: /^delete$/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /edit organization/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("hides Delete button for a plain member who is not owner or admin", async () => {
+      (useAuth as any).mockReturnValue({ role: "User" });
+      withOrgHook({
+        organization: { ...defaultOrganization, currentUserRole: "member" },
+      });
+      const { default: Page } = await import("./OrganizationPage");
+      render(<Page />);
+      expect(
+        screen.queryByRole("button", { name: /^delete$/i }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   describe("tab switching", () => {
@@ -318,14 +362,17 @@ describe("OrganizationDetailPage", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("calls refetch when edit form is saved", async () => {
+    it("calls update when edit form is saved", async () => {
       renderPage();
       fireEvent.click(
         screen.getByRole("button", { name: /edit organization/i }),
       );
       fireEvent.click(screen.getByRole("button", { name: /save/i }));
       await waitFor(() => {
-        expect(mockRefetch).toHaveBeenCalled();
+        expect(mockUpdate).toHaveBeenCalledWith(
+          { displayName: "Updated", description: "" },
+          null,
+        );
       });
     });
   });

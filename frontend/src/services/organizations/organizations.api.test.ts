@@ -23,6 +23,7 @@ import {
   removeTeamMember,
   updateOrganization,
   updateTeam,
+  uploadOrganizationAvatar,
 } from "./organizations.api";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -445,19 +446,45 @@ describe("fetchOrganization", () => {
 });
 
 describe("updateOrganization", () => {
-  it("patches org fields and returns updated org", async () => {
+  it("PUTs org fields and returns the unwrapped updated org", async () => {
     const payload = { displayName: "Acme Ltd", description: "Updated" };
-    vi.mocked(api.patch).mockResolvedValueOnce({
-      data: { ...mockOrganization, ...payload },
+    vi.mocked(api.put).mockResolvedValueOnce({
+      data: {
+        message: "Organization updated successfully.",
+        organization: { ...mockOrganization, ...payload },
+      },
     });
 
     const result = await updateOrganization("acme", payload);
 
-    expect(api.patch).toHaveBeenCalledWith(
+    expect(api.put).toHaveBeenCalledWith(
       "/api/organizations/acme",
       payload,
     );
     expect(result.displayName).toBe("Acme Ltd");
+  });
+});
+
+describe("uploadOrganizationAvatar", () => {
+  it("posts multipart form data and returns the unwrapped updated org", async () => {
+    const file = new File(["icon"], "icon.png", { type: "image/png" });
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: {
+        message: "Avatar uploaded successfully.",
+        organization: { ...mockOrganization, avatarUrl: "http://x/avatar.png" },
+      },
+    });
+
+    const result = await uploadOrganizationAvatar("acme", file);
+
+    expect(api.post).toHaveBeenCalledWith(
+      "/api/organizations/acme/avatar",
+      expect.any(FormData),
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    const sentFormData = vi.mocked(api.post).mock.calls[0][1] as FormData;
+    expect(sentFormData.get("file")).toBe(file);
+    expect(result.avatarUrl).toBe("http://x/avatar.png");
   });
 });
 
