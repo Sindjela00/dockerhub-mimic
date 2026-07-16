@@ -1,13 +1,11 @@
 import { TagComponent } from "@/components/Tag/Tag";
 import { Users } from "lucide-react";
 import { getInitials } from "@/utils/getInitials";
-import { useState } from "react";
 
 interface Organization {
   name: string;
   displayName: string;
   description: string;
-  avatarUrl?: string | null;
 }
 
 interface OrgCardProps {
@@ -16,8 +14,6 @@ interface OrgCardProps {
 }
 
 export default function OrganizationCard({ org, onClick }: OrgCardProps) {
-  const [avatarFailed, setAvatarFailed] = useState(false);
-
   return (
     <button
       onClick={onClick}
@@ -29,20 +25,11 @@ export default function OrganizationCard({ org, onClick }: OrgCardProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 overflow-hidden">
           <div
-            className="w-8 h-8 min-w-[32px] rounded-md bg-bg-elevated overflow-hidden
+            className="w-8 h-8 min-w-[32px] rounded-md bg-bg-elevated
                        flex items-center justify-center text-xs font-bold
                        text-text-secondary group-hover:text-brand transition-colors"
           >
-            {org.avatarUrl && !avatarFailed ? (
-              <img
-                src={org.avatarUrl}
-                alt=""
-                className="w-full h-full object-cover"
-                onError={() => setAvatarFailed(true)}
-              />
-            ) : (
-              getInitials(org.displayName || org.name)
-            )}
+            {getInitials(org.displayName || org.name)}
           </div>
           <div className="overflow-hidden">
             <p className="text-sm font-medium text-text-primary truncate transition-colors">

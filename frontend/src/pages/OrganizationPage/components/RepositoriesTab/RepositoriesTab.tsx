@@ -7,7 +7,6 @@ import InputField from "@/components/InputField/InputField";
 import { Organization } from "@/services/organizations/organizations.api";
 import RepoCard from "@/components/Cards/RepoCard/RepoCard";
 import { Repository } from "@/services/repositories/repositories.api";
-import { useOrgRole } from "@/services/organizations/useOrgRole/useOrgRole";
 
 interface OrgOwner {
   name: string;
@@ -40,8 +39,6 @@ export function RepositoriesTab({
   organization,
 }: RepositoriesTabProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const { isOwner, isAdmin, isMember } = useOrgRole(organization);
-  const isOrgMember = isOwner || isAdmin || isMember;
 
   const handleCreateModalClose = useCallback(() => {
     setIsCreateModalOpen(false);
@@ -65,14 +62,23 @@ export function RepositoriesTab({
           />
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => setIsCreateModalOpen(true)}
+        <div
+          className={
+            organization.currentUserRole === "owner" ||
+            organization.currentUserRole === "admin"
+              ? "block"
+              : "hidden"
+          }
         >
-          <Plus size={14} />
-          New repository
-        </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus size={14} />
+            New repository
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -96,7 +102,6 @@ export function RepositoriesTab({
               onClick={(r) => onRepoClick?.(r)}
               onEdit={(r) => onRepoEdit?.(r)}
               onDelete={(r) => onRepoDelete?.(r)}
-              disableStarring={isOrgMember}
             />
           ))
         )}

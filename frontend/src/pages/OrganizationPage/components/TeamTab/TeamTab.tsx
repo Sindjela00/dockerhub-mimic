@@ -9,7 +9,6 @@ import CreateTeamModal from "@/components/Modals/CreateTeamModal/CreateTeamModal
 import { Plus } from "lucide-react";
 import { TeamRow } from "@/components/Cards/TeamComplexCard/TeamRow/TeamRow";
 import { useOrganizationTeams } from "@/services/organizations/useOrganizationsTeams/useOrganizationsTeams";
-import { useOrgRole } from "@/services/organizations/useOrgRole/useOrgRole";
 
 interface TeamsTabProps {
   orgName: string;
@@ -40,7 +39,9 @@ export function TeamsTab({ orgName, organization }: TeamsTabProps) {
     }
   };
 
-  const { isPrivileged } = useOrgRole(organization);
+  const isPrivileged =
+    organization.currentUserRole === "owner" ||
+    organization.currentUserRole === "admin";
 
   return (
     <div className="flex flex-col gap-4">

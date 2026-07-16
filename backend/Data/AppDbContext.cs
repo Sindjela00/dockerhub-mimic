@@ -41,13 +41,11 @@ public class AppDbContext : DbContext
             .HasForeignKey(r => r.OwnerId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Deactivating/deleting an organization tears down everything it owns, repositories included
-        // (per spec: "removes members, deletes all repositories and organization info").
         modelBuilder.Entity<Repository>()
             .HasOne(r => r.Organization)
             .WithMany(o => o.Repositories)
             .HasForeignKey(r => r.OrganizationId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Repository>()
             .HasMany(r => r.Tags)

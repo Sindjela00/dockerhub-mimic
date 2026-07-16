@@ -115,7 +115,6 @@ public interface IOrganizationsService
     Task<OrganizationsResult<OrganizationResponse>> GetOrganizationAsync(string name, string? currentUsername, CancellationToken cancellationToken);
     Task<OrganizationsResult<OrganizationResponse>> CreateOrganizationAsync(string name, string? displayName, string? description, string? avatarUrl, string? currentUsername, CancellationToken cancellationToken);
     Task<OrganizationsResult<OrganizationResponse>> UpdateOrganizationAsync(string name, string? displayName, string? description, string? avatarUrl, string? currentUsername, string? userRole, CancellationToken cancellationToken);
-    Task<OrganizationsResult<OrganizationResponse>> UploadOrganizationAvatarAsync(string name, Stream fileContent, string? contentType, long fileLength, string? currentUsername, string? userRole, CancellationToken cancellationToken);
     Task<OrganizationsResult<string>> DeleteOrganizationAsync(string name, string? currentUsername, string? userRole, CancellationToken cancellationToken);
     Task<OrganizationsResult<OrganizationMemberListResponse>> GetOrganizationMembersAsync(string name, string? currentUsername, string? userRole, CancellationToken cancellationToken);
     Task<OrganizationsResult<OrganizationMemberResponse>> AddOrganizationMemberAsync(string name, string identifier, string? role, string? currentUsername, string? userRole, CancellationToken cancellationToken);
@@ -230,10 +229,6 @@ public class OrganizationsService : IOrganizationsService
         if (normalizedName.Length > 64)
             return new OrganizationsResult<OrganizationResponse>(false, null, "Organization name cannot exceed 64 characters.");
 
-        var trimmedAvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim();
-        if (trimmedAvatarUrl is not null && !IsValidAvatarUrl(trimmedAvatarUrl))
-            return new OrganizationsResult<OrganizationResponse>(false, null, "Avatar URL must be a valid http or https URL.");
-
         var currentUser = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Username == normalizedCurrentUsername, cancellationToken);
         if (currentUser is null)
@@ -250,7 +245,7 @@ public class OrganizationsService : IOrganizationsService
             Name = normalizedName,
             DisplayName = (displayName ?? string.Empty).Trim(),
             Description = (description ?? string.Empty).Trim(),
-            AvatarUrl = trimmedAvatarUrl,
+            AvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim(),
             OwnerId = currentUser.Id,
             CreatedAt = now,
             UpdatedAt = now
@@ -298,13 +293,7 @@ public class OrganizationsService : IOrganizationsService
         if (description is not null)
             organization.Description = description.Trim();
         if (avatarUrl is not null)
-        {
-            var trimmedAvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim();
-            if (trimmedAvatarUrl is not null && !IsValidAvatarUrl(trimmedAvatarUrl))
-                return new OrganizationsResult<OrganizationResponse>(false, null, "Avatar URL must be a valid http or https URL.");
-
-            organization.AvatarUrl = trimmedAvatarUrl;
-        }
+            organization.AvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim();
 
         organization.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -312,124 +301,6 @@ public class OrganizationsService : IOrganizationsService
         return new OrganizationsResult<OrganizationResponse>(true, MapOrganization(organization, currentUser?.Id), null);
     }
 
-    private const long MaxAvatarFileSizeBytes = 5 * 1024 * 1024;
-
-    private static readonly HashSet<string> AllowedAvatarContentTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "image/png", "image/jpeg", "image/gif", "image/webp"
-    };
-
-    public async Task<OrganizationsResult<OrganizationResponse>> UploadOrganizationAvatarAsync(
-        string name, Stream fileContent, string? contentType, long fileLength,
-        string? currentUsername, string? userRole, CancellationToken cancellationToken)
-    {
-        var normalizedName = Normalize(name);
-        var organization = await _dbContext.Organizations
-            .Include(o => o.Owner)
-            .Include(o => o.Members)
-            .Include(o => o.Repositories)
-            .FirstOrDefaultAsync(o => o.Name == normalizedName, cancellationToken);
-        if (organization is null)
-            return new OrganizationsResult<OrganizationResponse>(false, null, "Organization not found.");
-
-        var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
-        var canManage = await CanManageOrganizationAsync(organization, currentUser, userRole, cancellationToken);
-        if (!canManage)
-            return new OrganizationsResult<OrganizationResponse>(false, null, "Forbidden");
-
-        if (fileLength <= 0)
-            return new OrganizationsResult<OrganizationResponse>(false, null, "An image file is required.");
-
-        if (fileLength > MaxAvatarFileSizeBytes)
-            return new OrganizationsResult<OrganizationResponse>(false, null, "Avatar image must not exceed 5 MB.");
-
-        var normalizedContentType = (contentType ?? string.Empty).Trim().ToLowerInvariant();
-        if (!AllowedAvatarContentTypes.Contains(normalizedContentType))
-            return new OrganizationsResult<OrganizationResponse>(false, null, "Avatar must be a PNG, JPEG, GIF, or WEBP image.");
-
-        using var buffer = new MemoryStream();
-        await fileContent.CopyToAsync(buffer, cancellationToken);
-        var bytes = buffer.ToArray();
-
-        // Don't trust the declared Content-Type alone — verify the file's own magic bytes match,
-        // so a client can't upload arbitrary content disguised with an image content type.
-        if (!HasValidImageSignature(bytes, normalizedContentType))
-            return new OrganizationsResult<OrganizationResponse>(false, null, "File content does not match a valid image format.");
-
-        var uploadsDirectory = ResolveAvatarUploadsDirectory();
-        Directory.CreateDirectory(uploadsDirectory);
-
-        var baseUrl = _configuration?.GetValue<string>("App:BaseUrl") ?? "http://localhost:3000";
-        var uploadsUrlPrefix = $"{baseUrl}/api/uploads/avatars/";
-
-        // Best-effort cleanup of the previous avatar file, but only if we're the ones who generated it —
-        // never touch a URL the organization owner pointed at some external image host.
-        if (!string.IsNullOrWhiteSpace(organization.AvatarUrl)
-            && organization.AvatarUrl.StartsWith(uploadsUrlPrefix, StringComparison.Ordinal))
-        {
-            var previousFileName = organization.AvatarUrl[uploadsUrlPrefix.Length..];
-            if (!previousFileName.Contains('/') && !previousFileName.Contains('\\'))
-            {
-                try
-                {
-                    var previousPath = Path.Combine(uploadsDirectory, previousFileName);
-                    if (File.Exists(previousPath))
-                        File.Delete(previousPath);
-                }
-                catch { /* non-critical — an orphaned file is not worth failing the upload over */ }
-            }
-        }
-
-        var storedFileName = $"{Guid.NewGuid():N}{GetExtensionForContentType(normalizedContentType)}";
-        await File.WriteAllBytesAsync(Path.Combine(uploadsDirectory, storedFileName), bytes, cancellationToken);
-
-        organization.AvatarUrl = $"{uploadsUrlPrefix}{storedFileName}";
-        organization.UpdatedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return new OrganizationsResult<OrganizationResponse>(true, MapOrganization(organization, currentUser?.Id), null);
-    }
-
-    private string ResolveAvatarUploadsDirectory()
-    {
-        var uploadsRoot = _configuration?.GetValue<string>("Uploads:RootDirectory");
-        if (string.IsNullOrWhiteSpace(uploadsRoot))
-        {
-            uploadsRoot = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true"
-                ? Path.Combine("/app", "uploads")
-                : "uploads";
-        }
-
-        return Path.Combine(uploadsRoot, "avatars");
-    }
-
-    private static bool HasValidImageSignature(byte[] bytes, string contentType) => contentType switch
-    {
-        "image/png" => bytes.Length >= 8
-            && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47
-            && bytes[4] == 0x0D && bytes[5] == 0x0A && bytes[6] == 0x1A && bytes[7] == 0x0A,
-        "image/jpeg" => bytes.Length >= 3
-            && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF,
-        "image/gif" => bytes.Length >= 4
-            && bytes[0] == 'G' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == '8',
-        "image/webp" => bytes.Length >= 12
-            && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
-            && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P',
-        _ => false
-    };
-
-    private static string GetExtensionForContentType(string contentType) => contentType switch
-    {
-        "image/png" => ".png",
-        "image/jpeg" => ".jpg",
-        "image/gif" => ".gif",
-        "image/webp" => ".webp",
-        _ => ".bin"
-    };
-
-    // Deactivating an organization is irreversible (removes members, deletes all repositories
-    // and org info), so — unlike other management actions — it's restricted to the owner only,
-    // not org admins.
     public async Task<OrganizationsResult<string>> DeleteOrganizationAsync(string name, string? currentUsername, string? userRole, CancellationToken cancellationToken)
     {
         var normalizedName = Normalize(name);
@@ -440,13 +311,13 @@ public class OrganizationsService : IOrganizationsService
             return new OrganizationsResult<string>(false, null, "Organization not found.");
 
         var currentUser = await ResolveCurrentUser(currentUsername, cancellationToken);
-        var canDeactivate = await IsOrganizationOwnerAsync(organization, currentUser, userRole, cancellationToken);
-        if (!canDeactivate)
+        var canManage = await CanManageOrganizationAsync(organization, currentUser, userRole, cancellationToken);
+        if (!canManage)
             return new OrganizationsResult<string>(false, null, "Forbidden");
 
         _dbContext.Organizations.Remove(organization);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return new OrganizationsResult<string>(true, "Organization deactivated successfully.", null);
+        return new OrganizationsResult<string>(true, "Organization deleted successfully.", null);
     }
 
     public async Task<OrganizationsResult<OrganizationMemberListResponse>> GetOrganizationMembersAsync(string name, string? currentUsername, string? userRole, CancellationToken cancellationToken)
@@ -1303,12 +1174,6 @@ public class OrganizationsService : IOrganizationsService
            || permission == OrganizationTeamRepository.PermissionReadWrite
            || permission == OrganizationTeamRepository.PermissionAdmin;
 
-    // Only well-formed http(s) URLs are accepted — blocks javascript:/data:/file: URIs and
-    // other schemes that would be unsafe once rendered as an <img src> on the frontend.
-    private static bool IsValidAvatarUrl(string url)
-        => Uri.TryCreate(url, UriKind.Absolute, out var parsed)
-           && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps);
-
     private async Task<User?> ResolveCurrentUser(string? currentUsername, CancellationToken cancellationToken)    {
         var normalized = Normalize(currentUsername ?? string.Empty);
         if (string.IsNullOrWhiteSpace(normalized))
@@ -1332,20 +1197,6 @@ public class OrganizationsService : IOrganizationsService
 
         var normalizedRole = Normalize(member.Role);
         return normalizedRole == OrganizationMember.RoleOwner || normalizedRole == OrganizationMember.RoleAdmin;
-    }
-
-    private async Task<bool> IsOrganizationOwnerAsync(Organization organization, User? currentUser, string? currentUserRole, CancellationToken cancellationToken)
-    {
-        if (currentUser is null)
-            return false;
-
-        if (User.IsAdminRole(currentUserRole))
-            return true;
-
-        var member = await _dbContext.OrganizationMembers
-            .FirstOrDefaultAsync(m => m.OrganizationId == organization.Id && m.UserId == currentUser.Id, cancellationToken);
-
-        return member is not null && Normalize(member.Role) == OrganizationMember.RoleOwner;
     }
 
     private static bool IsValidMemberRole(string role)

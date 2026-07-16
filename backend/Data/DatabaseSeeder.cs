@@ -117,32 +117,6 @@ public class DatabaseSeeder
 		await _dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE \"Repository\" ADD COLUMN IF NOT EXISTS \"PullCount\" integer NOT NULL DEFAULT 0;", cancellationToken);
 		await _dbContext.Database.ExecuteSqlRawAsync("ALTER TABLE \"Repository\" ADD COLUMN IF NOT EXISTS \"OrganizationId\" integer NULL REFERENCES \"Organization\"(\"Id\") ON DELETE SET NULL;", cancellationToken);
 		await _dbContext.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Repository_OrganizationId_Name\" ON \"Repository\" (\"OrganizationId\", \"Name\") WHERE \"OrganizationId\" IS NOT NULL;", cancellationToken);
-
-		// Deactivating an organization must delete its repositories, not orphan them.
-		// Older databases created this FK as ON DELETE SET NULL; replace it with CASCADE
-		// regardless of whatever name it was originally given.
-		await _dbContext.Database.ExecuteSqlRawAsync(@"
-			DO $$
-			DECLARE
-				fk_name text;
-			BEGIN
-				SELECT tc.constraint_name INTO fk_name
-				FROM information_schema.table_constraints tc
-				JOIN information_schema.key_column_usage kcu
-					ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-				WHERE tc.table_name = 'Repository'
-					AND tc.constraint_type = 'FOREIGN KEY'
-					AND kcu.column_name = 'OrganizationId'
-				LIMIT 1;
-
-				IF fk_name IS NOT NULL THEN
-					EXECUTE format('ALTER TABLE ""Repository"" DROP CONSTRAINT %I', fk_name);
-				END IF;
-
-				ALTER TABLE ""Repository""
-					ADD CONSTRAINT ""FK_Repository_Organization_OrganizationId""
-					FOREIGN KEY (""OrganizationId"") REFERENCES ""Organization""(""Id"") ON DELETE CASCADE;
-			END $$;", cancellationToken);
 	}
 
 	private async Task EnsureOrganizationSchemaAsync(CancellationToken cancellationToken)

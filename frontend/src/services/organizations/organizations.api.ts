@@ -356,7 +356,7 @@ export async function createOrganization(
     | "currentUserRole"
     | "ownerUsername"
     | "avatarUrl"
-  > & { avatarUrl?: string },
+  >,
 ): Promise<CreateOrganizationResponse> {
   const response = await api.post<CreateOrganizationResponse>(
     `${BASE_URL}/organizations`,
@@ -378,28 +378,12 @@ export async function updateOrganization(
   name: string,
   payload: UpdateOrganizationPayload,
 ): Promise<Organization> {
-  const response = await api.put<{ message: string; organization: Organization }>(
+  const response = await api.patch<Organization>(
     `${BASE_URL}/organizations/${name}`,
     payload,
   );
 
-  return response.data.organization;
-}
-
-export async function uploadOrganizationAvatar(
-  name: string,
-  file: File,
-): Promise<Organization> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await api.post<{ message: string; organization: Organization }>(
-    `${BASE_URL}/organizations/${name}/avatar`,
-    formData,
-    { headers: { "Content-Type": "multipart/form-data" } },
-  );
-
-  return response.data.organization;
+  return response.data;
 }
 
 export async function fetchOrganizationRepositories(

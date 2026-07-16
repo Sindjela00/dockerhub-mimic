@@ -35,7 +35,7 @@ import TeamsTab from "./components/TeamsTab/TeamsTab";
 
 export default function RepositoryDetailPage() {
   const navigate = useNavigate();
-  const { role, email } = useAuth();
+  const { role } = useAuth();
   const { id } = useParams<{ id: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -96,7 +96,6 @@ export default function RepositoryDetailPage() {
   const cmd = `docker pull ${repo.fullName}:latest`;
 
   const orgName = repo.organization?.name ?? null;
-  const isOwnRepo = !!email && !!repo.ownerEmail && email === repo.ownerEmail;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(cmd);
@@ -164,7 +163,6 @@ export default function RepositoryDetailPage() {
             count={starCount}
             loading={starLoading}
             onToggle={toggleStar}
-            disableStarring={isOwnRepo}
           />
           <div
             className={`${isAdminRole(role) ? "" : "hidden"} flex items-center gap-2`}

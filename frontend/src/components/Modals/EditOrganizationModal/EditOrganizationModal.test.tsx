@@ -40,7 +40,7 @@ vi.mock("@/components/Button/Button", () => ({
 vi.mock("lucide-react", () => ({
   Building2: () => null,
   FileText: () => null,
-  ImagePlus: () => null,
+  Link2: () => null,
 }));
 
 const mockOnClose = vi.fn();
@@ -57,7 +57,6 @@ const defaultProps = {
   onClose: mockOnClose,
   onSave: mockOnSave,
   organization: defaultOrganization,
-  isOwner: true,
 };
 
 function renderModal(props = {}) {
@@ -269,8 +268,7 @@ describe("EditOrganizationModal", () => {
   });
 
   describe("submission", () => {
-    it("calls onSave with trimmed values and no avatar file by default", async () => {
-      mockOnSave.mockResolvedValueOnce({ success: true });
+    it("calls onSave with trimmed values on valid submit", () => {
       renderModal();
       fireEvent.change(screen.getByLabelText(/display name/i), {
         target: { value: "  Trimmed Corp  " },
@@ -280,28 +278,17 @@ describe("EditOrganizationModal", () => {
       });
       fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
-      await waitFor(() =>
-        expect(mockOnSave).toHaveBeenCalledWith({
-          displayName: "Trimmed Corp",
-          description: "Some desc",
-          avatarFile: null,
-        }),
-      );
+      expect(mockOnSave).toHaveBeenCalledWith({
+        displayName: "Trimmed Corp",
+        description: "Some desc",
+        avatarUrl: defaultOrganization.avatarUrl,
+      });
     });
 
-    it("calls onClose after successful save", async () => {
-      mockOnSave.mockResolvedValueOnce({ success: true });
+    it("calls onClose after successful save", () => {
       renderModal();
       fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
-      await waitFor(() => expect(mockOnClose).toHaveBeenCalled());
-    });
-
-    it("does not call onClose when save fails", async () => {
-      mockOnSave.mockResolvedValueOnce({ success: false });
-      renderModal();
-      fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
-      await waitFor(() => expect(mockOnSave).toHaveBeenCalled());
-      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(mockOnClose).toHaveBeenCalled();
     });
 
     it("does not call onSave when validation fails", () => {
@@ -321,105 +308,19 @@ describe("EditOrganizationModal", () => {
       fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
       expect(mockOnClose).not.toHaveBeenCalled();
     });
-  });
 
-  describe("icon upload (owner only)", () => {
-    it("shows the icon picker for owners", () => {
-      renderModal({ isOwner: true });
-      expect(screen.getByText("Organization icon")).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /upload file/i }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /paste url/i }),
-      ).toBeInTheDocument();
-    });
-
-    it("hides the icon picker for non-owners", () => {
-      renderModal({ isOwner: false });
-      expect(screen.queryByText("Organization icon")).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /upload file/i }),
-      ).not.toBeInTheDocument();
-    });
-
-    it("passes a pasted url to onSave", async () => {
-      mockOnSave.mockResolvedValueOnce({ success: true });
-      renderModal();
-
-      fireEvent.click(screen.getByRole("button", { name: /paste url/i }));
-      fireEvent.change(screen.getByPlaceholderText(/https:\/\//i), {
-        target: { value: "https://example.com/new-icon.png" },
+    it("saves with empty avatarUrl when organization has none", () => {
+      renderModal({
+        organization: {
+          displayName: "Acme",
+          description: "desc",
+          avatarUrl: undefined,
+        },
       });
-
       fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
-
-      await waitFor(() =>
-        expect(mockOnSave).toHaveBeenCalledWith(
-          expect.objectContaining({
-            avatarFile: null,
-            avatarUrl: "https://example.com/new-icon.png",
-          }),
-        ),
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({ avatarUrl: "" }),
       );
-    });
-
-    it("passes the selected file to onSave", async () => {
-      mockOnSave.mockResolvedValueOnce({ success: true });
-      const { container } = renderModal();
-
-      const file = new File(["icon"], "icon.png", { type: "image/png" });
-      const input = container.querySelector(
-        "input[type=file]",
-      ) as HTMLInputElement;
-      fireEvent.change(input, { target: { files: [file] } });
-
-      fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
-
-      await waitFor(() =>
-        expect(mockOnSave).toHaveBeenCalledWith(
-          expect.objectContaining({ avatarFile: file }),
-        ),
-      );
-    });
-
-    it("rejects a file that is too large and does not attach it on save", async () => {
-      mockOnSave.mockResolvedValueOnce({ success: true });
-      const { container } = renderModal();
-
-      const bigFile = new File(["x".repeat(10)], "big.png", {
-        type: "image/png",
-      });
-      Object.defineProperty(bigFile, "size", { value: 6 * 1024 * 1024 });
-      const input = container.querySelector(
-        "input[type=file]",
-      ) as HTMLInputElement;
-      fireEvent.change(input, { target: { files: [bigFile] } });
-
-      expect(screen.getByText(/must not exceed 5 mb/i)).toBeInTheDocument();
-
-      fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
-      await waitFor(() =>
-        expect(mockOnSave).toHaveBeenCalledWith(
-          expect.objectContaining({ avatarFile: null }),
-        ),
-      );
-    });
-
-    it("rejects a disallowed file type", () => {
-      const { container } = renderModal();
-
-      const badFile = new File(["x"], "doc.pdf", {
-        type: "application/pdf",
-      });
-      const input = container.querySelector(
-        "input[type=file]",
-      ) as HTMLInputElement;
-      fireEvent.change(input, { target: { files: [badFile] } });
-
-      expect(
-        screen.getByText(/must be a png, jpeg, gif, or webp image/i),
-      ).toBeInTheDocument();
     });
   });
 

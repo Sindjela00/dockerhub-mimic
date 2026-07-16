@@ -919,11 +919,6 @@ public sealed class OrganizationsControllerTests
         public Task<OrganizationsResult<OrganizationResponse>> UpdateOrganizationAsync(string name, string? displayName, string? description, string? avatarUrl, string? currentUsername, string? userRole, CancellationToken cancellationToken)
             => Task.FromResult(UpdateOrgResult);
 
-        public OrganizationsResult<OrganizationResponse> UploadAvatarResult { get; set; } = new(true, new OrganizationResponse(), null);
-
-        public Task<OrganizationsResult<OrganizationResponse>> UploadOrganizationAvatarAsync(string name, Stream fileContent, string? contentType, long fileLength, string? currentUsername, string? userRole, CancellationToken cancellationToken)
-            => Task.FromResult(UploadAvatarResult);
-
         public Task<OrganizationsResult<string>> DeleteOrganizationAsync(string name, string? currentUsername, string? userRole, CancellationToken cancellationToken)
             => Task.FromResult(DeleteOrgResult);
 
