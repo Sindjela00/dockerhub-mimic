@@ -1,10 +1,4 @@
-import {
-  Organization,
-  UpdateOrganizationPayload,
-  deleteOrganization,
-  updateOrganization,
-  uploadOrganizationAvatar,
-} from "../organizations.api";
+import { Organization, deleteOrganization } from "../organizations.api";
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchOrganization } from "../organizations.api";
@@ -16,8 +10,6 @@ export function useOrganization(orgName?: string) {
   const [error, setError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [updateLoading, setUpdateLoading] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchOrg = useCallback(async () => {
@@ -55,33 +47,6 @@ export function useOrganization(orgName?: string) {
     }
   }, [orgName, navigate]);
 
-  const update = useCallback(
-    async (payload: UpdateOrganizationPayload, avatarFile?: File | null) => {
-      if (!orgName) {
-        return { success: false, error: "Organization name is missing" };
-      }
-
-      setUpdateLoading(true);
-      setUpdateError(null);
-      try {
-        let updated = await updateOrganization(orgName, payload);
-        if (avatarFile) {
-          updated = await uploadOrganizationAvatar(orgName, avatarFile);
-        }
-        setOrganization(updated);
-        return { success: true };
-      } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Failed to update organization";
-        setUpdateError(msg);
-        return { success: false, error: msg };
-      } finally {
-        setUpdateLoading(false);
-      }
-    },
-    [orgName],
-  );
-
   return {
     organization,
     loading,
@@ -90,8 +55,5 @@ export function useOrganization(orgName?: string) {
     remove,
     deleteLoading,
     deleteError,
-    update,
-    updateLoading,
-    updateError,
   };
 }

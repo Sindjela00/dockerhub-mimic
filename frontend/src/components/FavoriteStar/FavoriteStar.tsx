@@ -6,7 +6,6 @@ interface FavoriteStarProps {
   count?: number;
   loading?: boolean;
   onToggle: () => void;
-  disableStarring?: boolean;
 }
 
 export default function FavoriteStar({
@@ -14,12 +13,7 @@ export default function FavoriteStar({
   count,
   loading = false,
   onToggle,
-  disableStarring = false,
 }: FavoriteStarProps) {
-  if (!starred && disableStarring) {
-    return null;
-  }
-
   return (
     <Button
       size="xs"

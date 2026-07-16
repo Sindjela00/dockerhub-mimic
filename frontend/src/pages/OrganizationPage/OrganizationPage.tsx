@@ -13,11 +13,8 @@ import { Repository } from "@/services/repositories/repositories.api";
 import StatCard from "@/components/Cards/StatCard/StatCard";
 import { TagComponent } from "@/components/Tag/Tag";
 import { TeamsTab } from "./components/TeamTab/TeamTab";
-import { useAuth } from "@/context/AppContext";
-import { isAdminRole } from "@/context/types/types";
 import { useOrganization } from "@/services/organizations/useOrganization/useOrganization";
 import { useOrganizationRepositories } from "@/services/organizations/useOrganizationRepositories/useOrganizationRepositories";
-import { useOrgRole } from "@/services/organizations/useOrgRole/useOrgRole";
 
 type Tab = "repositories" | "teams" | "members";
 
@@ -26,19 +23,16 @@ export default function OrganizationDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("repositories");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [avatarFailed, setAvatarFailed] = useState(false);
   const { orgName } = useParams<{ orgName: string }>();
 
   const {
     organization,
     loading,
     error,
+    refetch,
     remove: deleteOrganization,
     deleteLoading,
     deleteError,
-    update: updateOrganization,
-    updateLoading,
-    updateError,
   } = useOrganization(orgName || "");
 
   const {
@@ -49,16 +43,8 @@ export default function OrganizationDetailPage() {
     setSearchQuery: setReposSearchQuery,
   } = useOrganizationRepositories(orgName);
 
-  const { isOwner, isPrivileged } = useOrgRole(organization);
-  const { role } = useAuth();
-  const canDelete = isOwner || isAdminRole(role);
-
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialFetchDone = useRef(false);
-
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [organization?.avatarUrl]);
 
   useEffect(() => {
     if (organization && !initialFetchDone.current) {
@@ -87,20 +73,13 @@ export default function OrganizationDetailPage() {
     fetchRepos(reposSearchQuery);
   }, [fetchRepos, reposSearchQuery]);
 
-  const handleEditOrganization = (data: {
+  const handleEditOrganization = async (data: {
     displayName: string;
     description: string;
-    avatarFile: File | null;
-    avatarUrl?: string;
-  }) =>
-    updateOrganization(
-      {
-        displayName: data.displayName,
-        description: data.description,
-        avatarUrl: data.avatarUrl,
-      },
-      data.avatarFile,
-    );
+    avatarUrl: string;
+  }) => {
+    await refetch();
+  };
 
   if (!orgName) {
     return (
@@ -166,19 +145,10 @@ export default function OrganizationDetailPage() {
         <div className="flex items-start gap-4">
           <div
             className="w-14 h-14 min-w-[56px] rounded-2xl bg-brand-muted border border-brand/30
-                         flex items-center justify-center text-xl font-bold text-brand font-mono overflow-hidden"
+                         flex items-center justify-center text-xl font-bold text-brand font-mono"
           >
-            {organization.avatarUrl && !avatarFailed ? (
-              <img
-                src={organization.avatarUrl}
-                alt=""
-                className="w-full h-full object-cover"
-                onError={() => setAvatarFailed(true)}
-              />
-            ) : (
-              organization.displayName?.slice(0, 2).toUpperCase() ||
-              organization.name.slice(0, 2).toUpperCase()
-            )}
+            {organization.displayName?.slice(0, 2).toUpperCase() ||
+              organization.name.slice(0, 2).toUpperCase()}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -208,18 +178,17 @@ export default function OrganizationDetailPage() {
             </div>
           </div>
 
-          {(isPrivileged || canDelete) && (
+          {(organization.currentUserRole === "owner" ||
+            organization.currentUserRole === "admin") && (
             <div className="flex items-center gap-2">
-              {isPrivileged && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditModalOpen(true)}
-                >
-                  <Pencil size={13} /> Edit organization
-                </Button>
-              )}
-              {canDelete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditModalOpen(true)}
+              >
+                <Pencil size={13} /> Edit organization
+              </Button>
+              {organization.currentUserRole === "owner" && (
                 <Button
                   variant="danger"
                   size="sm"
@@ -285,9 +254,6 @@ export default function OrganizationDetailPage() {
           description: organization.description || "",
           avatarUrl: organization.avatarUrl || "",
         }}
-        isOwner={isOwner}
-        saving={updateLoading}
-        error={updateError}
         onSave={handleEditOrganization}
       />
       <DeleteConfirmModal

@@ -12,7 +12,6 @@ interface RepoCardProps {
   onClick?: (repo: Repository) => void;
   onEdit?: (repo: Repository) => void;
   onDelete?: (repo: Repository) => void;
-  disableStarring?: boolean;
 }
 
 export default function RepoCard({
@@ -20,17 +19,13 @@ export default function RepoCard({
   onClick,
   onEdit,
   onDelete,
-  disableStarring = false,
 }: RepoCardProps) {
-  const { role, email } = useAuth();
+  const { role } = useAuth();
   const { starred, count, loading, toggle } = useStarRepository(
     repo.id,
     repo.isStarredByCurrentUser ?? false,
     repo.starCount,
   );
-
-  const isOwnRepo = !!email && !!repo.ownerEmail && email === repo.ownerEmail;
-  const starringBlocked = !starred && (isOwnRepo || disableStarring);
 
   return (
     <button
@@ -74,25 +69,23 @@ export default function RepoCard({
 
         {/* Actions */}
         <div className="flex items-center gap-1 ml-auto">
-          {!starringBlocked && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggle();
-              }}
-              disabled={loading}
-              className={[
-                "p-1 rounded transition-colors",
-                starred
-                  ? "text-brand"
-                  : "text-text-muted hover:text-brand hover:bg-bg-elevated",
-                loading ? "opacity-50 cursor-not-allowed" : "",
-              ].join(" ")}
-              title={starred ? "Unstar" : "Star"}
-            >
-              <Star size={13} fill={starred ? "currentColor" : "none"} />
-            </button>
-          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggle();
+            }}
+            disabled={loading}
+            className={[
+              "p-1 rounded transition-colors",
+              starred
+                ? "text-brand"
+                : "text-text-muted hover:text-brand hover:bg-bg-elevated",
+              loading ? "opacity-50 cursor-not-allowed" : "",
+            ].join(" ")}
+            title={starred ? "Unstar" : "Star"}
+          >
+            <Star size={13} fill={starred ? "currentColor" : "none"} />
+          </button>
 
           <button
             onClick={(e) => {

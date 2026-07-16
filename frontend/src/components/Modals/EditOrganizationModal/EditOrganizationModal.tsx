@@ -1,11 +1,8 @@
-import { Building2, FileText } from "lucide-react";
+import { Building2, FileText, Link2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import Button from "@/components/Button/Button";
 import Modal from "../Modal";
-import OrganizationIconPicker, {
-  OrganizationAvatarInput,
-} from "../OrganizationIconPicker/OrganizationIconPicker";
 
 interface EditOrganizationModalProps {
   isOpen: boolean;
@@ -15,32 +12,22 @@ interface EditOrganizationModalProps {
     description: string;
     avatarUrl?: string;
   };
-  isOwner: boolean;
-  saving?: boolean;
-  error?: string | null;
   onSave: (data: {
     displayName: string;
     description: string;
-    avatarFile: File | null;
-    avatarUrl?: string;
-  }) => Promise<{ success: boolean } | void> | void;
+    avatarUrl: string;
+  }) => void;
 }
 
 export default function EditOrganizationModal({
   isOpen,
   onClose,
   organization,
-  isOwner,
-  saving = false,
-  error = null,
   onSave,
 }: EditOrganizationModalProps) {
   const [displayName, setDisplayName] = useState(organization.displayName);
   const [description, setDescription] = useState(organization.description);
-  const [avatarInput, setAvatarInput] = useState<OrganizationAvatarInput>({
-    file: null,
-    url: undefined,
-  });
+  const [avatarUrl, setAvatarUrl] = useState(organization.avatarUrl || "");
   const [errors, setErrors] = useState<{
     displayName?: string;
     description?: string;
@@ -51,7 +38,7 @@ export default function EditOrganizationModal({
     if (isOpen) {
       setDisplayName(organization.displayName);
       setDescription(organization.description);
-      setAvatarInput({ file: null, url: undefined });
+      setAvatarUrl(organization.avatarUrl || "");
       setErrors({});
     }
   }, [isOpen, organization]);
@@ -75,18 +62,14 @@ export default function EditOrganizationModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
-
-    const result = await onSave({
-      displayName: displayName.trim(),
-      description: description.trim(),
-      avatarFile: avatarInput.file,
-      avatarUrl: avatarInput.url,
-    });
-
-    if (!result || result.success) {
+    if (validateForm()) {
+      onSave({
+        displayName: displayName.trim(),
+        description: description.trim(),
+        avatarUrl: avatarUrl.trim(),
+      });
       onClose();
     }
   };
@@ -99,14 +82,6 @@ export default function EditOrganizationModal({
       maxWidth="max-w-lg"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        {isOwner && (
-          <OrganizationIconPicker
-            currentAvatarUrl={organization.avatarUrl}
-            disabled={saving}
-            onChange={setAvatarInput}
-          />
-        )}
-
         {/* Display Name */}
         <div>
           <label
@@ -192,20 +167,36 @@ export default function EditOrganizationModal({
           </div>
         </div>
 
-        {error && <p className="text-xs text-error">{error}</p>}
+        {/* Avatar URL (hidden for now) */}
+        <div className="hidden">
+          <label htmlFor="avatarUrl" className="block text-sm font-medium mb-1">
+            Avatar URL
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Link2 size={16} className="text-text-muted" />
+            </div>
+            <input
+              type="url"
+              id="avatarUrl"
+              value={avatarUrl}
+              onChange={(e) => setAvatarUrl(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary text-sm placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand transition-colors"
+              placeholder="https://example.com/avatar.png"
+              autoComplete="off"
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-text-muted">
+            Avatar URL is not yet supported (coming soon)
+          </p>
+        </div>
 
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-            size="sm"
-            disabled={saving}
-          >
+          <Button type="button" variant="ghost" onClick={onClose} size="sm">
             Cancel
           </Button>
-          <Button type="submit" variant="primary" size="sm" disabled={saving}>
-            {saving ? "Saving..." : "Save changes"}
+          <Button type="submit" variant="primary" size="sm">
+            Save changes
           </Button>
         </div>
       </form>
